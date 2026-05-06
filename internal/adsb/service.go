@@ -1273,62 +1273,62 @@ func (s *Service) updateAircraftStatus(activeAircraft map[string]bool) {
 		}
 	}
 
-	// Check for signal lost landings
+	// 检查失联着陆
 	landingPhaseChanges := s.detectSignalLostLandings(inactiveAircraft)
 	if len(landingPhaseChanges) > 0 {
 		err := s.storage.InsertPhaseChangesBatch(landingPhaseChanges)
 		if err != nil {
-			s.logger.Error("Failed to insert signal lost landing phases", logger.Error(err))
+			s.logger.Error("插入失联着陆阶段失败", logger.Error(err))
 		} else {
 			s.sendImmediateGroundTransitionAlerts(landingPhaseChanges)
 		}
 	}
 }
 
-// detectGroundStateTransitions detects immediate takeoff/landing events.
-// Uses pre-fetched batch data to avoid per-aircraft database queries.
+// detectGroundStateTransitions 检测立即起飞/着陆事件。
+// 使用预获取的批量数据,避免单飞行器数据库查询。
 func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnGround map[string]bool, currentPhases map[string]*PhaseChange, adsbTargetIDs map[string]*int) []PhaseChangeInsert {
 	var immediatePhaseChanges []PhaseChangeInsert
 	now := time.Now().UTC()
 
 	for _, a := range aircraft {
-		// Check if aircraft exists using pre-fetched batch data
+		// 使用预获取的批量数据检查飞行器是否存在
 		prevOnGround, found := existingOnGround[a.Hex]
 		if !found {
-			continue // New aircraft - will be handled by normal phase detection
+			continue // 新飞行器 - 将由常规阶段检测处理
 		}
 
-		// Check if ground state changed
+		// 检查地面状态是否发生变化
 		if prevOnGround != a.OnGround {
 			var newPhase string
 			var eventType string
 
-			// Get current phase from pre-fetched batch data to prevent rapid T/O ↔ T/D flapping
+			// 从预获取的批量数据中获取当前阶段以防止 T/O ↔ T/D 快速抖动
 			currentPhase := currentPhases[a.Hex]
 
 			if !prevOnGround && a.OnGround {
-				// Aircraft was airborne, now on ground = LANDING
+				// 飞行器先前在空中,现在在地面 = 着陆
 
-				// Anti-flapping: Prevent T/O → T/D transition if T/O was recent
+				// 抗抖动:如果 T/O 是近期的,则阻止 T/O → T/D 切换
 				if currentPhase != nil && currentPhase.Phase == "T/O" {
 					timeSinceTakeoff := time.Since(currentPhase.Timestamp).Seconds()
 					preservationThreshold := float64(s.flightPhasesConfig.PhasePreservationSeconds)
 					if timeSinceTakeoff < preservationThreshold {
-						s.logger.Warn("Preventing rapid T/O → T/D flapping",
+						s.logger.Warn("防止 T/O → T/D 快速抖动",
 							logger.String("hex", a.Hex),
 							logger.String("flight", a.Flight),
 							logger.Float64("time_since_takeoff", timeSinceTakeoff),
 							logger.Float64("threshold_seconds", preservationThreshold),
 							logger.Float64("altitude", a.ADSB.AltBaro.Float64()),
 						)
-						continue // Skip this transition
+						continue // 跳过此次切换
 					}
 				}
 
 				newPhase = "T/D"
 				eventType = "landing"
 
-				// Record landing for runway-in-use detection
+				// 为使用中跑道检测记录着陆
 				if s.trajectoryTracker != nil && a.ADSB != nil {
 					lat, lon, ok := a.ADSB.Position()
 					if ok {
@@ -1342,7 +1342,7 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 					}
 				}
 
-				s.logger.Info("IMMEDIATE LANDING DETECTED",
+				s.logger.Info("立即着陆已检测",
 					logger.String("hex", a.Hex),
 					logger.String("flight", a.Flight),
 					logger.Bool("was_on_ground", prevOnGround),
@@ -1352,16 +1352,16 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 				)
 
 			} else if prevOnGround && !a.OnGround {
-				// Aircraft was on ground, now airborne = TAKEOFF
+				// 飞行器先前在地面,现在在空中 = 起飞
 
-				// Guard against false takeoff from incomplete ADSB data:
-				// When an aircraft first appears with no/zero altitude it gets marked on_ground=true.
-				// If the next cycle delivers real altitude showing the aircraft well above ground level,
-				// that's data becoming available — not an actual takeoff. Skip T/O and let the
-				// trajectory tracker assign the correct phase (e.g. CRZ, ARR, UNK).
+				// 防止因不完整的 ADSB 数据导致假起飞:
+				// 当一架飞行器首次出现且无/零高度时,会被标记为 on_ground=true。
+				// 如果下一周期送达的真实高度显示飞行器远高于地面,
+				// 那是数据正在变得可用 — 而不是实际起飞。跳过 T/O 并让
+				// 轨迹跟踪器分配正确的阶段(例如 CRZ、ARR、UNK)。
 				alt := a.ADSB.AltBaro.Float64()
 				if alt > float64(s.flightPhasesConfig.DepartureAltitudeFt) {
-					s.logger.Info("Skipping false takeoff — altitude above departure threshold (incomplete data becoming available)",
+					s.logger.Info("跳过假起飞 — 高度超过离场阈值(不完整数据正在变得可用)",
 						logger.String("hex", a.Hex),
 						logger.String("flight", a.Flight),
 						logger.Float64("altitude", alt),
@@ -1370,26 +1370,26 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 					continue
 				}
 
-				// Anti-flapping: Prevent T/D → T/O transition if T/D was recent
+				// 抗抖动:如果 T/D 是近期的,则阻止 T/D → T/O 切换
 				if currentPhase != nil && currentPhase.Phase == "T/D" {
 					timeSinceLanding := time.Since(currentPhase.Timestamp).Seconds()
 					preservationThreshold := float64(s.flightPhasesConfig.PhasePreservationSeconds)
 					if timeSinceLanding < preservationThreshold {
-						s.logger.Warn("Preventing rapid T/D → T/O flapping",
+						s.logger.Warn("防止 T/D → T/O 快速抖动",
 							logger.String("hex", a.Hex),
 							logger.String("flight", a.Flight),
 							logger.Float64("time_since_landing", timeSinceLanding),
 							logger.Float64("threshold_seconds", preservationThreshold),
 							logger.Float64("altitude", a.ADSB.AltBaro.Float64()),
 						)
-						continue // Skip this transition
+						continue // 跳过此次切换
 					}
 				}
 
 				newPhase = "T/O"
 				eventType = "takeoff"
 
-				s.logger.Info("IMMEDIATE TAKEOFF DETECTED",
+				s.logger.Info("立即起飞已检测",
 					logger.String("hex", a.Hex),
 					logger.String("flight", a.Flight),
 					logger.Bool("was_on_ground", prevOnGround),
@@ -1400,7 +1400,7 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 			}
 
 			if newPhase != "" {
-				// Use pre-fetched ADSB target ID
+				// 使用预获取的 ADSB 目标 ID
 				adsbId := adsbTargetIDs[a.Hex]
 
 				immediatePhaseChanges = append(immediatePhaseChanges, PhaseChangeInsert{

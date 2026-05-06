@@ -232,54 +232,54 @@ func initDatabase(db *sql.DB, log *logger.Logger) error {
 	return nil
 }
 
-// GetAll returns all aircraft
+// GetAll 返回所有飞行器
 func (s *AircraftStorage) GetAll() []*adsb.Aircraft {
 	aircraft, err := s.getAllAircraftInternal(0, false)
 	if err != nil {
-		s.logger.Error("Failed to get all aircraft", logger.Error(err))
+		s.logger.Error("获取所有飞行器失败", logger.Error(err))
 		return []*adsb.Aircraft{}
 	}
 
 	return aircraft
 }
 
-// GetAllWithLastSeenFilter returns aircraft seen within the last N minutes
-// This filters at the database level for much better performance on large databases
+// GetAllWithLastSeenFilter 返回最近 N 分钟内出现过的飞行器
+// 该过滤在数据库层进行,在大型数据库中性能显著优于内存过滤
 func (s *AircraftStorage) GetAllWithLastSeenFilter(lastSeenMinutes int) []*adsb.Aircraft {
 	aircraft, err := s.getAllAircraftInternal(lastSeenMinutes, false)
 	if err != nil {
-		s.logger.Error("Failed to get aircraft with last seen filter", logger.Error(err))
+		s.logger.Error("按最近出现时间过滤获取飞行器失败", logger.Error(err))
 		return []*adsb.Aircraft{}
 	}
 
 	return aircraft
 }
 
-// GetAllMinimal returns aircraft with minimal data (skips phase history and date queries)
-// This is optimized for the simple=1 API endpoint
+// GetAllMinimal 以最简数据返回飞行器(跳过阶段历史与日期查询)
+// 该方法针对 simple=1 的 API 端点做了优化
 func (s *AircraftStorage) GetAllMinimal(lastSeenMinutes int) []*adsb.Aircraft {
 	aircraft, err := s.getAllAircraftInternal(lastSeenMinutes, true)
 	if err != nil {
-		s.logger.Error("Failed to get aircraft minimal", logger.Error(err))
+		s.logger.Error("获取最简飞行器数据失败", logger.Error(err))
 		return []*adsb.Aircraft{}
 	}
 
 	return aircraft
 }
 
-// getAllAircraftInternal retrieves aircraft from the database with optional filtering
-// If lastSeenMinutes > 0, only returns aircraft seen within that time window
-// If minimal is true, skips phase history and takeoff/landing time queries (faster for simple API)
+// getAllAircraftInternal 从数据库读取飞行器,可选地进行过滤
+// 当 lastSeenMinutes > 0 时,仅返回该时间窗口内出现过的飞行器
+// 当 minimal 为 true 时,跳过阶段历史与起降时间查询(simple API 更快)
 func (s *AircraftStorage) getAllAircraftInternal(lastSeenMinutes int, minimal bool) ([]*adsb.Aircraft, error) {
 	start := time.Now()
-	s.logger.Debug("Starting getAllAircraftInternal query", logger.Int("lastSeenMinutes", lastSeenMinutes))
+	s.logger.Debug("开始执行 getAllAircraftInternal 查询", logger.Int("lastSeenMinutes", lastSeenMinutes))
 
-	// Build query with optional last_seen filter
+	// 根据是否带 last_seen 过滤构建查询
 	var rows *sql.Rows
 	var err error
 
 	if lastSeenMinutes > 0 {
-		// Use parameterized cutoff time - this uses idx_aircraft_last_seen index
+		// 使用参数化的截止时间,可命中 idx_aircraft_last_seen 索引
 		cutoffTime := time.Now().UTC().Add(-time.Duration(lastSeenMinutes) * time.Minute)
 		rows, err = s.db.Query(`
 			SELECT hex, flight, airline, status, last_seen,
@@ -288,7 +288,7 @@ func (s *AircraftStorage) getAllAircraftInternal(lastSeenMinutes int, minimal bo
 			WHERE last_seen >= ?
 		`, cutoffTime.Format(time.RFC3339))
 	} else {
-		// Query all aircraft (original behavior)
+		// 查询所有飞行器(原有行为)
 		rows, err = s.db.Query(`
 			SELECT hex, flight, airline, status, last_seen,
 			on_ground, created_at
@@ -296,14 +296,14 @@ func (s *AircraftStorage) getAllAircraftInternal(lastSeenMinutes int, minimal bo
 		`)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to query aircraft: %w", err)
+		return nil, fmt.Errorf("查询飞行器失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Map to store aircraft by hex
+	// 用于按 hex 存放飞行器的 map
 	aircraftMap := make(map[string]*adsb.Aircraft)
 
-	// Process aircraft rows
+	// 处理飞行器行
 	for rows.Next() {
 		var a adsb.Aircraft
 		var lastSeen, createdAt string
@@ -313,57 +313,57 @@ func (s *AircraftStorage) getAllAircraftInternal(lastSeenMinutes int, minimal bo
 			&a.Hex, &a.Flight, &a.Airline, &a.Status, &lastSeen,
 			&onGround, &createdAt,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan aircraft row: %w", err)
+			return nil, fmt.Errorf("扫描飞行器行失败: %w", err)
 		}
 
-		// Convert integer to boolean
+		// 整型转为布尔型
 		a.OnGround = onGround != 0
 
-		// Parse last_seen timestamp
+		// 解析 last_seen 时间戳
 		t, err := time.Parse(time.RFC3339, lastSeen)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse last_seen timestamp: %w", err)
+			return nil, fmt.Errorf("解析 last_seen 时间戳失败: %w", err)
 		}
 		a.LastSeen = t
 
-		// Parse created_at timestamp
+		// 解析 created_at 时间戳
 		createdTime, err := time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse created_at timestamp: %w", err)
+			return nil, fmt.Errorf("解析 created_at 时间戳失败: %w", err)
 		}
 		a.CreatedAt = createdTime
 
-		// Initialize empty history and future slices (not populated in main aircraft endpoint)
+		// 初始化空的历史与预测切片(主飞行器接口不填充)
 		a.History = []adsb.PositionMinimal{}
 		a.Future = []adsb.Position{}
 		a.Hindcast = []adsb.Position{}
 
-		// Add to map
+		// 加入 map
 		aircraftMap[a.Hex] = &a
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating aircraft rows: %w", err)
+		return nil, fmt.Errorf("迭代飞行器行时出错: %w", err)
 	}
 
-	// If no aircraft found, return empty slice
+	// 未查到任何飞行器时返回空切片
 	if len(aircraftMap) == 0 {
 		return []*adsb.Aircraft{}, nil
 	}
 
-	// Build hex codes list once for all batch operations
+	// 为后续批处理统一构建 hex 列表
 	hexCodes := make([]string, 0, len(aircraftMap))
 	for hex := range aircraftMap {
 		hexCodes = append(hexCodes, hex)
 	}
 
-	// PERFORMANCE: Use batch query for ADSB data instead of N individual queries
+	// 性能:对 ADSB 数据使用批量查询,而非 N 次单独查询
 	adsbStart := time.Now()
-	s.logger.Debug("Starting ADSB data population (batch)", logger.Int("aircraft_count", len(aircraftMap)))
+	s.logger.Debug("开始填充 ADSB 数据(批量)", logger.Int("aircraft_count", len(aircraftMap)))
 
 	adsbDataMap, err := s.GetLatestADSBDataBatch(hexCodes)
 	if err != nil {
-		s.logger.Error("Failed to get ADSB data batch", logger.Error(err))
+		s.logger.Error("批量获取 ADSB 数据失败", logger.Error(err))
 	} else {
 		for hex, aircraft := range aircraftMap {
 			if adsbData, exists := adsbDataMap[hex]; exists {
@@ -373,33 +373,33 @@ func (s *AircraftStorage) getAllAircraftInternal(lastSeenMinutes int, minimal bo
 	}
 
 	adsbDuration := time.Since(adsbStart)
-	s.logger.Debug("ADSB data population completed", logger.Duration("duration", adsbDuration))
+	s.logger.Debug("ADSB 数据填充完成", logger.Duration("duration", adsbDuration))
 
-	// Get current phases for all aircraft in a single batch query
+	// 通过单次批量查询获取所有飞行器的当前阶段
 	phaseStart := time.Now()
-	s.logger.Debug("Starting phase data population", logger.Int("aircraft_count", len(aircraftMap)), logger.Bool("minimal", minimal))
+	s.logger.Debug("开始填充阶段数据", logger.Int("aircraft_count", len(aircraftMap)), logger.Bool("minimal", minimal))
 
 	currentPhases, err := s.GetCurrentPhasesBatch(hexCodes)
 	if err != nil {
-		s.logger.Error("Failed to get current phases batch", logger.Error(err))
+		s.logger.Error("批量获取当前阶段失败", logger.Error(err))
 	} else {
-		// In minimal mode, skip phase history query (only need current phase)
+		// 最简模式下跳过阶段历史查询(仅需当前阶段)
 		var recentHistory map[string][]adsb.PhaseChange
 		if !minimal {
-			// Get recent phase history for all aircraft in batch (last 5 changes per aircraft)
+			// 批量获取所有飞行器的近期阶段历史(每架最近 5 条)
 			recentHistory, err = s.getRecentPhaseHistoryBatch(hexCodes, 5)
 			if err != nil {
-				s.logger.Error("Failed to get recent phase history batch", logger.Error(err))
-				recentHistory = make(map[string][]adsb.PhaseChange) // Empty fallback
+				s.logger.Error("批量获取近期阶段历史失败", logger.Error(err))
+				recentHistory = make(map[string][]adsb.PhaseChange) // 空回退
 			}
 		} else {
 			recentHistory = make(map[string][]adsb.PhaseChange)
 		}
 
-		// Assign current phases and recent history to aircraft
+		// 将当前阶段与近期历史挂载到飞行器
 		for hex, aircraft := range aircraftMap {
 			if phase, exists := currentPhases[hex]; exists {
-				history := recentHistory[hex] // Will be empty slice if not found
+				history := recentHistory[hex] // 未命中时为空切片
 				aircraft.Phase = &adsb.PhaseData{
 					Current: []adsb.PhaseChange{*phase},
 					History: history,
@@ -409,16 +409,16 @@ func (s *AircraftStorage) getAllAircraftInternal(lastSeenMinutes int, minimal bo
 	}
 
 	phaseDuration := time.Since(phaseStart)
-	s.logger.Debug("Phase data population completed", logger.Duration("duration", phaseDuration))
+	s.logger.Debug("阶段数据填充完成", logger.Duration("duration", phaseDuration))
 
-	// PERFORMANCE: Batch query for takeoff and landing times (skip in minimal mode)
+	// 性能:批量查询起飞和着陆时间(最简模式下跳过)
 	if !minimal {
 		dateStart := time.Now()
-		s.logger.Debug("Starting date_landed/date_tookoff population (batch)", logger.Int("aircraft_count", len(aircraftMap)))
+		s.logger.Debug("开始填充 date_landed/date_tookoff(批量)", logger.Int("aircraft_count", len(aircraftMap)))
 
 		takeoffTimes, err := s.GetLatestTakeoffTimesBatch(hexCodes)
 		if err != nil {
-			s.logger.Error("Failed to get takeoff times batch", logger.Error(err))
+			s.logger.Error("批量获取起飞时间失败", logger.Error(err))
 		} else {
 			for hex, aircraft := range aircraftMap {
 				if takeoffTime, exists := takeoffTimes[hex]; exists {
@@ -429,7 +429,7 @@ func (s *AircraftStorage) getAllAircraftInternal(lastSeenMinutes int, minimal bo
 
 		landingTimes, err := s.GetLatestLandingTimesBatch(hexCodes)
 		if err != nil {
-			s.logger.Error("Failed to get landing times batch", logger.Error(err))
+			s.logger.Error("批量获取着陆时间失败", logger.Error(err))
 		} else {
 			for hex, aircraft := range aircraftMap {
 				if landingTime, exists := landingTimes[hex]; exists {
@@ -439,24 +439,24 @@ func (s *AircraftStorage) getAllAircraftInternal(lastSeenMinutes int, minimal bo
 		}
 
 		dateDuration := time.Since(dateStart)
-		s.logger.Debug("Date population completed (batch)", logger.Duration("duration", dateDuration))
+		s.logger.Debug("日期数据填充完成(批量)", logger.Duration("duration", dateDuration))
 	}
 
-	// Convert map to slice
+	// 将 map 转换为切片
 	aircraft := make([]*adsb.Aircraft, 0, len(aircraftMap))
 	for _, a := range aircraftMap {
 		aircraft = append(aircraft, a)
 	}
 
 	totalDuration := time.Since(start)
-	s.logger.Debug("getAllAircraft completed",
+	s.logger.Debug("getAllAircraft 完成",
 		logger.Duration("total_duration", totalDuration),
 		logger.Int("aircraft_count", len(aircraft)))
 
 	return aircraft, nil
 }
 
-// getLatestADSBData returns the latest ADSB data for an aircraft
+// getLatestADSBData 返回某架飞行器最新的 ADSB 数据
 func (s *AircraftStorage) getLatestADSBData(hex string) (*adsb.ADSBTarget, error) {
 	row := s.db.QueryRow(`
 		SELECT raw_data, source_type, registration, aircraft_type FROM adsb_targets
@@ -478,7 +478,7 @@ func (s *AircraftStorage) getLatestADSBData(hex string) (*adsb.ADSBTarget, error
 		return nil, err
 	}
 
-	// Set the source type, registration, and aircraft type fields
+	// 设置 source type、注册号、机型字段
 	rawData.SourceType = sourceType
 	rawData.Registration = registration
 	rawData.AircraftType = aircraftType
@@ -486,27 +486,27 @@ func (s *AircraftStorage) getLatestADSBData(hex string) (*adsb.ADSBTarget, error
 	return &rawData, nil
 }
 
-// GetLatestADSBDataBatch returns the latest ADSB data for multiple aircraft in a single query
+// GetLatestADSBDataBatch 通过单次查询返回多架飞行器的最新 ADSB 数据
 func (s *AircraftStorage) GetLatestADSBDataBatch(hexCodes []string) (map[string]*adsb.ADSBTarget, error) {
 	start := time.Now()
-	s.logger.Debug("Starting batch ADSB query", logger.Int("hex_count", len(hexCodes)))
+	s.logger.Debug("开始批量 ADSB 查询", logger.Int("hex_count", len(hexCodes)))
 
 	if len(hexCodes) == 0 {
 		return make(map[string]*adsb.ADSBTarget), nil
 	}
 
-	// Create placeholders for the IN clause (need two copies for the query)
+	// 为 IN 子句构建占位符(查询需要两份副本)
 	placeholders := make([]string, len(hexCodes))
-	args := make([]interface{}, len(hexCodes)*2) // Double args: once for subquery, once for main query
+	args := make([]interface{}, len(hexCodes)*2) // 双份参数:子查询用一次,外层查询用一次
 	for i, hex := range hexCodes {
 		placeholders[i] = "?"
-		args[i] = hex               // First set for subquery
-		args[i+len(hexCodes)] = hex // Second set for outer WHERE
+		args[i] = hex               // 子查询所用的第一组
+		args[i+len(hexCodes)] = hex // 外层 WHERE 所用的第二组
 	}
 
-	// Use GROUP BY + JOIN pattern - more efficient than correlated subquery on large tables
-	// 1. Subquery groups to find MAX(timestamp) per aircraft (small result set)
-	// 2. JOIN fetches the actual data rows using the index
+	// 采用 GROUP BY + JOIN 模式,在大表上比相关子查询效率更高
+	// 1. 子查询按飞行器分组找到 MAX(timestamp)(结果集很小)
+	// 2. JOIN 借助索引取出真正的数据行
 	query := fmt.Sprintf(`
 		SELECT
 			a.aircraft_hex,
