@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// WeatherData represents the complete weather information for an airport
+// WeatherData 表示某个机场的完整气象信息
 type WeatherData struct {
 	METAR       interface{} `json:"metar,omitempty"`
 	TAF         interface{} `json:"taf,omitempty"`
@@ -14,14 +14,14 @@ type WeatherData struct {
 	FetchErrors []string    `json:"fetch_errors,omitempty"`
 }
 
-// WeatherCache represents cached weather data with expiration
+// WeatherCache 表示带过期时间的缓存气象数据
 type WeatherCache struct {
 	Data      *WeatherData
 	ExpiresAt time.Time
 	mu        sync.RWMutex
 }
 
-// WeatherConfig represents the weather service configuration
+// WeatherConfig 表示气象服务配置
 type WeatherConfig struct {
 	RefreshIntervalMinutes int    `toml:"refresh_interval_minutes"`
 	APIBaseURL             string `toml:"api_base_url"`
@@ -33,7 +33,7 @@ type WeatherConfig struct {
 	CacheExpiryMinutes     int    `toml:"cache_expiry_minutes"`
 }
 
-// WeatherType represents the type of weather data
+// WeatherType 表示气象数据的类型
 type WeatherType string
 
 const (
@@ -42,28 +42,28 @@ const (
 	WeatherTypeNOTAMs WeatherType = "notams"
 )
 
-// FetchResult represents the result of fetching weather data
+// FetchResult 表示获取气象数据的结果
 type FetchResult struct {
 	Type WeatherType
 	Data interface{}
 	Err  error
 }
 
-// IsExpired checks if the cached data has expired
+// IsExpired 检查缓存的数据是否已过期
 func (wc *WeatherCache) IsExpired() bool {
 	wc.mu.RLock()
 	defer wc.mu.RUnlock()
 	return time.Now().After(wc.ExpiresAt)
 }
 
-// Get returns the cached weather data (thread-safe)
+// Get 返回缓存的气象数据(线程安全)
 func (wc *WeatherCache) Get() *WeatherData {
 	wc.mu.RLock()
 	defer wc.mu.RUnlock()
 	return wc.Data
 }
 
-// Set updates the cached weather data (thread-safe)
+// Set 更新缓存的气象数据(线程安全)
 func (wc *WeatherCache) Set(data *WeatherData, expiryDuration time.Duration) {
 	wc.mu.Lock()
 	defer wc.mu.Unlock()
@@ -71,14 +71,14 @@ func (wc *WeatherCache) Set(data *WeatherData, expiryDuration time.Duration) {
 	wc.ExpiresAt = time.Now().Add(expiryDuration)
 }
 
-// NewWeatherCache creates a new weather cache instance
+// NewWeatherCache 创建一个新的气象缓存实例
 func NewWeatherCache() *WeatherCache {
 	return &WeatherCache{
-		Data: nil, // Start with no data instead of empty data
+		Data: nil, // 以无数据(而非空数据)开始
 	}
 }
 
-// DefaultWeatherConfig returns the default weather configuration
+// DefaultWeatherConfig 返回默认的气象配置
 func DefaultWeatherConfig() WeatherConfig {
 	return WeatherConfig{
 		RefreshIntervalMinutes: 10,
@@ -92,8 +92,8 @@ func DefaultWeatherConfig() WeatherConfig {
 	}
 }
 
-// ConfigWeatherConfig represents the config package's WeatherConfig
-// This is used to avoid circular imports
+// ConfigWeatherConfig 表示 config 包中的 WeatherConfig
+// 用于避免循环导入
 type ConfigWeatherConfig struct {
 	RefreshIntervalMinutes int    `toml:"refresh_interval_minutes"`
 	APIBaseURL             string `toml:"api_base_url"`
@@ -105,7 +105,7 @@ type ConfigWeatherConfig struct {
 	CacheExpiryMinutes     int    `toml:"cache_expiry_minutes"`
 }
 
-// FromConfigWeatherConfig converts a config.WeatherConfig to weather.WeatherConfig
+// FromConfigWeatherConfig 将 config.WeatherConfig 转换为 weather.WeatherConfig
 func FromConfigWeatherConfig(cfg ConfigWeatherConfig) WeatherConfig {
 	return WeatherConfig{
 		RefreshIntervalMinutes: cfg.RefreshIntervalMinutes,

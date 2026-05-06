@@ -19,7 +19,7 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Import the logger package's exported functions
+// 导入 logger 包导出的函数
 var (
 	String = logger.String
 	Int    = logger.Int
@@ -27,7 +27,7 @@ var (
 	Bool   = logger.Bool
 )
 
-// StreamProcessor manages a single frequency stream that can be shared among multiple clients.
+// StreamProcessor 管理可被多个客户端共享的单个频率流。
 type StreamProcessor struct {
 	id                string
 	audioProcessor    *audio.CentralAudioProcessor
@@ -41,11 +41,11 @@ type StreamProcessor struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	logger            *logger.Logger
-	clientLastActive  map[string]time.Time // Track when each client was last active
-	clientCleanupTick *time.Ticker         // Ticker for cleaning up inactive clients
+	clientLastActive  map[string]time.Time // 跟踪每个客户端最后活跃的时间
+	clientCleanupTick *time.Ticker         // 用于清理不活跃客户端的 ticker
 }
 
-// NewStreamProcessor creates a new stream processor for a frequency.
+// NewStreamProcessor 为某个频率创建一个新的流处理器。
 func NewStreamProcessor(
 	ctx context.Context,
 	id string,
@@ -56,7 +56,7 @@ func NewStreamProcessor(
 ) (*StreamProcessor, error) {
 	procCtx, procCancel := context.WithCancel(ctx)
 
-	// Create audio processor
+	// 创建音频处理器
 	audioConfig := audio.CentralProcessorConfig{
 		FFmpegPath:               config.Transcription.FFmpegPath,
 		SampleRate:               config.Transcription.FFmpegSampleRate,
@@ -75,13 +75,13 @@ func NewStreamProcessor(
 		logger.Named("audio"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create audio processor: %w", err)
+		return nil, fmt.Errorf("创建音频处理器失败: %w", err)
 	}
 
 	sp := &StreamProcessor{
 		id:               id,
 		audioProcessor:   audioProcessor,
-		contentType:      "audio/wav", // We're now serving WAV format
+		contentType:      "audio/wav", // 我们现在提供 WAV 格式
 		status:           "initializing",
 		lastActivity:     time.Now(),
 		clients:          make(map[string]*ClientStreamReader),
@@ -94,19 +94,19 @@ func NewStreamProcessor(
 		logger:           logger.Named("freq-stream").With(String("id", id)),
 	}
 
-	// Start a ticker to clean up inactive clients every 10 seconds
+	// 启动一个 ticker,每 10 秒清理一次不活跃的客户端
 	sp.clientCleanupTick = time.NewTicker(10 * time.Second)
 	go sp.cleanupInactiveClients()
 
 	return sp, nil
 }
 
-// cleanupInactiveClients periodically checks for and removes inactive clients
+// cleanupInactiveClients 周期性地检查并移除不活跃的客户端
 func (sp *StreamProcessor) cleanupInactiveClients() {
 	for {
 		select {
 		case <-sp.ctx.Done():
-			// Stop the cleanup when the processor is stopped
+			// 处理器停止时停止清理
 			if sp.clientCleanupTick != nil {
 				sp.clientCleanupTick.Stop()
 			}
@@ -117,7 +117,7 @@ func (sp *StreamProcessor) cleanupInactiveClients() {
 	}
 }
 
-// removeInactiveClients removes clients that haven't been active for more than 30 seconds
+// removeInactiveClients 移除超过 30 秒未活跃的客户端
 func (sp *StreamProcessor) removeInactiveClients() {
 	sp.clientsMu.Lock()
 	defer sp.clientsMu.Unlock()
@@ -126,26 +126,26 @@ func (sp *StreamProcessor) removeInactiveClients() {
 	inactiveThreshold := 30 * time.Second
 	inactiveClients := []string{}
 
-	// Log current client state for debugging
+	// 记录当前客户端状态以便调试
 	if len(sp.clients) > 0 {
-		sp.logger.Debug("Client activity check",
+		sp.logger.Debug("客户端活跃度检查",
 			Int("total_clients", len(sp.clients)),
 			String("threshold", inactiveThreshold.String()))
 	}
 
-	// Find inactive clients
+	// 查找不活跃的客户端
 	for clientID, lastActive := range sp.clientLastActive {
 		inactiveDuration := now.Sub(lastActive)
 		if inactiveDuration > inactiveThreshold {
 			inactiveClients = append(inactiveClients, clientID)
-			sp.logger.Warn("Client marked as inactive due to timeout",
+			sp.logger.Warn("客户端因超时被标记为不活跃",
 				String("clientID", clientID),
 				String("inactive_duration", inactiveDuration.String()),
 				String("threshold", inactiveThreshold.String()))
 		}
 	}
 
-	// Also check for clients with closed readers but still in the map
+	// 同时检查 reader 已关闭但仍在 map 中的客户端
 	for clientID, reader := range sp.clients {
 		if reader != nil {
 			reader.mu.Lock()
@@ -153,17 +153,17 @@ func (sp *StreamProcessor) removeInactiveClients() {
 			reader.mu.Unlock()
 
 			if isClosed {
-				// Reader is closed but still in map, add to cleanup list
+				// reader 已关闭但仍在 map 中,加入清理列表
 				if !contains(inactiveClients, clientID) {
 					inactiveClients = append(inactiveClients, clientID)
-					sp.logger.Warn("Found closed client reader still in map, marking for cleanup",
+					sp.logger.Warn("发现已关闭但仍在 map 中的客户端 reader,将其标记为待清理",
 						String("clientID", clientID))
 				}
 			}
 		}
 	}
 
-	// Remove inactive clients
+	// 移除不活跃的客户端
 	for _, clientID := range inactiveClients {
 		lastActive, hasLastActive := sp.clientLastActive[clientID]
 		var inactiveDuration time.Duration
@@ -171,7 +171,7 @@ func (sp *StreamProcessor) removeInactiveClients() {
 			inactiveDuration = now.Sub(lastActive)
 		}
 
-		sp.logger.Warn("Removing inactive client",
+		sp.logger.Warn("正在移除不活跃的客户端",
 			String("clientID", clientID),
 			String("inactive_duration", inactiveDuration.String()),
 			Bool("had_last_active", hasLastActive))
@@ -184,13 +184,13 @@ func (sp *StreamProcessor) removeInactiveClients() {
 	}
 
 	if len(inactiveClients) > 0 {
-		sp.logger.Warn("Removed inactive clients",
+		sp.logger.Warn("已移除不活跃的客户端",
 			Int("count", len(inactiveClients)),
 			Int("remaining", len(sp.clients)))
 	}
 }
 
-// Helper function to check if slice contains string
+// 辅助函数,检查切片是否包含某个字符串
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
@@ -200,103 +200,103 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-// Start begins processing the audio stream.
+// Start 开始处理音频流。
 func (sp *StreamProcessor) Start() error {
-	sp.logger.Info("Starting stream processor")
+	sp.logger.Info("正在启动流处理器")
 
-	// Start the audio processor
+	// 启动音频处理器
 	if err := sp.audioProcessor.Start(); err != nil {
-		return fmt.Errorf("failed to start audio processor: %w", err)
+		return fmt.Errorf("启动音频处理器失败: %w", err)
 	}
 
 	sp.status = "streaming"
 	sp.lastActivity = time.Now()
 
-	// The transcription will be started by the Service.Start method
-	// based on the actual TranscribeAudio configuration value
+	// 转写将由 Service.Start 方法
+	// 根据实际的 TranscribeAudio 配置值来启动
 
 	return nil
 }
 
-// processStream method has been removed as it's no longer needed
-// The audio processor now handles all streaming functionality
+// processStream 方法已被移除,因为不再需要
+// 音频处理器现在已处理所有的流式传输功能
 
-// Stop stops the stream processor and cleans up resources.
+// Stop 停止流处理器并清理资源。
 func (sp *StreamProcessor) Stop() {
-	sp.logger.Info("Stopping stream processor")
+	sp.logger.Info("正在停止流处理器")
 
-	// Cancel the context to stop all operations
+	// 取消 context 以停止所有操作
 	sp.cancel()
 
-	// Stop the client cleanup ticker
+	// 停止客户端清理 ticker
 	if sp.clientCleanupTick != nil {
 		sp.clientCleanupTick.Stop()
 	}
 
-	// Force close all client connections immediately
+	// 立即强制关闭所有客户端连接
 	sp.clientsMu.Lock()
-	// First, call Close on all readers. This cancels their contexts.
+	// 首先,对所有 reader 调用 Close,这会取消它们的 context。
 	for clientID, reader := range sp.clients {
-		sp.logger.Info("Closing client connection during shutdown",
+		sp.logger.Info("关机过程中正在关闭客户端连接",
 			String("clientID", clientID))
 		if reader != nil {
-			reader.Close() // This is the new ClientStreamReader.Close(), it no longer calls RemoveClient.
+			reader.Close() // 这是新的 ClientStreamReader.Close(),不再调用 RemoveClient。
 		}
 	}
-	// Now that all readers are marked closed and their contexts cancelled,
-	// clear the maps.
+	// 现在所有 reader 都已被标记为关闭,且其 context 已被取消,
+	// 清空两个 map。
 	sp.clients = make(map[string]*ClientStreamReader)
 	sp.clientLastActive = make(map[string]time.Time)
 	sp.clientsMu.Unlock()
 
-	// Stop the audio processor
+	// 停止音频处理器
 	if sp.audioProcessor != nil {
 		if err := sp.audioProcessor.Stop(); err != nil {
-			sp.logger.Error("Error stopping audio processor", Error(err))
+			sp.logger.Error("停止音频处理器时出错", Error(err))
 		}
 	}
 
-	sp.logger.Info("Stream processor stopped")
+	sp.logger.Info("流处理器已停止")
 }
 
-// AddClient adds a new client to the stream processor.
+// AddClient 向流处理器添加新的客户端。
 func (sp *StreamProcessor) AddClient(clientID string) *ClientStreamReader {
 	sp.clientsMu.Lock()
 	defer sp.clientsMu.Unlock()
 
-	// Check if client already exists
+	// 检查客户端是否已存在
 	if existingReader, exists := sp.clients[clientID]; exists {
-		// Check if the existing reader is actually closed.
-		// Accessing existingReader.closed requires its own mutex if it's frequently contended,
-		// but here we hold sp.clientsMu, providing some protection. A specific check is safer.
-		existingReader.mu.Lock() // Lock the specific reader to check its closed status
+		// 检查现有 reader 是否实际已关闭。
+		// 访问 existingReader.closed 需要其自身的互斥锁(若频繁竞争),
+		// 但这里我们持有 sp.clientsMu,提供了一定保护。明确检查更安全。
+		existingReader.mu.Lock() // 锁定具体 reader 以检查其关闭状态
 		isClosed := existingReader.closed
 		existingReader.mu.Unlock()
 
 		if !isClosed {
-			sp.logger.Info("Client already connected and active, updating last activity time",
+			sp.logger.Info("客户端已连接且活跃,正在更新最后活跃时间",
 				String("clientID", clientID))
-			// Update last activity time
+			// 更新最后活跃时间
 			sp.clientLastActive[clientID] = time.Now()
-			return existingReader // Return the active, existing reader
+			return existingReader // 返回活跃的现有 reader
 		} else {
-			sp.logger.Info("Found existing but closed client reader, removing it before creating a new one",
+			sp.logger.Info("发现已存在但已关闭的客户端 reader,在创建新 reader 之前先移除",
 				String("clientID", clientID))
-			// The reader.Close() should have already canceled its context.
-			// We just need to remove it from the maps here.
+			// reader.Close() 应该已经取消了它的 context。
+			// 这里我们只需将其从 map 中移除。
 			delete(sp.clients, clientID)
 			delete(sp.clientLastActive, clientID)
-			// Proceed to create a new reader for this clientID
+			// 继续为该 clientID 创建新的 reader
 		}
 	}
 
-	sp.logger.Info("Adding new client (or replacing closed one)", String("clientID", clientID))
+	sp.logger.Info("正在添加新客户端(或替换已关闭的客户端)", String("clientID", clientID))
 
-	// Create a reader from the audio processor
+	// 从音频处理器创建一个 reader
 	audioReader, err := sp.audioProcessor.CreateReader(clientID)
 	if err != nil {
-		sp.logger.Error("Failed to create audio reader", Error(err), String("clientID", clientID))
-		// Return a dummy reader that will return EOF
+		sp.logger.Error("创建音频 reader 失败", Error(err), String("clientID", clientID))
+		// 返回一个会立即返回 EOF 的占位 reader
 		return &ClientStreamReader{
 			ReadCloser:   io.NopCloser(strings.NewReader("")),
 			logger:       sp.logger.Named("client-stream-reader"),
@@ -311,17 +311,17 @@ func (sp *StreamProcessor) AddClient(clientID string) *ClientStreamReader {
 		}
 	}
 
-	// Create a non-closing reader with processor and clientID
+	// 创建带 processor 和 clientID 的 NonClosingReader
 	nonClosingReader := &NonClosingReader{
 		ReadCloser: audioReader,
 		processor:  sp,
 		clientID:   clientID,
 	}
 
-	// Create a context with cancel for this client
+	// 为该客户端创建带 cancel 的 context
 	ctx, cancel := context.WithCancel(sp.ctx)
 
-	// Create a new reader that reads from the audio processor
+	// 创建一个新的 reader,从音频处理器读取数据
 	reader := &ClientStreamReader{
 		ReadCloser:   nonClosingReader,
 		logger:       sp.logger.Named("client-stream-reader"),
@@ -334,19 +334,19 @@ func (sp *StreamProcessor) AddClient(clientID string) *ClientStreamReader {
 		cancel:       cancel,
 	}
 
-	// Store the client and track activity time
+	// 存储客户端并跟踪活跃时间
 	sp.clients[clientID] = reader
 	sp.clientLastActive[clientID] = time.Now()
 
-	// Log the current client count
-	sp.logger.Info("Client added",
+	// 记录当前客户端数量
+	sp.logger.Info("客户端已添加",
 		String("clientID", clientID),
 		Int("total_clients", len(sp.clients)))
 
 	return reader
 }
 
-// IsClientConnected checks if a client is already connected without affecting the connection
+// IsClientConnected 在不影响连接的情况下检查客户端是否已连接
 func (sp *StreamProcessor) IsClientConnected(clientID string) bool {
 	sp.clientsMu.RLock()
 	defer sp.clientsMu.RUnlock()
@@ -360,52 +360,52 @@ func (sp *StreamProcessor) IsClientConnected(clientID string) bool {
 	return false
 }
 
-// RemoveClient removes a client from the stream processor.
+// RemoveClient 从流处理器中移除一个客户端。
 func (sp *StreamProcessor) RemoveClient(clientID string) {
 	sp.clientsMu.Lock()
 	defer sp.clientsMu.Unlock()
 
 	if reader, exists := sp.clients[clientID]; exists {
-		sp.logger.Info("Removing client", String("clientID", clientID))
+		sp.logger.Info("正在移除客户端", String("clientID", clientID))
 		reader.Close()
 		delete(sp.clients, clientID)
 		delete(sp.clientLastActive, clientID)
 
-		// Log the current client count
-		sp.logger.Info("Client removed",
+		// 记录当前客户端数量
+		sp.logger.Info("客户端已移除",
 			String("clientID", clientID),
 			Int("remaining_clients", len(sp.clients)))
 	}
 }
 
-// GetClientCount returns the number of connected clients.
+// GetClientCount 返回已连接的客户端数量。
 func (sp *StreamProcessor) GetClientCount() int {
 	sp.clientsMu.RLock()
 	defer sp.clientsMu.RUnlock()
 	return len(sp.clients)
 }
 
-// NonClosingReader wraps a ReadCloser but prevents Close() from affecting the underlying reader.
-// It also updates the last activity time of the client when Read is called.
+// NonClosingReader 包装一个 ReadCloser,但阻止 Close() 影响底层 reader。
+// 它在调用 Read 时也会更新客户端的最后活跃时间。
 type NonClosingReader struct {
 	io.ReadCloser
 	processor *StreamProcessor
 	clientID  string
 }
 
-// NewNonClosingReader creates a new NonClosingReader.
+// NewNonClosingReader 创建一个新的 NonClosingReader。
 func NewNonClosingReader(r io.ReadCloser) *NonClosingReader {
 	return &NonClosingReader{
 		ReadCloser: r,
-		// processor and clientID will be set by the StreamProcessor.AddClient method
+		// processor 和 clientID 将由 StreamProcessor.AddClient 方法设置
 	}
 }
 
-// Read reads data and updates the last activity time
+// Read 读取数据并更新最后活跃时间
 func (ncr *NonClosingReader) Read(p []byte) (n int, err error) {
 	n, err = ncr.ReadCloser.Read(p)
 
-	// Update last activity time if processor and clientID are set
+	// 如果设置了 processor 和 clientID,则更新最后活跃时间
 	if ncr.processor != nil && ncr.clientID != "" && n > 0 {
 		ncr.processor.updateClientActivity(ncr.clientID)
 	}
@@ -413,50 +413,50 @@ func (ncr *NonClosingReader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-// Close is a no-op to prevent closing the underlying reader.
+// Close 是一个空操作,以防止关闭底层 reader。
 func (ncr *NonClosingReader) Close() error {
-	// This is intentionally a no-op to prevent closing the shared buffer
+	// 这里有意是个空操作,以防止关闭共享缓冲区
 	return nil
 }
 
-// updateClientActivity updates the last activity time for a client
+// updateClientActivity 更新某个客户端的最后活跃时间
 func (sp *StreamProcessor) updateClientActivity(clientID string) {
 	now := time.Now()
 
-	// First, try a read lock to check the condition if an update might be needed.
+	// 首先尝试用读锁来检查是否需要更新。
 	sp.clientsMu.RLock()
 	lastActive, exists := sp.clientLastActive[clientID]
 	needsUpdate := false
 	if exists && now.Sub(lastActive) >= 5*time.Second {
 		needsUpdate = true
 	}
-	sp.clientsMu.RUnlock() // Release read lock
+	sp.clientsMu.RUnlock() // 释放读锁
 
-	// If no update is needed based on the read-locked check, return early.
+	// 如果在持有读锁时检查发现不需要更新,则提前返回。
 	if !needsUpdate {
 		return
 	}
 
-	// If an update is likely needed, acquire a full write lock.
+	// 如果可能需要更新,获取完整的写锁。
 	sp.clientsMu.Lock()
-	defer sp.clientsMu.Unlock() // Ensure write lock is released on return
+	defer sp.clientsMu.Unlock() // 确保返回时释放写锁
 
-	// Re-check the condition under the write lock, as the state might have changed
-	// between releasing the RLock and acquiring the WLock, or the client might have been removed.
-	// Also, ensure the client still exists in the map before updating.
+	// 在写锁下重新检查条件,因为在释放 RLock 与获取 WLock 之间状态可能已改变,
+	// 或者客户端可能已被移除。
+	// 同时,在更新前确保客户端仍存在于 map 中。
 	if currentLastActive, stillExists := sp.clientLastActive[clientID]; stillExists {
-		// Only update if the condition (5 seconds passed) still holds.
-		// This handles the case where another goroutine might have updated it
-		// or the client was re-added in the small window between RUnlock and Lock.
+		// 仅在条件(已过 5 秒)仍然成立时更新。
+		// 这处理了另一个 goroutine 已更新它,
+		// 或客户端在 RUnlock 与 Lock 之间的小窗口内被重新添加的情况。
 		if now.Sub(currentLastActive) >= 5*time.Second {
 			sp.clientLastActive[clientID] = now
 		}
 	}
-	// If the client was removed or updated by another routine, we simply do nothing here,
-	// which is safe.
+	// 如果客户端被另一个例程移除或更新,我们这里什么都不做,
+	// 这是安全的。
 }
 
-// Service manages frequency audio streams with persistent connections.
+// Service 通过持久连接管理频率音频流。
 type Service struct {
 	client               *Client
 	frequenciesConfig    map[string]*cfg.FrequencyConfig
@@ -467,22 +467,22 @@ type Service struct {
 	streamsMu            sync.RWMutex
 	ctx                  context.Context
 	cancel               context.CancelFunc
-	streamPortIndex      int   // For round-robin port selection
-	allServerPorts       []int // Combined list of primary and additional ports
+	streamPortIndex      int   // 用于轮询端口选择
+	allServerPorts       []int // 主端口与附加端口的合并列表
 	transcriptionManager *transcription.TranscriptionManager
-	wsServer             *websocket.Server // WebSocket server for broadcasting status updates
-	connectionStatus     map[string]connectionStatusInfo // Track connection status per frequency
-	statusMu             sync.RWMutex                    // Mutex for connectionStatus map
+	wsServer             *websocket.Server // 用于广播状态更新的 WebSocket 服务器
+	connectionStatus     map[string]connectionStatusInfo // 跟踪每个频率的连接状态
+	statusMu             sync.RWMutex                    // 用于 connectionStatus map 的互斥锁
 }
 
-// connectionStatusInfo stores the current connection status and error for a frequency
+// connectionStatusInfo 存储某个频率当前的连接状态和错误
 type connectionStatusInfo struct {
 	Status    string
 	Error     string
 	UpdatedAt time.Time
 }
 
-// NewService creates a new frequencies service.
+// NewService 创建一个新的频率服务。
 func NewService(
 	config *cfg.Config,
 	logger *logger.Logger,
@@ -492,8 +492,8 @@ func NewService(
 	clearanceStorage *sqlite.ClearanceStorage,
 	templateRenderer transcription.TemplateRenderer,
 ) *Service {
-	// EXPERIMENT: Reduce buffer size to see impact on perceived lag from "live"
-	bufferSize := 4 * 1024 // 4KB buffer, approx 2 seconds at 16kbps
+	// 实验:减小缓冲区大小,以观察对感知"实时"延迟的影响
+	bufferSize := 4 * 1024 // 4KB 缓冲,在 16kbps 下大约为 2 秒
 	if config.Frequencies.BufferSizeKB > 0 {
 		bufferSize = config.Frequencies.BufferSizeKB * 1024
 	}
@@ -506,7 +506,7 @@ func NewService(
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Create transcription manager
+	// 创建转写管理器
 	transcriptionConfig := transcription.Config{
 		OpenAIAPIKey:          config.Transcription.OpenAIAPIKey,
 		Model:                 config.Transcription.Model,
@@ -532,16 +532,16 @@ func NewService(
 		LogDir:                config.Transcription.LogDir,
 	}
 
-	// Load the prompt from file
+	// 从文件加载提示词
 	promptBytes, err := os.ReadFile(config.Transcription.PromptPath)
 	if err != nil {
-		logger.Error("Failed to read transcription prompt file, using empty prompt",
+		logger.Error("读取转写提示词文件失败,将使用空提示词",
 			Error(err),
 			String("path", config.Transcription.PromptPath))
 		transcriptionConfig.Prompt = ""
 	} else {
 		transcriptionConfig.Prompt = string(promptBytes)
-		logger.Info("Loaded transcription prompt from file",
+		logger.Info("已从文件加载转写提示词",
 			String("path", config.Transcription.PromptPath),
 			Int("prompt_length", len(transcriptionConfig.Prompt)))
 	}
@@ -556,7 +556,7 @@ func NewService(
 		TimeoutSeconds:        config.PostProcessing.TimeoutSeconds,
 	}
 
-	// Convert frequency configs to the format expected by TranscriptionManager
+	// 将频率配置转换为 TranscriptionManager 期望的格式
 	var frequencyConfigs []transcription.FrequencyConfig
 	for _, freq := range config.Frequencies.Sources {
 		frequencyConfigs = append(frequencyConfigs, transcription.FrequencyConfig{
@@ -578,7 +578,7 @@ func NewService(
 		frequencyConfigs,
 	)
 
-	// Prepare the list of all available server ports for round-robin stream URL generation
+	// 准备所有可用服务器端口的列表,用于轮询生成流 URL
 	allPorts := []int{config.Server.Port}
 	if len(config.Server.AdditionalPorts) > 0 {
 		allPorts = append(allPorts, config.Server.AdditionalPorts...)
@@ -602,13 +602,13 @@ func NewService(
 	}
 }
 
-// Start initializes connections to all configured frequencies.
+// Start 初始化与所有已配置频率的连接。
 func (s *Service) Start(ctx context.Context) error {
-	s.logger.Info("Starting frequencies service with persistent connections")
+	s.logger.Info("正在启动频率服务并建立持久连接")
 
-	// Start a stream processor for each configured frequency
+	// 为每个已配置的频率启动一个流处理器
 	for id, freqConfig := range s.frequenciesConfig {
-		s.logger.Info("Starting stream processor for frequency",
+		s.logger.Info("正在为频率启动流处理器",
 			String("id", id),
 			String("name", freqConfig.Name),
 			String("url", freqConfig.URL))
@@ -623,23 +623,23 @@ func (s *Service) Start(ctx context.Context) error {
 		)
 
 		if err != nil {
-			s.logger.Error("Failed to create stream processor",
+			s.logger.Error("创建流处理器失败",
 				String("id", id),
 				Error(err))
-			// Broadcast failure status
+			// 广播失败状态
 			s.broadcastFrequencyStatus(id, audio.StatusFailed, err.Error())
 			continue
 		}
 
-		// Set status callback to broadcast status changes via WebSocket
+		// 设置状态回调,通过 WebSocket 广播状态变化
 		processor.audioProcessor.SetStatusCallback(s.broadcastFrequencyStatus)
 
 		err = processor.Start()
 		if err != nil {
-			s.logger.Error("Failed to start stream processor",
+			s.logger.Error("启动流处理器失败",
 				String("id", id),
 				Error(err))
-			// Broadcast failure status
+			// 广播失败状态
 			s.broadcastFrequencyStatus(id, audio.StatusFailed, err.Error())
 			continue
 		}
@@ -648,7 +648,7 @@ func (s *Service) Start(ctx context.Context) error {
 		s.activeStreams[id] = processor
 		s.streamsMu.Unlock()
 
-		// Start transcription with external audio if enabled
+		// 如果启用,使用外部音频启动转写
 		frequency := &Frequency{
 			ID:              id,
 			Name:            freqConfig.Name,
@@ -657,7 +657,7 @@ func (s *Service) Start(ctx context.Context) error {
 		}
 
 		if frequency.TranscribeAudio {
-			s.logger.Info("Starting transcription with external audio for frequency",
+			s.logger.Info("正在为频率使用外部音频启动转写",
 				String("id", id),
 				String("name", freqConfig.Name),
 				Bool("transcribe_audio", freqConfig.TranscribeAudio))
@@ -669,62 +669,62 @@ func (s *Service) Start(ctx context.Context) error {
 				frequency.TranscribeAudio,
 				processor.audioProcessor,
 			); err != nil {
-				s.logger.Error("Failed to start transcription with external audio for frequency",
+				s.logger.Error("为频率使用外部音频启动转写失败",
 					String("id", id),
 					Error(err))
 			}
 		} else {
-			s.logger.Info("Transcription not enabled for frequency",
+			s.logger.Info("该频率未启用转写",
 				String("id", id),
 				String("name", freqConfig.Name),
 				Bool("transcribe_audio", freqConfig.TranscribeAudio))
 		}
 	}
 
-	s.logger.Info("All frequency stream processors started")
+	s.logger.Info("所有频率流处理器均已启动")
 
-	// Start post-processing if enabled
+	// 如果启用,启动后处理
 	if s.config.PostProcessing.Enabled {
-		s.logger.Info("Starting post-processing")
+		s.logger.Info("正在启动后处理")
 		if err := s.transcriptionManager.StartPostProcessing(s.ctx); err != nil {
-			s.logger.Error("Failed to start post-processing", Error(err))
-			// Continue even if post-processing fails
+			s.logger.Error("启动后处理失败", Error(err))
+			// 即使后处理失败也继续运行
 		}
 	} else {
-		s.logger.Info("Post-processing is disabled")
+		s.logger.Info("后处理已禁用")
 	}
 
 	return nil
 }
 
-// Stop stops all stream processors and cleans up resources.
+// Stop 停止所有流处理器并清理资源。
 func (s *Service) Stop() {
-	s.logger.Info("Frequencies service stopping")
+	s.logger.Info("频率服务正在停止")
 
-	// Stop all transcriptions
+	// 停止所有转写
 	s.transcriptionManager.StopAllTranscriptions()
 
-	// Cancel the main context to signal all stream processors to stop
+	// 取消主 context,通知所有流处理器停止
 	s.cancel()
 
-	// Create a WaitGroup to wait for all processors to stop
+	// 创建 WaitGroup 等待所有处理器停止
 	var wg sync.WaitGroup
 
-	// Stop each stream processor
+	// 停止每个流处理器
 	s.streamsMu.Lock()
 	for id, processor := range s.activeStreams {
 		if processor != nil {
 			wg.Add(1)
 			go func(id string, proc *StreamProcessor) {
 				defer wg.Done()
-				s.logger.Info("Stopping stream processor", String("id", id))
+				s.logger.Info("正在停止流处理器", String("id", id))
 				proc.Stop()
 			}(id, processor)
 		}
 	}
 	s.streamsMu.Unlock()
 
-	// Wait for all processors to stop with a timeout
+	// 带超时地等待所有处理器停止
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -733,70 +733,70 @@ func (s *Service) Stop() {
 
 	select {
 	case <-done:
-		s.logger.Info("All stream processors stopped")
+		s.logger.Info("所有流处理器均已停止")
 	case <-time.After(5 * time.Second):
-		s.logger.Warn("Timeout waiting for stream processors to stop")
+		s.logger.Warn("等待流处理器停止超时")
 	}
 
-	// Clear the active streams map
+	// 清空活跃流的 map
 	s.streamsMu.Lock()
 	s.activeStreams = make(map[string]*StreamProcessor)
 	s.streamsMu.Unlock()
 
-	s.logger.Info("Frequencies service stopped")
+	s.logger.Info("频率服务已停止")
 }
 
-// ClientStreamReader manages the lifecycle of a single client's audio stream resources.
-// Its Close method is crucial for cleanup.
+// ClientStreamReader 管理单个客户端音频流资源的生命周期。
+// 它的 Close 方法对清理至关重要。
 type ClientStreamReader struct {
-	io.ReadCloser // The client's dedicated circular buffer
+	io.ReadCloser // 客户端的专用循环缓冲区
 	logger        *logger.Logger
 	streamID      string
-	once          sync.Once // Ensures cleanup actions are performed only once
+	once          sync.Once // 确保清理动作仅执行一次
 	processor     *StreamProcessor
 	clientID      string
-	lastActivity  time.Time          // Track when this client was last active
-	ctx           context.Context    // Context for cancellation
-	cancel        context.CancelFunc // Function to cancel the context
-	closed        bool               // Flag to track if the reader is closed
-	mu            sync.Mutex         // Mutex to protect the closed flag
+	lastActivity  time.Time          // 跟踪该客户端的最后活跃时间
+	ctx           context.Context    // 用于取消的 context
+	cancel        context.CancelFunc // 用于取消 context 的函数
+	closed        bool               // 标记 reader 是否已关闭
+	mu            sync.Mutex         // 保护 closed 标志的互斥锁
 }
 
-// Close cleans up resources for this specific client stream.
+// Close 清理该客户端流的资源。
 func (csr *ClientStreamReader) Close() error {
-	var err error // Variable to store error from ReadCloser.Close if any
+	var err error // 用于存储 ReadCloser.Close 的可能错误
 	csr.once.Do(func() {
 		csr.mu.Lock()
 		if csr.closed {
 			csr.mu.Unlock()
-			return // Already closed by another goroutine
+			return // 已被另一 goroutine 关闭
 		}
 		csr.closed = true
 		csr.mu.Unlock()
 
-		csr.logger.Info("Closing client stream reader, cancelling context and cleaning up local resources",
+		csr.logger.Info("正在关闭客户端流 reader,取消 context 并清理本地资源",
 			String("streamID", csr.streamID),
 			String("clientID", csr.clientID))
 
-		// Cancel the context to signal all operations using this reader to stop
+		// 取消 context,通知所有使用此 reader 的操作停止
 		if csr.cancel != nil {
 			csr.cancel()
 		}
 
-		// The responsibility to remove this client from the StreamProcessor's maps
-		// is now with the caller that initiated the close (e.g., removeInactiveClients,
-		// or the HTTP handler after io.Copy, or StreamProcessor.Stop).
-		// DO NOT CALL: csr.processor.RemoveClient(csr.clientID) from here to avoid deadlocks.
+		// 从 StreamProcessor 的 map 中移除该客户端的责任
+		// 现在归属于发起关闭的调用方(例如 removeInactiveClients、
+		// 或在 io.Copy 之后的 HTTP handler、或 StreamProcessor.Stop)。
+		// 切勿在此处调用:csr.processor.RemoveClient(csr.clientID),以避免死锁。
 
-		// Close the underlying reader if it's a real resource specific to this client.
-		// For NonClosingReader, ReadCloser.Close() is a no-op.
+		// 如果底层 reader 是该客户端独有的实际资源,则关闭它。
+		// 对于 NonClosingReader,ReadCloser.Close() 是空操作。
 		if csr.ReadCloser != nil {
 			internalErr := csr.ReadCloser.Close()
 			if internalErr != nil {
-				// Store the first error encountered during closing.
-				// Since NonClosingReader.Close() is a no-op and returns nil, this 'err' will likely remain nil.
+				// 存储关闭过程中遇到的第一个错误。
+				// 由于 NonClosingReader.Close() 是空操作并返回 nil,该 'err' 通常仍会是 nil。
 				err = internalErr
-				csr.logger.Error("Error closing underlying ReadCloser in ClientStreamReader",
+				csr.logger.Error("关闭 ClientStreamReader 中底层 ReadCloser 时出错",
 					String("streamID", csr.streamID),
 					String("clientID", csr.clientID),
 					Error(internalErr))
@@ -806,9 +806,9 @@ func (csr *ClientStreamReader) Close() error {
 	return err
 }
 
-// Read reads data from the underlying reader with timeout handling
+// Read 从底层 reader 读取数据,并处理超时
 func (csr *ClientStreamReader) Read(p []byte) (n int, err error) {
-	// Check if already closed
+	// 检查是否已关闭
 	csr.mu.Lock()
 	if csr.closed {
 		csr.mu.Unlock()
@@ -816,82 +816,82 @@ func (csr *ClientStreamReader) Read(p []byte) (n int, err error) {
 	}
 	csr.mu.Unlock()
 
-	// Note: csr.lastActivity is not updated here anymore.
-	// The crucial last activity for processor cleanup is updated by NonClosingReader.Read
-	// calling processor.updateClientActivity.
+	// 注意:此处不再更新 csr.lastActivity。
+	// 用于处理器清理的关键最后活跃时间由 NonClosingReader.Read
+	// 调用 processor.updateClientActivity 来更新。
 
-	// Check if context is already canceled before attempting to read
+	// 在尝试读取前检查 context 是否已取消
 	select {
 	case <-csr.ctx.Done():
-		// Context for this specific client stream has been canceled.
-		// This could be due to the HTTP request ending, or the StreamProcessor stopping this client.
-		// Ensure Close is called (it's idempotent) to mark csr.closed = true.
+		// 该客户端流的 context 已被取消。
+		// 这可能是因为 HTTP 请求结束,或 StreamProcessor 停止了该客户端。
+		// 确保调用 Close(它是幂等的)以将 csr.closed 标记为 true。
 		csr.Close()
 		return 0, io.EOF
 	default:
-		// Context is not done, proceed to read from the underlying source.
+		// context 未结束,继续从底层源读取。
 	}
 
-	// csr.ReadCloser is NonClosingReader, which wraps the shared CircularBuffer.
-	// CircularBuffer.Read will block until data is available or the buffer itself is closed.
+	// csr.ReadCloser 是 NonClosingReader,封装了共享的 CircularBuffer。
+	// CircularBuffer.Read 会阻塞,直到有数据可用或缓冲区本身被关闭。
 	n, err = csr.ReadCloser.Read(p)
 
-	// Handle the result of the read operation
+	// 处理读取操作的结果
 	if err != nil {
-		// If an error occurred, including io.EOF (if CircularBuffer was closed),
-		// we should ensure this ClientStreamReader is also marked as closed.
-		// csr.Close() is idempotent and handles this.
+		// 如果出现错误,包括 io.EOF(若 CircularBuffer 已关闭),
+		// 我们应确保该 ClientStreamReader 也被标记为关闭。
+		// csr.Close() 是幂等的,可以处理这种情况。
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) {
-			csr.logger.Info("Underlying reader returned EOF or closed pipe, closing client stream reader",
+			csr.logger.Info("底层 reader 返回 EOF 或管道已关闭,正在关闭客户端流 reader",
 				String("streamID", csr.streamID), String("clientID", csr.clientID))
 			csr.Close()
 		} else {
-			csr.logger.Error("Error reading from underlying ReadCloser",
+			csr.logger.Error("从底层 ReadCloser 读取时出错",
 				String("streamID", csr.streamID), String("clientID", csr.clientID), Error(err))
-			// For other errors, also ensure this client reader is closed to prevent further issues.
+			// 对于其他错误,也确保此客户端 reader 关闭以防止后续问题。
 			csr.Close()
 		}
-		return n, err // Propagate the original error (n might be >0 with an error)
+		return n, err // 传播原始错误(n 在出现错误时也可能 >0)
 	}
 
-	// If n == 0 and err == nil:
-	// The current CircularBuffer.Read is designed to block until data is available or it's closed
-	// (returning n>0 or io.EOF). It should not return (0, nil).
-	// If it somehow did, returning (0, nil) is generally acceptable for io.Copy, which would retry.
-	// No special handling needed here for that theoretical case; just return what was received.
+	// 如果 n == 0 且 err == nil:
+	// 当前的 CircularBuffer.Read 设计为会阻塞,直到有数据可用或被关闭
+	// (返回 n>0 或 io.EOF)。它不应返回 (0, nil)。
+	// 如果以某种方式发生了,返回 (0, nil) 通常对 io.Copy 是可接受的,它会重试。
+	// 此处不需要对该理论情况做特殊处理;只需返回收到的内容。
 	return n, nil
 }
 
-// GetAudioStream returns a reader for a frequency's audio stream.
-// It accepts a client ID to track individual client connections.
+// GetAudioStream 返回某频率音频流的 reader。
+// 它接受一个客户端 ID,以跟踪单个客户端的连接。
 func (s *Service) GetAudioStream(ctx context.Context, id string, clientID string) (io.ReadCloser, string, error) {
-	// Create a context with timeout to prevent hanging
+	// 创建带超时的 context,以防止挂起
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	// Check if the frequency exists
+	// 检查频率是否存在
 	freqConfig, ok := s.frequenciesConfig[id]
 	if !ok {
-		return nil, "", fmt.Errorf("frequency configuration not found: %s", id)
+		return nil, "", fmt.Errorf("未找到频率配置: %s", id)
 	}
 
-	s.logger.Info("Client requesting audio stream",
+	s.logger.Info("客户端正在请求音频流",
 		String("id", id),
 		String("clientID", clientID))
 
-	// Check if this client is already connected to this frequency
+	// 检查该客户端是否已连接到该频率
 	s.streamsMu.RLock()
 	processor, exists := s.activeStreams[id]
 	s.streamsMu.RUnlock()
 
 	if exists && processor.IsClientConnected(clientID) {
-		s.logger.Info("Client already connected to this frequency, rejecting duplicate request",
+		s.logger.Info("客户端已连接到该频率,拒绝重复请求",
 			String("id", id),
 			String("clientID", clientID))
-		return nil, "", fmt.Errorf("client already connected to this frequency")
+		return nil, "", fmt.Errorf("客户端已连接到该频率")
 	}
 
-	// Check if we've reached the maximum number of active clients
+	// 检查是否已达到活跃客户端的最大数量
 	s.streamsMu.RLock()
 	totalClients := 0
 	for _, proc := range s.activeStreams {
@@ -899,36 +899,36 @@ func (s *Service) GetAudioStream(ctx context.Context, id string, clientID string
 	}
 	s.streamsMu.RUnlock()
 
-	// Limit to 20 concurrent clients total and 5 per frequency to prevent resource exhaustion
+	// 总并发客户端限制为 20,每个频率限制为 5,以防止资源耗尽
 	if totalClients > 100 {
-		s.logger.Warn("Too many concurrent clients, rejecting connection",
+		s.logger.Warn("并发客户端过多,拒绝连接",
 			String("id", id),
 			String("clientID", clientID),
 			Int("total_clients", totalClients))
-		return nil, "", fmt.Errorf("too many concurrent clients (max 100)")
+		return nil, "", fmt.Errorf("并发客户端过多(最多 100)")
 	}
 
-	// Check if we already have a processor for this frequency
+	// 检查是否已有该频率的处理器
 	s.streamsMu.RLock()
 	processor, exists = s.activeStreams[id]
 	s.streamsMu.RUnlock()
 
-	// If processor exists, check client count for this specific frequency
+	// 如果处理器已存在,则检查该具体频率的客户端数量
 	if exists && processor.GetClientCount() >= 10 {
-		s.logger.Warn("Too many clients for this frequency, rejecting connection",
+		s.logger.Warn("该频率的客户端过多,拒绝连接",
 			String("id", id),
 			String("clientID", clientID),
 			Int("client_count", processor.GetClientCount()))
-		return nil, "", fmt.Errorf("too many clients for this frequency (max 10)")
+		return nil, "", fmt.Errorf("该频率的客户端过多(最多 10)")
 	}
 
-	// We already have the processor from the check above, no need to get it again
+	// 我们已经在上面的检查中获得了处理器,无需再次获取
 
 	if !exists {
-		s.logger.Info("Stream processor not found, creating new one", String("id", id))
+		s.logger.Info("未找到流处理器,正在创建新的", String("id", id))
 
 		s.streamsMu.Lock()
-		// Check again in case another goroutine created it while we were waiting for the lock
+		// 在等待锁时,另一 goroutine 可能已经创建了它,因此再次检查
 		processor, exists = s.activeStreams[id]
 		if !exists {
 			var err error
@@ -943,15 +943,15 @@ func (s *Service) GetAudioStream(ctx context.Context, id string, clientID string
 
 			if err != nil {
 				s.streamsMu.Unlock()
-				s.logger.Error("Failed to create stream processor", String("id", id), Error(err))
-				return nil, "", fmt.Errorf("failed to create stream processor: %w", err)
+				s.logger.Error("创建流处理器失败", String("id", id), Error(err))
+				return nil, "", fmt.Errorf("创建流处理器失败: %w", err)
 			}
 
 			err = processor.Start()
 			if err != nil {
 				s.streamsMu.Unlock()
-				s.logger.Error("Failed to start stream processor", String("id", id), Error(err))
-				return nil, "", fmt.Errorf("failed to start stream processor: %w", err)
+				s.logger.Error("启动流处理器失败", String("id", id), Error(err))
+				return nil, "", fmt.Errorf("启动流处理器失败: %w", err)
 			}
 
 			s.activeStreams[id] = processor
@@ -959,18 +959,18 @@ func (s *Service) GetAudioStream(ctx context.Context, id string, clientID string
 		s.streamsMu.Unlock()
 	}
 
-	// Check if the context has been canceled
+	// 检查 context 是否已被取消
 	select {
 	case <-ctx.Done():
 		return nil, "", ctx.Err()
 	default:
-		// Continue
+		// 继续
 	}
 
-	// Add the client to the stream processor
+	// 将客户端添加到流处理器
 	clientReader := processor.AddClient(clientID)
 
-	s.logger.Debug("Client connected to audio stream",
+	s.logger.Debug("客户端已连接到音频流",
 		String("id", id),
 		String("clientID", clientID),
 		String("contentType", processor.contentType))
@@ -978,14 +978,14 @@ func (s *Service) GetAudioStream(ctx context.Context, id string, clientID string
 	return clientReader, processor.contentType, nil
 }
 
-// GetAllFrequencies and GetFrequencyByID now only report on configured frequencies,
-// as "active" status is per-client and not centrally tracked in the same way.
-// We can indicate a general "available" status based on config existence.
-func (s *Service) GetAllFrequencies() []*Frequency { // frequencies.Frequency from models.go
-	// No RLock needed as s.frequenciesConfig is read-only after NewService
+// GetAllFrequencies 和 GetFrequencyByID 现在仅报告已配置的频率,
+// 因为"活跃"状态是按客户端的,且不再以同样方式集中跟踪。
+// 我们可以基于配置是否存在来表示一个通用的"available"状态。
+func (s *Service) GetAllFrequencies() []*Frequency { // 来自 models.go 的 frequencies.Frequency
+	// 不需要 RLock,因为 NewService 之后 s.frequenciesConfig 是只读的
 	var result []*Frequency
 
-	// Get a snapshot of connection statuses
+	// 获取连接状态的快照
 	s.statusMu.RLock()
 	statusSnapshot := make(map[string]connectionStatusInfo)
 	for k, v := range s.connectionStatus {
@@ -996,7 +996,7 @@ func (s *Service) GetAllFrequencies() []*Frequency { // frequencies.Frequency fr
 	for _, fc := range s.frequenciesConfig {
 		streamURL, streamPort := s.buildStreamInfo(fc.ID)
 
-		// Get the connection status if available
+		// 如果可用,获取连接状态
 		status := "available"
 		lastError := ""
 		if statusInfo, exists := statusSnapshot[fc.ID]; exists {
@@ -1019,7 +1019,7 @@ func (s *Service) GetAllFrequencies() []*Frequency { // frequencies.Frequency fr
 		})
 	}
 
-	// Sort frequencies by order instead of name
+	// 按 order 排序频率,而不是按 name
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Order < result[j].Order
 	})
@@ -1034,7 +1034,7 @@ func (s *Service) GetFrequencyByID(id string) (*Frequency, bool) {
 	}
 	streamURL, streamPort := s.buildStreamInfo(fc.ID)
 
-	// Get the connection status if available
+	// 如果可用,获取连接状态
 	status := "available"
 	lastError := ""
 	s.statusMu.RLock()
@@ -1059,21 +1059,21 @@ func (s *Service) GetFrequencyByID(id string) (*Frequency, bool) {
 	}, true
 }
 
-// buildStreamInfo returns the stream URL path and the port to use for this stream.
-// The port is selected via round-robin from all available server ports.
+// buildStreamInfo 返回流 URL 路径和用于该流的端口。
+// 端口通过轮询从所有可用的服务器端口中选择。
 func (s *Service) buildStreamInfo(frequencyID string) (string, int) {
-	// Get the next port via round-robin
+	// 通过轮询获取下一个端口
 	port := s.allServerPorts[s.streamPortIndex]
 	s.streamPortIndex = (s.streamPortIndex + 1) % len(s.allServerPorts)
 
-	// Return relative URL path so the browser uses the correct hostname
+	// 返回相对 URL 路径,使浏览器使用正确的主机名
 	return fmt.Sprintf("/api/v1/stream/%s", frequencyID), port
 }
 
-// broadcastFrequencyStatus sends a frequency status change to all connected WebSocket clients
-// and stores the status for later retrieval via API
+// broadcastFrequencyStatus 将频率状态变化发送给所有已连接的 WebSocket 客户端,
+// 并存储该状态以便稍后通过 API 获取
 func (s *Service) broadcastFrequencyStatus(frequencyID string, status audio.ConnectionStatus, errorMsg string) {
-	// Always store the status, even if WebSocket server isn't available
+	// 始终存储状态,即使 WebSocket 服务器不可用
 	s.statusMu.Lock()
 	s.connectionStatus[frequencyID] = connectionStatusInfo{
 		Status:    string(status),
@@ -1082,12 +1082,12 @@ func (s *Service) broadcastFrequencyStatus(frequencyID string, status audio.Conn
 	}
 	s.statusMu.Unlock()
 
-	s.logger.Debug("Frequency status updated",
+	s.logger.Debug("频率状态已更新",
 		String("frequency_id", frequencyID),
 		String("status", string(status)),
 		String("error", errorMsg))
 
-	// Broadcast via WebSocket if available
+	// 如果可用,通过 WebSocket 广播
 	if s.wsServer == nil {
 		return
 	}
@@ -1104,6 +1104,6 @@ func (s *Service) broadcastFrequencyStatus(frequencyID string, status audio.Conn
 	s.wsServer.Broadcast(message)
 }
 
-// AddFrequency and RemoveFrequency could be implemented to modify s.frequenciesConfig
-// if dynamic updates to available frequencies are needed. For now, assuming static config.
-// They would require s.mu to protect s.frequenciesConfig if made concurrent-safe.
+// 如果需要动态更新可用频率,可以实现 AddFrequency 和 RemoveFrequency
+// 来修改 s.frequenciesConfig。目前假设静态配置。
+// 若要使其并发安全,需要使用 s.mu 来保护 s.frequenciesConfig。

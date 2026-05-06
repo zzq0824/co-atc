@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// AudioChunker handles chunking of audio data
+// AudioChunker 处理音频数据的分块
 type AudioChunker struct {
 	sampleRate  int
 	channels    int
@@ -14,10 +14,10 @@ type AudioChunker struct {
 	bytesPerMs  int
 }
 
-// NewAudioChunker creates a new audio chunker
+// NewAudioChunker 创建一个新的音频分块器
 func NewAudioChunker(sampleRate, channels, chunkSizeMs int) *AudioChunker {
-	// Calculate bytes per millisecond
-	// For PCM16, each sample is 2 bytes (16 bits)
+	// 计算每毫秒的字节数
+	// 对于 PCM16,每个采样为 2 字节(16 位)
 	bytesPerSample := 2
 	bytesPerMs := (sampleRate * channels * bytesPerSample) / 1000
 
@@ -30,26 +30,26 @@ func NewAudioChunker(sampleRate, channels, chunkSizeMs int) *AudioChunker {
 	}
 }
 
-// ProcessChunk processes an audio chunk and returns base64-encoded chunks
+// ProcessChunk 处理一个音频分块并返回 base64 编码的分块
 func (c *AudioChunker) ProcessChunk(data []byte) ([][]byte, error) {
-	// Add data to buffer
+	// 将数据添加到缓冲区
 	if _, err := c.buffer.Write(data); err != nil {
-		return nil, fmt.Errorf("failed to write to buffer: %w", err)
+		return nil, fmt.Errorf("写入缓冲区失败: %w", err)
 	}
 
-	// Calculate chunk size in bytes
+	// 计算分块大小(字节数)
 	chunkSizeBytes := c.chunkSizeMs * c.bytesPerMs
 
-	// Extract chunks
+	// 提取分块
 	var chunks [][]byte
 	for c.buffer.Len() >= chunkSizeBytes {
 		chunk := make([]byte, chunkSizeBytes)
 		n, err := c.buffer.Read(chunk)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read from buffer: %w", err)
+			return nil, fmt.Errorf("从缓冲区读取失败: %w", err)
 		}
 		if n < chunkSizeBytes {
-			// This shouldn't happen, but just in case
+			// 这种情况不应发生,但以防万一
 			chunk = chunk[:n]
 		}
 		chunks = append(chunks, chunk)
@@ -58,7 +58,7 @@ func (c *AudioChunker) ProcessChunk(data []byte) ([][]byte, error) {
 	return chunks, nil
 }
 
-// Reset resets the buffer
+// Reset 重置缓冲区
 func (c *AudioChunker) Reset() {
 	c.buffer.Reset()
 }

@@ -12,8 +12,8 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// RealtimeClient handles OpenAI realtime API interactions
-// Note: This is a simplified implementation since the OpenAI Go SDK doesn't support realtime APIs yet
+// RealtimeClient 处理 OpenAI Realtime API 交互
+// 注意:这是一个简化的实现,因为 OpenAI Go SDK 尚不支持 Realtime API
 type RealtimeClient struct {
 	apiKey     string
 	httpClient *http.Client
@@ -21,10 +21,10 @@ type RealtimeClient struct {
 	logger     *logger.Logger
 }
 
-// NewRealtimeClient creates a new OpenAI realtime client
+// NewRealtimeClient 创建一个新的 OpenAI Realtime 客户端
 func NewRealtimeClient(apiKey string, config SessionConfig, logger *logger.Logger) *RealtimeClient {
 	if apiKey == "" {
-		logger.Warn("OpenAI API key is empty - ATC Chat features will not work")
+		logger.Warn("OpenAI API 密钥为空 - ATC Chat 功能将无法工作")
 	}
 
 	return &RealtimeClient{
@@ -37,7 +37,7 @@ func NewRealtimeClient(apiKey string, config SessionConfig, logger *logger.Logge
 	}
 }
 
-// SessionRequest represents the request to create a realtime session
+// SessionRequest 表示创建 Realtime 会话的请求
 type SessionRequest struct {
 	InputAudioFormat         string                `json:"input_audio_format"`
 	OutputAudioFormat        string                `json:"output_audio_format"`
@@ -51,19 +51,19 @@ type SessionRequest struct {
 	InputAudioNoiseReduction *NoiseReductionConfig `json:"input_audio_noise_reduction,omitempty"`
 }
 
-// TurnDetectionConfig represents turn detection configuration
+// TurnDetectionConfig 表示轮次检测配置
 type TurnDetectionConfig struct {
 	Type              string   `json:"type"`
 	Threshold         *float64 `json:"threshold,omitempty"`
 	SilenceDurationMs *int     `json:"silence_duration_ms,omitempty"`
 }
 
-// NoiseReductionConfig represents noise reduction configuration
+// NoiseReductionConfig 表示降噪配置
 type NoiseReductionConfig struct {
 	Type string `json:"type"`
 }
 
-// SessionResponse represents the response from creating a realtime session
+// SessionResponse 表示创建 Realtime 会话的响应
 type SessionResponse struct {
 	ID           string `json:"id"`
 	ClientSecret struct {
@@ -72,18 +72,18 @@ type SessionResponse struct {
 	} `json:"client_secret"`
 }
 
-// CreateSession creates a new realtime session with OpenAI
+// CreateSession 通过 OpenAI 创建一个新的 Realtime 会话
 func (rc *RealtimeClient) CreateSession(ctx context.Context, systemPrompt string) (*ChatSession, error) {
-	// Check if OpenAI API key is provided - fail fast if missing
+	// 检查是否提供了 OpenAI API 密钥 - 如果缺失则快速失败
 	if rc.apiKey == "" {
-		return nil, fmt.Errorf("OpenAI API key is required for ATC Chat sessions")
+		return nil, fmt.Errorf("ATC Chat 会话需要 OpenAI API 密钥")
 	}
 
-	rc.logger.Info("Creating new OpenAI realtime session",
+	rc.logger.Info("正在创建新的 OpenAI Realtime 会话",
 		logger.String("model", rc.config.Model),
 		logger.String("voice", rc.config.Voice))
 
-	// Create the session request with required parameters
+	// 使用必需的参数创建会话请求
 	sessionReq := SessionRequest{
 		Model:             rc.config.Model,
 		Instructions:      systemPrompt,
@@ -93,22 +93,22 @@ func (rc *RealtimeClient) CreateSession(ctx context.Context, systemPrompt string
 		OutputAudioFormat: rc.config.OutputAudioFormat,
 	}
 
-	// Add optional parameters if configured
+	// 如已配置则添加可选参数
 	if rc.config.MaxResponseTokens > 0 {
 		sessionReq.MaxResponseTokens = rc.config.MaxResponseTokens
 	}
 
-	// OpenAI realtime API requires temperature >= 0.6
+	// OpenAI Realtime API 要求 temperature >= 0.6
 	if rc.config.Temperature >= 0.6 {
 		sessionReq.Temperature = rc.config.Temperature
 	} else {
-		// Use default temperature of 0.8 if not configured or below minimum
+		// 如果未配置或低于最小值,则使用默认 temperature 0.8
 		sessionReq.Temperature = 0.8
 	}
 
-	// Add turn detection based on configuration
-	// If TurnDetectionType is empty or "none", omit turn_detection entirely (turn off)
-	// Otherwise, configure with the specified type
+	// 根据配置添加轮次检测
+	// 如果 TurnDetectionType 为空或为 "none",则完全省略 turn_detection(关闭)
+	// 否则,使用指定类型进行配置
 	if rc.config.TurnDetectionType != "" && rc.config.TurnDetectionType != "none" {
 		turnDetection := &TurnDetectionConfig{
 			Type: rc.config.TurnDetectionType,
@@ -124,88 +124,88 @@ func (rc *RealtimeClient) CreateSession(ctx context.Context, systemPrompt string
 
 		sessionReq.TurnDetection = turnDetection
 	}
-	// If empty or "none", leave TurnDetection as nil (omitted from JSON)
+	// 如果为空或为 "none",将 TurnDetection 保留为 nil(从 JSON 中省略)
 
-	// Marshal request to JSON
+	// 将请求序列化为 JSON
 	jsonData, err := json.Marshal(sessionReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal session request: %w", err)
+		return nil, fmt.Errorf("序列化会话请求失败: %w", err)
 	}
 
-	// Log the full request payload
-	rc.logger.Info("=== OpenAI Session Creation Request ===")
-	rc.logger.Info("Request URL: https://api.openai.com/v1/realtime/sessions")
-	rc.logger.Info("Request Headers:",
+	// 记录完整的请求载荷
+	rc.logger.Info("=== OpenAI 会话创建请求 ===")
+	rc.logger.Info("请求 URL: https://api.openai.com/v1/realtime/sessions")
+	rc.logger.Info("请求头:",
 		logger.String("Content-Type", "application/json"),
 		logger.String("Authorization", "Bearer [REDACTED]"),
 		logger.String("OpenAI-Beta", "realtime=v1"))
-	rc.logger.Info("Request Payload:", logger.String("json", string(jsonData)))
+	rc.logger.Info("请求载荷:", logger.String("json", string(jsonData)))
 
-	// Create HTTP request
+	// 创建 HTTP 请求
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/realtime/sessions", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+		return nil, fmt.Errorf("创建 HTTP 请求失败: %w", err)
 	}
 
-	// Set headers
+	// 设置请求头
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", rc.apiKey))
 	req.Header.Set("OpenAI-Beta", "realtime=v1")
 
-	// Execute request
+	// 执行请求
 	resp, err := rc.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute HTTP request: %w", err)
+		return nil, fmt.Errorf("执行 HTTP 请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Check response status and log detailed error if not OK
+	// 检查响应状态,如果不是 OK 则记录详细错误
 	if resp.StatusCode != http.StatusOK {
-		// Read the error response body
+		// 读取错误响应主体
 		bodyBytes, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			rc.logger.Error("Failed to read error response body", logger.Error(readErr))
-			return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			rc.logger.Error("读取错误响应主体失败", logger.Error(readErr))
+			return nil, fmt.Errorf("意外的状态码: %d", resp.StatusCode)
 		}
 
 		var errorBody map[string]interface{}
 		if json.Unmarshal(bodyBytes, &errorBody) == nil {
-			rc.logger.Error("OpenAI session creation failed with detailed error",
+			rc.logger.Error("OpenAI 会话创建失败,带详细错误",
 				logger.Int("status_code", resp.StatusCode),
 				logger.Any("error_response", errorBody))
 		} else {
-			rc.logger.Error("OpenAI session creation failed",
+			rc.logger.Error("OpenAI 会话创建失败",
 				logger.Int("status_code", resp.StatusCode),
 				logger.String("response_body", string(bodyBytes)))
 		}
 
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("意外的状态码: %d", resp.StatusCode)
 	}
 
-	// Read response body for logging
+	// 读取响应主体用于日志记录
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("读取响应主体失败: %w", err)
 	}
 
-	// Log the full response
-	rc.logger.Info("=== OpenAI Session Creation Response ===")
-	rc.logger.Info("Response Status:", logger.Int("status_code", resp.StatusCode))
-	rc.logger.Info("Response Headers:")
+	// 记录完整的响应
+	rc.logger.Info("=== OpenAI 会话创建响应 ===")
+	rc.logger.Info("响应状态:", logger.Int("status_code", resp.StatusCode))
+	rc.logger.Info("响应头:")
 	for name, values := range resp.Header {
 		for _, value := range values {
 			rc.logger.Info("  " + name + ": " + value)
 		}
 	}
-	rc.logger.Info("Response Payload:", logger.String("json", string(bodyBytes)))
+	rc.logger.Info("响应载荷:", logger.String("json", string(bodyBytes)))
 
-	// Parse response
+	// 解析响应
 	var sessionResp SessionResponse
 	if err := json.Unmarshal(bodyBytes, &sessionResp); err != nil {
-		return nil, fmt.Errorf("failed to decode session response: %w", err)
+		return nil, fmt.Errorf("解码会话响应失败: %w", err)
 	}
 
-	// Create our session object
+	// 创建我们自己的会话对象
 	chatSession := &ChatSession{
 		ID:              generateSessionID(),
 		OpenAISessionID: sessionResp.ID,
@@ -216,7 +216,7 @@ func (rc *RealtimeClient) CreateSession(ctx context.Context, systemPrompt string
 		LastActivity:    time.Now().UTC(),
 	}
 
-	rc.logger.Info("Successfully created realtime session",
+	rc.logger.Info("成功创建 Realtime 会话",
 		logger.String("session_id", chatSession.ID),
 		logger.String("openai_session_id", chatSession.OpenAISessionID),
 		logger.Time("expires_at", chatSession.ExpiresAt))
@@ -224,51 +224,51 @@ func (rc *RealtimeClient) CreateSession(ctx context.Context, systemPrompt string
 	return chatSession, nil
 }
 
-// UpdateSessionInstructions updates the system instructions for an existing session
+// UpdateSessionInstructions 更新现有会话的系统指令
 func (rc *RealtimeClient) UpdateSessionInstructions(ctx context.Context, sessionID string, instructions string) error {
-	rc.logger.Debug("Updating session instructions",
+	rc.logger.Debug("正在更新会话指令",
 		logger.String("session_id", sessionID))
 
-	// Note: This would need to be implemented when the realtime API supports instruction updates
-	// For now, we'll log that this functionality is not yet available
+	// 注意:当 Realtime API 支持指令更新时,需要实现此功能
+	// 目前,我们只记录该功能尚不可用
 
-	rc.logger.Warn("Session instruction updates not yet implemented in realtime API",
+	rc.logger.Warn("会话指令更新尚未在 Realtime API 中实现",
 		logger.String("session_id", sessionID))
 
 	return nil
 }
 
-// EndSession terminates a realtime session
+// EndSession 终止一个 Realtime 会话
 func (rc *RealtimeClient) EndSession(ctx context.Context, sessionID string) error {
-	rc.logger.Info("Ending realtime session",
+	rc.logger.Info("正在结束 Realtime 会话",
 		logger.String("session_id", sessionID))
 
-	// Note: The realtime API might not have direct session termination endpoints yet
-	// For now, we'll just log the termination
+	// 注意:Realtime API 可能尚未提供直接的会话终止端点
+	// 目前,我们只记录终止操作
 
-	rc.logger.Info("Session marked for termination",
+	rc.logger.Info("会话已标记为终止",
 		logger.String("session_id", sessionID))
 
 	return nil
 }
 
-// ValidateSession checks if a session is still valid
+// ValidateSession 检查会话是否仍然有效
 func (rc *RealtimeClient) ValidateSession(session *ChatSession) bool {
 	if session == nil {
 		return false
 	}
 
-	// Check if session has expired
+	// 检查会话是否已过期
 	if time.Now().UTC().After(session.ExpiresAt) {
-		rc.logger.Debug("Session has expired",
+		rc.logger.Debug("会话已过期",
 			logger.String("session_id", session.ID),
 			logger.Time("expired_at", session.ExpiresAt))
 		return false
 	}
 
-	// Check if session is still active
+	// 检查会话是否仍然活跃
 	if !session.Active {
-		rc.logger.Debug("Session is not active",
+		rc.logger.Debug("会话未处于活跃状态",
 			logger.String("session_id", session.ID))
 		return false
 	}
@@ -276,38 +276,38 @@ func (rc *RealtimeClient) ValidateSession(session *ChatSession) bool {
 	return true
 }
 
-// RefreshSession creates a new session to replace an expiring one
+// RefreshSession 创建一个新会话以替换即将过期的会话
 func (rc *RealtimeClient) RefreshSession(ctx context.Context, oldSession *ChatSession, systemPrompt string) (*ChatSession, error) {
-	rc.logger.Info("Refreshing realtime session",
+	rc.logger.Info("正在刷新 Realtime 会话",
 		logger.String("old_session_id", oldSession.ID))
 
-	// Create a new session
+	// 创建新会话
 	newSession, err := rc.CreateSession(ctx, systemPrompt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create replacement session: %w", err)
+		return nil, fmt.Errorf("创建替换会话失败: %w", err)
 	}
 
-	// End the old session
+	// 结束旧会话
 	if err := rc.EndSession(ctx, oldSession.OpenAISessionID); err != nil {
-		rc.logger.Warn("Failed to properly end old session",
+		rc.logger.Warn("正确结束旧会话失败",
 			logger.String("old_session_id", oldSession.ID),
 			logger.Error(err))
 	}
 
-	rc.logger.Info("Successfully refreshed session",
+	rc.logger.Info("成功刷新会话",
 		logger.String("old_session_id", oldSession.ID),
 		logger.String("new_session_id", newSession.ID))
 
 	return newSession, nil
 }
 
-// GetSessionStatus returns the current status of a session
+// GetSessionStatus 返回会话的当前状态
 func (rc *RealtimeClient) GetSessionStatus(session *ChatSession) SessionStatus {
 	if session == nil {
 		return SessionStatus{
 			Active:    false,
 			Connected: false,
-			Error:     "Session is nil",
+			Error:     "会话为 nil",
 		}
 	}
 
@@ -321,21 +321,21 @@ func (rc *RealtimeClient) GetSessionStatus(session *ChatSession) SessionStatus {
 
 	if !status.Connected {
 		if time.Now().UTC().After(session.ExpiresAt) {
-			status.Error = "Session expired"
+			status.Error = "会话已过期"
 		} else if !session.Active {
-			status.Error = "Session inactive"
+			status.Error = "会话未激活"
 		}
 	}
 
 	return status
 }
 
-// generateSessionID generates a unique session ID
+// generateSessionID 生成唯一的会话 ID
 func generateSessionID() string {
 	return fmt.Sprintf("atc_chat_%d", time.Now().UnixNano())
 }
 
-// IsSessionExpiringSoon checks if a session will expire within the given duration
+// IsSessionExpiringSoon 检查会话是否会在给定时长内过期
 func (rc *RealtimeClient) IsSessionExpiringSoon(session *ChatSession, within time.Duration) bool {
 	if session == nil {
 		return true
@@ -345,7 +345,7 @@ func (rc *RealtimeClient) IsSessionExpiringSoon(session *ChatSession, within tim
 	return session.ExpiresAt.Before(expiryThreshold)
 }
 
-// GetTimeUntilExpiry returns the time until session expiry
+// GetTimeUntilExpiry 返回距离会话过期的剩余时间
 func (rc *RealtimeClient) GetTimeUntilExpiry(session *ChatSession) time.Duration {
 	if session == nil {
 		return 0

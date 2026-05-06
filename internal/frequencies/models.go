@@ -6,50 +6,50 @@ import (
 	"time"
 )
 
-// Frequency represents a monitored ATC frequency
+// Frequency 表示一个被监控的 ATC 频率
 type Frequency struct {
 	ID              string    `json:"id"`
 	Airport         string    `json:"airport"`
 	Name            string    `json:"name"`
 	FrequencyMHz    float64   `json:"frequency_mhz"`
 	URL             string    `json:"url"`
-	Status          string    `json:"status"` // "active", "connecting", "error"
+	Status          string    `json:"status"` // "active"、"connecting"、"error"
 	LastError       string    `json:"last_error,omitempty"`
 	Bitrate         int       `json:"bitrate,omitempty"`
 	Format          string    `json:"format,omitempty"`
-	StreamURL       string    `json:"stream_url"`  // Relative URL path to stream from our server
-	StreamPort      int       `json:"stream_port"` // Port to use for streaming (for load distribution)
+	StreamURL       string    `json:"stream_url"`  // 从本服务器流式传输的相对 URL 路径
+	StreamPort      int       `json:"stream_port"` // 用于流式传输的端口(用于负载分发)
 	LastActive      time.Time `json:"last_active,omitempty"`
-	Order           int       `json:"order"`            // Order for display/sorting
-	TranscribeAudio bool      `json:"transcribe_audio"` // Whether to transcribe audio for this frequency
+	Order           int       `json:"order"`            // 用于显示/排序的顺序
+	TranscribeAudio bool      `json:"transcribe_audio"` // 是否对该频率的音频进行转写
 }
 
-// Stream represents the resources for a single active client's connection to an audio feed.
-// It is NOT a shared resource in this model.
+// Stream 表示单个活跃客户端连接到音频源所占用的资源。
+// 在该模型中它不是共享资源。
 type Stream struct {
-	Reader         io.ReadCloser // The client's dedicated reader (now from audio.Processor)
-	OriginalStream io.ReadCloser // The client's dedicated connection to audio source (kept for backward compatibility)
+	Reader         io.ReadCloser // 客户端的专用 reader(现在来自 audio.Processor)
+	OriginalStream io.ReadCloser // 客户端到音频源的专用连接(为向后兼容保留)
 	ContentType    string
-	Bitrate        int                // Metadata for the stream
-	Format         string             // Metadata for the stream
-	processCancel  context.CancelFunc // Cancels the goroutine copying from OriginalStream to Reader for this client
+	Bitrate        int                // 流的元数据
+	Format         string             // 流的元数据
+	processCancel  context.CancelFunc // 用于取消负责将该客户端的 OriginalStream 拷贝到 Reader 的 goroutine
 }
 
-// FrequencyResponse represents the API response for frequency data
+// FrequencyResponse 表示频率数据的 API 响应
 type FrequencyResponse struct {
 	Timestamp   time.Time   `json:"timestamp"`
 	Count       int         `json:"count"`
 	Frequencies []Frequency `json:"frequencies"`
 }
 
-// StreamOptions contains options for streaming
+// StreamOptions 包含流式传输的选项
 type StreamOptions struct {
 	URL        string
 	BufferSize int
 	Timeout    time.Duration
 }
 
-// StreamMetadata contains metadata about an audio stream
+// StreamMetadata 包含音频流的元数据
 type StreamMetadata struct {
 	ContentType string
 	Bitrate     int

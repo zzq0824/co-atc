@@ -12,22 +12,22 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Import logger functions
+// 引入 logger 函数
 var (
 	String = logger.String
 	Int    = logger.Int
 	Error  = logger.Error
 )
 
-// sourceType indicates which audio source backend is being used
+// sourceType 指示正在使用哪种音频源后端
 type sourceType int
 
 const (
-	sourceTypeFFmpeg sourceType = iota // ffmpeg subprocess for HTTP streams
-	sourceTypeSRT                      // native SRT for srt:// URLs
+	sourceTypeFFmpeg sourceType = iota // 用于 HTTP 流的 ffmpeg 子进程
+	sourceTypeSRT                      // 用于 srt:// URL 的原生 SRT
 )
 
-// ConnectionStatus represents the current connection state of a frequency
+// ConnectionStatus 表示频率的当前连接状态
 type ConnectionStatus string
 
 const (
@@ -37,24 +37,24 @@ const (
 	StatusStopped    ConnectionStatus = "stopped"
 )
 
-// StatusChangeCallback is called when the connection status changes
+// StatusChangeCallback 在连接状态变更时被调用
 type StatusChangeCallback func(frequencyID string, status ConnectionStatus, errorMsg string)
 
-// CentralAudioProcessor manages audio processing for a frequency
-// that can be shared between browser streaming and transcription.
-// It automatically uses native SRT for srt:// URLs, or ffmpeg for HTTP streams.
+// CentralAudioProcessor 管理某个频率的音频处理,
+// 该频率可以在浏览器流式播放与转写之间共享。
+// 它会自动对 srt:// URL 使用原生 SRT,对 HTTP 流使用 ffmpeg。
 type CentralAudioProcessor struct {
 	id                       string
 	audioURL                 string
 	ffmpegPath               string
 	sampleRate               int
 	channels                 int
-	ffmpegTimeoutSecs        int // FFmpeg connection timeout in seconds
-	ffmpegReconnectDelaySecs int // FFmpeg reconnect delay in seconds
+	ffmpegTimeoutSecs        int // FFmpeg 连接超时(秒)
+	ffmpegReconnectDelaySecs int // FFmpeg 重连延迟(秒)
 	ffmpegCmd                *exec.Cmd
 	ffmpegStdout             io.ReadCloser
-	srtReader                *SRTReader // Native SRT reader (used instead of ffmpeg for srt://)
-	sourceType               sourceType // Which backend is being used
+	srtReader                *SRTReader // 原生 SRT 读取器(对 srt:// 使用,而非 ffmpeg)
+	sourceType               sourceType // 正在使用的后端
 	multiReader              *MultiReader
 	ctx                      context.Context
 	cancel                   context.CancelFunc
@@ -68,23 +68,23 @@ type CentralAudioProcessor struct {
 	reconnectDelay           time.Duration
 	format                   string
 	contentType              string
-	statusCallback           StatusChangeCallback // Callback for status changes
-	currentStatus            ConnectionStatus     // Current connection status
+	statusCallback           StatusChangeCallback // 状态变更回调
+	currentStatus            ConnectionStatus     // 当前连接状态
 }
 
-// CentralProcessorConfig contains configuration for the central audio processor
+// CentralProcessorConfig 包含中央音频处理器的配置
 type CentralProcessorConfig struct {
 	FFmpegPath               string
 	SampleRate               int
 	Channels                 int
 	Format                   string
 	ReconnectDelay           time.Duration
-	FFmpegTimeoutSecs        int // FFmpeg connection timeout in seconds (0 = no timeout)
-	FFmpegReconnectDelaySecs int // FFmpeg reconnect delay in seconds
+	FFmpegTimeoutSecs        int // FFmpeg 连接超时(秒,0 = 无超时)
+	FFmpegReconnectDelaySecs int // FFmpeg 重连延迟(秒)
 }
 
-// NewCentralAudioProcessor creates a new central audio processor.
-// For srt:// URLs, it uses native Go SRT library instead of ffmpeg.
+// NewCentralAudioProcessor 创建一个新的中央音频处理器。
+// 对于 srt:// URL,它使用原生 Go SRT 库而不是 ffmpeg。
 func NewCentralAudioProcessor(
 	ctx context.Context,
 	id string,
@@ -94,10 +94,10 @@ func NewCentralAudioProcessor(
 ) (*CentralAudioProcessor, error) {
 	procCtx, procCancel := context.WithCancel(ctx)
 
-	// Create multi-reader for sharing the stream
+	// 创建用于共享流的多读取器
 	multiReader := NewMultiReader(procCtx, logger.Named("multi-reader"))
 
-	// Determine source type based on URL
+	// 根据 URL 确定源类型
 	srcType := sourceTypeFFmpeg
 	if strings.HasPrefix(audioURL, "srt://") {
 		srcType = sourceTypeSRT
@@ -118,29 +118,29 @@ func NewCentralAudioProcessor(
 		logger:                   logger.Named("central-audio-processor").With(String("id", id)),
 		isRunning:                false,
 		lastActivity:             time.Now(),
-		contentType:              "audio/wav", // We'll be serving WAV format
+		contentType:              "audio/wav", // 我们将提供 WAV 格式
 		format:                   config.Format,
 		reconnectDelay:           config.ReconnectDelay,
 	}, nil
 }
 
-// SetStatusCallback sets the callback function for status changes
+// SetStatusCallback 设置状态变更的回调函数
 func (p *CentralAudioProcessor) SetStatusCallback(callback StatusChangeCallback) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.statusCallback = callback
 }
 
-// notifyStatusChange notifies listeners of a status change
+// notifyStatusChange 通知监听者状态变更
 func (p *CentralAudioProcessor) notifyStatusChange(status ConnectionStatus, errorMsg string) {
 	p.currentStatus = status
 	if p.statusCallback != nil {
-		// Call callback in a goroutine to prevent blocking
+		// 在 goroutine 中调用回调以避免阻塞
 		go p.statusCallback(p.id, status, errorMsg)
 	}
 }
 
-// Start starts the audio processor
+// Start 启动音频处理器
 func (p *CentralAudioProcessor) Start() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -149,41 +149,41 @@ func (p *CentralAudioProcessor) Start() error {
 		return nil
 	}
 
-	p.logger.Info("Starting central audio processor",
+	p.logger.Info("正在启动中央音频处理器",
 		String("url", p.audioURL),
 		Int("sample_rate", p.sampleRate),
 		Int("channels", p.channels),
 		String("source_type", p.sourceTypeString()))
 
-	// Notify connecting status
+	// 通知正在连接状态
 	p.notifyStatusChange(StatusConnecting, "")
 
-	// Start appropriate source based on URL type
+	// 根据 URL 类型启动相应的源
 	var err error
 	if p.sourceType == sourceTypeSRT {
 		err = p.startSRT()
 		if err != nil {
 			p.notifyStatusChange(StatusFailed, err.Error())
-			return fmt.Errorf("failed to start native SRT: %w", err)
+			return fmt.Errorf("启动原生 SRT 失败: %w", err)
 		}
 	} else {
 		err = p.startFFmpeg()
 		if err != nil {
 			p.notifyStatusChange(StatusFailed, err.Error())
-			return fmt.Errorf("failed to start ffmpeg: %w", err)
+			return fmt.Errorf("启动 ffmpeg 失败: %w", err)
 		}
 	}
 
-	// Start monitoring
+	// 启动监控
 	p.startMonitoring()
 
 	p.isRunning = true
-	// Notify connected status
+	// 通知已连接状态
 	p.notifyStatusChange(StatusConnected, "")
 	return nil
 }
 
-// sourceTypeString returns a human-readable string for the source type
+// sourceTypeString 返回源类型的人类可读字符串
 func (p *CentralAudioProcessor) sourceTypeString() string {
 	switch p.sourceType {
 	case sourceTypeSRT:
@@ -195,7 +195,7 @@ func (p *CentralAudioProcessor) sourceTypeString() string {
 	}
 }
 
-// Stop stops the audio processor
+// Stop 停止音频处理器
 func (p *CentralAudioProcessor) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -204,59 +204,59 @@ func (p *CentralAudioProcessor) Stop() error {
 		return nil
 	}
 
-	p.logger.Info("Stopping central audio processor",
+	p.logger.Info("正在停止中央音频处理器",
 		String("source_type", p.sourceTypeString()))
 
-	// Stop monitoring
+	// 停止监控
 	if p.monitorTicker != nil {
 		p.monitorTicker.Stop()
 		p.monitorTicker = nil
 	}
 
-	// Cancel context to stop all operations
+	// 取消上下文以停止所有操作
 	p.cancel()
 
-	// Stop the appropriate source
+	// 停止相应的源
 	if p.sourceType == sourceTypeSRT {
 		p.stopSRT()
 	} else {
 		p.stopFFmpeg()
 	}
 
-	// Close multi-reader
+	// 关闭多读取器
 	p.multiReader.Close()
 
 	p.isRunning = false
-	// Notify stopped status
+	// 通知已停止状态
 	p.notifyStatusChange(StatusStopped, "")
 	return nil
 }
 
-// startSRT starts the native SRT reader
+// startSRT 启动原生 SRT 读取器
 func (p *CentralAudioProcessor) startSRT() error {
-	p.logger.Debug("Starting native SRT reader",
+	p.logger.Debug("正在启动原生 SRT 读取器",
 		String("url", p.audioURL))
 
-	// Create SRT reader
+	// 创建 SRT 读取器
 	p.srtReader = NewSRTReader(p.ctx, p.audioURL, SRTReaderConfig{
 		ReconnectDelay: p.reconnectDelay,
 	}, p.logger)
 
-	// Connect to SRT stream
+	// 连接到 SRT 流
 	if err := p.srtReader.Connect(); err != nil {
-		return fmt.Errorf("failed to connect to SRT stream: %w", err)
+		return fmt.Errorf("连接到 SRT 流失败: %w", err)
 	}
 
-	// Start copying data from SRT to multi-reader
+	// 启动从 SRT 复制数据到多读取器的协程
 	go p.processSRTOutput()
 
 	return nil
 }
 
-// stopSRT stops the native SRT reader
+// stopSRT 停止原生 SRT 读取器
 func (p *CentralAudioProcessor) stopSRT() {
 	if p.srtReader != nil {
-		p.logger.Info("Stopping SRT reader")
+		p.logger.Info("正在停止 SRT 读取器")
 		_ = p.srtReader.Close()
 		p.srtReader = nil
 	}
@@ -267,9 +267,9 @@ func (p *CentralAudioProcessor) stopSRT() {
 	}
 }
 
-// processSRTOutput reads from SRT and writes to multi-reader
+// processSRTOutput 从 SRT 读取并写入多读取器
 func (p *CentralAudioProcessor) processSRTOutput() {
-	p.logger.Info("Starting to process SRT output")
+	p.logger.Info("开始处理 SRT 输出")
 
 	buffer := make([]byte, 4096)
 	bytesProcessed := 0
@@ -279,30 +279,30 @@ func (p *CentralAudioProcessor) processSRTOutput() {
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Info("Context canceled, stopping SRT output processing",
+			p.logger.Info("上下文已取消,停止 SRT 输出处理",
 				Int("total_bytes_processed", bytesProcessed))
 			return
 		default:
 			n, err := p.srtReader.Read(buffer)
 			if err != nil {
 				if err == io.EOF {
-					p.logger.Warn("SRT stream ended unexpectedly",
+					p.logger.Warn("SRT 流意外结束",
 						Int("total_bytes_processed", bytesProcessed),
 						String("duration_since_start", time.Since(lastLogTime).String()))
 				} else {
-					p.logger.Error("Error reading from SRT", Error(err),
+					p.logger.Error("从 SRT 读取出错", Error(err),
 						Int("total_bytes_processed", bytesProcessed),
 						String("duration_since_start", time.Since(lastLogTime).String()))
 					p.lastError = err
 				}
 
-				// Attempt to restart SRT after a delay
+				// 在延迟后尝试重启 SRT
 				p.mu.Lock()
 				if p.isRunning && p.reconnectTimer == nil {
-					p.logger.Warn("Scheduling SRT restart due to read error",
+					p.logger.Warn("由于读取错误,计划重启 SRT",
 						String("error_type", fmt.Sprintf("%T", err)),
 						String("error_message", err.Error()))
-					// Notify failed status
+					// 通知失败状态
 					p.notifyStatusChange(StatusFailed, err.Error())
 					p.reconnectTimer = time.AfterFunc(p.reconnectDelay, func() {
 						p.mu.Lock()
@@ -310,14 +310,14 @@ func (p *CentralAudioProcessor) processSRTOutput() {
 
 						p.reconnectTimer = nil
 						if p.isRunning {
-							p.logger.Info("Executing scheduled SRT restart")
+							p.logger.Info("正在执行计划的 SRT 重启")
 							p.notifyStatusChange(StatusConnecting, "")
 							p.stopSRT()
 							if err := p.startSRT(); err != nil {
-								p.logger.Error("Failed to restart SRT", Error(err))
+								p.logger.Error("重启 SRT 失败", Error(err))
 								p.notifyStatusChange(StatusFailed, err.Error())
 							} else {
-								p.logger.Info("SRT restarted successfully")
+								p.logger.Info("SRT 重启成功")
 								p.notifyStatusChange(StatusConnected, "")
 							}
 						}
@@ -330,19 +330,19 @@ func (p *CentralAudioProcessor) processSRTOutput() {
 			if n > 0 {
 				data := buffer[:n]
 
-				// On first read, detect and strip WAV header if present.
-				// The SRT server in WAV mode sends a 44-byte RIFF header as the
-				// first message. We strip it so all downstream consumers get raw PCM.
+				// 在首次读取时,检测并去除存在的 WAV 头。
+				// WAV 模式下的 SRT 服务器会将 44 字节的 RIFF 头作为
+				// 第一条消息发送。我们将其去除,使所有下游消费者得到原始 PCM 数据。
 				if !headerChecked {
 					headerChecked = true
 					if n >= 4 && data[0] == 'R' && data[1] == 'I' && data[2] == 'F' && data[3] == 'F' {
 						const wavHeaderSize = 44
 						if n <= wavHeaderSize {
-							p.logger.Info("Stripped WAV header from SRT stream",
+							p.logger.Info("已从 SRT 流中去除 WAV 头",
 								Int("header_bytes", n))
 							continue
 						}
-						p.logger.Info("Stripped WAV header from SRT stream",
+						p.logger.Info("已从 SRT 流中去除 WAV 头",
 							Int("header_bytes", wavHeaderSize))
 						data = data[wavHeaderSize:]
 					}
@@ -351,18 +351,18 @@ func (p *CentralAudioProcessor) processSRTOutput() {
 				bytesProcessed += len(data)
 				p.lastActivity = time.Now()
 
-				// Log progress every 30 seconds
+				// 每 30 秒记录一次进度
 				if time.Since(lastLogTime) > 30*time.Second {
-					p.logger.Debug("SRT processing progress",
+					p.logger.Debug("SRT 处理进度",
 						Int("bytes_processed", bytesProcessed),
 						Int("bytes_this_read", len(data)),
 						String("duration", time.Since(lastLogTime).String()))
 					lastLogTime = time.Now()
 				}
 
-				// Write to multi-reader
+				// 写入多读取器
 				if _, err := p.multiReader.Write(data); err != nil {
-					p.logger.Error("Error writing to multi-reader", Error(err),
+					p.logger.Error("写入多读取器出错", Error(err),
 						Int("bytes_processed_before_error", bytesProcessed))
 					return
 				}
@@ -371,72 +371,72 @@ func (p *CentralAudioProcessor) processSRTOutput() {
 	}
 }
 
-// startFFmpeg starts the ffmpeg process for HTTP streams
+// startFFmpeg 启动用于 HTTP 流的 ffmpeg 进程
 func (p *CentralAudioProcessor) startFFmpeg() error {
-	p.logger.Debug("Starting ffmpeg process",
+	p.logger.Debug("正在启动 ffmpeg 进程",
 		String("path", p.ffmpegPath),
 		String("url", p.audioURL))
 
-	// HTTP stream configuration - optimized for low latency with reconnection
+	// HTTP 流配置 - 针对低延迟与重连进行优化
 	args := []string{
-		"-loglevel", "error",  // Minimal logging
-		"-fflags", "nobuffer", // Disable input buffering
-		"-flags", "low_delay", // Enable low delay mode
+		"-loglevel", "error", // 最少日志
+		"-fflags", "nobuffer", // 禁用输入缓冲
+		"-flags", "low_delay", // 启用低延迟模式
 	}
 
-	// Add timeout if configured (convert seconds to microseconds)
+	// 如已配置,添加超时(将秒转换为微秒)
 	if p.ffmpegTimeoutSecs > 0 {
 		timeoutMicros := p.ffmpegTimeoutSecs * 1000000
 		args = append(args, "-timeout", fmt.Sprintf("%d", timeoutMicros))
 	}
 
-	// Add reconnection settings
+	// 添加重连设置
 	args = append(args,
-		"-reconnect", "1",           // Enable reconnection
-		"-reconnect_at_eof", "1",    // Reconnect at end of file
-		"-reconnect_streamed", "1",  // Reconnect for streamed inputs
-		"-reconnect_delay_max", fmt.Sprintf("%d", p.ffmpegReconnectDelaySecs), // Configurable reconnect delay
-		"-i", p.audioURL,            // Input URL
-		"-f", p.format,              // Output format (should be s16le for raw PCM)
-		"-acodec", "pcm_s16le",      // Audio codec
-		"-ac", fmt.Sprintf("%d", p.channels),    // Channels
-		"-ar", fmt.Sprintf("%d", p.sampleRate),  // Sample rate
-		"-flush_packets", "1",       // Flush packets immediately
-		"pipe:1",                    // Output to stdout
+		"-reconnect", "1", // 启用重连
+		"-reconnect_at_eof", "1", // 在文件末尾时重连
+		"-reconnect_streamed", "1", // 对流式输入启用重连
+		"-reconnect_delay_max", fmt.Sprintf("%d", p.ffmpegReconnectDelaySecs), // 可配置的重连延迟
+		"-i", p.audioURL, // 输入 URL
+		"-f", p.format, // 输出格式(应为原始 PCM 的 s16le)
+		"-acodec", "pcm_s16le", // 音频编解码器
+		"-ac", fmt.Sprintf("%d", p.channels), // 声道数
+		"-ar", fmt.Sprintf("%d", p.sampleRate), // 采样率
+		"-flush_packets", "1", // 立即刷新数据包
+		"pipe:1", // 输出到 stdout
 	)
 
-	// Create ffmpeg command with enhanced arguments
+	// 使用增强参数创建 ffmpeg 命令
 	p.ffmpegCmd = exec.CommandContext(p.ctx, p.ffmpegPath, args...)
 
-	// Get stdout pipe
+	// 获取 stdout 管道
 	var err error
 	p.ffmpegStdout, err = p.ffmpegCmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
+		return fmt.Errorf("创建 stdout 管道失败: %w", err)
 	}
 
-	// Start ffmpeg
+	// 启动 ffmpeg
 	if err := p.ffmpegCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start ffmpeg: %w", err)
+		return fmt.Errorf("启动 ffmpeg 失败: %w", err)
 	}
 
-	// Start copying data from ffmpeg to multi-reader
+	// 启动从 ffmpeg 复制数据到多读取器的协程
 	go p.processFFmpegOutput()
 
 	return nil
 }
 
-// stopFFmpeg stops the ffmpeg process
+// stopFFmpeg 停止 ffmpeg 进程
 func (p *CentralAudioProcessor) stopFFmpeg() {
 	if p.ffmpegCmd != nil && p.ffmpegCmd.Process != nil {
-		p.logger.Info("Stopping ffmpeg process")
+		p.logger.Info("正在停止 ffmpeg 进程")
 
-		// Try to kill the process, but don't log errors during shutdown
-		// These errors are expected as ffmpeg may already be terminated
+		// 尝试杀死进程,但在关闭过程中不记录错误
+		// 这些错误是预期的,因为 ffmpeg 可能已经终止
 		_ = p.ffmpegCmd.Process.Kill()
 
-		// Wait for the process to exit, but don't log errors
-		// The exit status might be non-zero or the process might already be gone
+		// 等待进程退出,但不记录错误
+		// 退出状态可能是非零的,或进程可能已经消失
 		_ = p.ffmpegCmd.Wait()
 	}
 
@@ -446,11 +446,11 @@ func (p *CentralAudioProcessor) stopFFmpeg() {
 	}
 }
 
-// processFFmpegOutput processes the output from ffmpeg
+// processFFmpegOutput 处理来自 ffmpeg 的输出
 func (p *CentralAudioProcessor) processFFmpegOutput() {
-	p.logger.Info("Starting to process ffmpeg output")
+	p.logger.Info("开始处理 ffmpeg 输出")
 
-	// Create buffer for reading
+	// 创建用于读取的缓冲区
 	buffer := make([]byte, 4096)
 	bytesProcessed := 0
 	lastLogTime := time.Now()
@@ -458,31 +458,31 @@ func (p *CentralAudioProcessor) processFFmpegOutput() {
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Info("Context canceled, stopping ffmpeg output processing",
+			p.logger.Info("上下文已取消,停止 ffmpeg 输出处理",
 				Int("total_bytes_processed", bytesProcessed))
 			return
 		default:
-			// Read from ffmpeg
+			// 从 ffmpeg 读取
 			n, err := p.ffmpegStdout.Read(buffer)
 			if err != nil {
 				if err == io.EOF {
-					p.logger.Warn("FFmpeg output ended unexpectedly",
+					p.logger.Warn("FFmpeg 输出意外结束",
 						Int("total_bytes_processed", bytesProcessed),
 						String("duration_since_start", time.Since(lastLogTime).String()))
 				} else {
-					p.logger.Error("Error reading from ffmpeg", Error(err),
+					p.logger.Error("从 ffmpeg 读取出错", Error(err),
 						Int("total_bytes_processed", bytesProcessed),
 						String("duration_since_start", time.Since(lastLogTime).String()))
 					p.lastError = err
 				}
 
-				// Attempt to restart ffmpeg after a delay
+				// 在延迟后尝试重启 ffmpeg
 				p.mu.Lock()
 				if p.isRunning && p.reconnectTimer == nil {
-					p.logger.Warn("Scheduling ffmpeg restart due to read error",
+					p.logger.Warn("由于读取错误,计划重启 ffmpeg",
 						String("error_type", fmt.Sprintf("%T", err)),
 						String("error_message", err.Error()))
-					// Notify failed status
+					// 通知失败状态
 					p.notifyStatusChange(StatusFailed, err.Error())
 					p.reconnectTimer = time.AfterFunc(p.reconnectDelay, func() {
 						p.mu.Lock()
@@ -490,14 +490,14 @@ func (p *CentralAudioProcessor) processFFmpegOutput() {
 
 						p.reconnectTimer = nil
 						if p.isRunning {
-							p.logger.Info("Executing scheduled ffmpeg restart")
+							p.logger.Info("正在执行计划的 ffmpeg 重启")
 							p.notifyStatusChange(StatusConnecting, "")
 							p.stopFFmpeg()
 							if err := p.startFFmpeg(); err != nil {
-								p.logger.Error("Failed to restart ffmpeg", Error(err))
+								p.logger.Error("重启 ffmpeg 失败", Error(err))
 								p.notifyStatusChange(StatusFailed, err.Error())
 							} else {
-								p.logger.Info("FFmpeg restarted successfully")
+								p.logger.Info("FFmpeg 重启成功")
 								p.notifyStatusChange(StatusConnected, "")
 							}
 						}
@@ -509,21 +509,21 @@ func (p *CentralAudioProcessor) processFFmpegOutput() {
 
 			if n > 0 {
 				bytesProcessed += n
-				// Update last activity time
+				// 更新最后活动时间
 				p.lastActivity = time.Now()
 
-				// Log progress every 30 seconds
+				// 每 30 秒记录一次进度
 				if time.Since(lastLogTime) > 30*time.Second {
-					p.logger.Debug("FFmpeg processing progress",
+					p.logger.Debug("FFmpeg 处理进度",
 						Int("bytes_processed", bytesProcessed),
 						Int("bytes_this_read", n),
 						String("duration", time.Since(lastLogTime).String()))
 					lastLogTime = time.Now()
 				}
 
-				// Write to multi-reader
+				// 写入多读取器
 				if _, err := p.multiReader.Write(buffer[:n]); err != nil {
-					p.logger.Error("Error writing to multi-reader", Error(err),
+					p.logger.Error("写入多读取器出错", Error(err),
 						Int("bytes_processed_before_error", bytesProcessed))
 					return
 				}
@@ -532,7 +532,7 @@ func (p *CentralAudioProcessor) processFFmpegOutput() {
 	}
 }
 
-// startMonitoring starts monitoring the audio source (ffmpeg or SRT)
+// startMonitoring 启动对音频源(ffmpeg 或 SRT)的监控
 func (p *CentralAudioProcessor) startMonitoring() {
 	p.monitorTicker = time.NewTicker(5 * time.Second)
 
@@ -544,16 +544,16 @@ func (p *CentralAudioProcessor) startMonitoring() {
 			case <-p.monitorTicker.C:
 				p.mu.Lock()
 				if p.sourceType == sourceTypeSRT {
-					// Monitor SRT connection
+					// 监控 SRT 连接
 					if p.isRunning && p.srtReader != nil && !p.srtReader.IsConnected() {
-						p.logger.Warn("SRT connection lost")
+						p.logger.Warn("SRT 连接已丢失")
 
 						if p.isRunning && p.reconnectTimer == nil {
-							p.logger.Info("Restarting SRT after connection loss")
-							p.notifyStatusChange(StatusConnecting, "Reconnecting after connection loss")
+							p.logger.Info("连接丢失后正在重启 SRT")
+							p.notifyStatusChange(StatusConnecting, "连接丢失后正在重连")
 							p.stopSRT()
 							if err := p.startSRT(); err != nil {
-								p.logger.Error("Failed to restart SRT", Error(err))
+								p.logger.Error("重启 SRT 失败", Error(err))
 								p.notifyStatusChange(StatusFailed, err.Error())
 							} else {
 								p.notifyStatusChange(StatusConnected, "")
@@ -561,16 +561,16 @@ func (p *CentralAudioProcessor) startMonitoring() {
 						}
 					}
 				} else {
-					// Monitor ffmpeg process
+					// 监控 ffmpeg 进程
 					if p.isRunning && p.ffmpegCmd != nil && p.ffmpegCmd.ProcessState != nil {
-						p.logger.Warn("FFmpeg process has exited unexpectedly")
+						p.logger.Warn("FFmpeg 进程意外退出")
 
 						if p.isRunning && p.reconnectTimer == nil {
-							p.logger.Info("Restarting ffmpeg after unexpected exit")
-							p.notifyStatusChange(StatusConnecting, "Reconnecting after process exit")
+							p.logger.Info("进程意外退出后正在重启 ffmpeg")
+							p.notifyStatusChange(StatusConnecting, "进程退出后正在重连")
 							p.stopFFmpeg()
 							if err := p.startFFmpeg(); err != nil {
-								p.logger.Error("Failed to restart ffmpeg", Error(err))
+								p.logger.Error("重启 ffmpeg 失败", Error(err))
 								p.notifyStatusChange(StatusFailed, err.Error())
 							} else {
 								p.notifyStatusChange(StatusConnected, "")
@@ -584,7 +584,7 @@ func (p *CentralAudioProcessor) startMonitoring() {
 	}()
 }
 
-// CreateReader creates a new reader for the audio stream (with WAV header for browser playback)
+// CreateReader 为音频流创建一个新的读取器(带 WAV 头,用于浏览器播放)
 func (p *CentralAudioProcessor) CreateReader(id string) (io.ReadCloser, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -597,17 +597,17 @@ func (p *CentralAudioProcessor) CreateReader(id string) (io.ReadCloser, error) {
 			err = p.startFFmpeg()
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to start processor: %w", err)
+			return nil, fmt.Errorf("启动处理器失败: %w", err)
 		}
 		p.isRunning = true
 	}
 
-	// Create a reader with WAV header
+	// 创建带 WAV 头的读取器
 	reader := p.multiReader.CreateReader(id)
 	return NewWAVReader(reader, p.sampleRate, p.channels), nil
 }
 
-// CreateRawReader creates a new reader for raw PCM audio (no WAV header, for transcription)
+// CreateRawReader 为原始 PCM 音频创建一个新的读取器(无 WAV 头,用于转写)
 func (p *CentralAudioProcessor) CreateRawReader(id string) (io.ReadCloser, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -620,21 +620,21 @@ func (p *CentralAudioProcessor) CreateRawReader(id string) (io.ReadCloser, error
 			err = p.startFFmpeg()
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to start processor: %w", err)
+			return nil, fmt.Errorf("启动处理器失败: %w", err)
 		}
 		p.isRunning = true
 	}
 
-	// Return raw PCM reader without WAV header
+	// 返回不带 WAV 头的原始 PCM 读取器
 	return p.multiReader.CreateReader(id), nil
 }
 
-// RemoveReader removes a reader
+// RemoveReader 移除一个读取器
 func (p *CentralAudioProcessor) RemoveReader(id string) {
 	p.multiReader.RemoveReader(id)
 }
 
-// GetStatus returns the status of the processor
+// GetStatus 返回处理器的状态
 func (p *CentralAudioProcessor) GetStatus() (string, time.Time, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -650,12 +650,12 @@ func (p *CentralAudioProcessor) GetStatus() (string, time.Time, error) {
 	return "running", p.lastActivity, nil
 }
 
-// GetContentType returns the content type of the audio stream
+// GetContentType 返回音频流的内容类型
 func (p *CentralAudioProcessor) GetContentType() string {
 	return p.contentType
 }
 
-// GetFormat returns the format of the audio stream
+// GetFormat 返回音频流的格式
 func (p *CentralAudioProcessor) GetFormat() string {
 	return p.format
 }

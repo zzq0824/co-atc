@@ -13,9 +13,9 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// SRTReader reads audio data from an SRT stream using native Go SRT library.
-// This replaces ffmpeg for SRT streams, providing a cleaner solution with
-// fewer processes. The SRT stream is expected to output WAV/PCM s16le data.
+// SRTReader 使用原生 Go SRT 库从 SRT 流中读取音频数据。
+// 它替代了用于 SRT 流的 ffmpeg,提供了更简洁的方案,
+// 进程数更少。预期 SRT 流输出 WAV/PCM s16le 数据。
 type SRTReader struct {
 	url            string
 	conn           srt.Conn
@@ -28,13 +28,13 @@ type SRTReader struct {
 	reconnectDelay time.Duration
 }
 
-// SRTReaderConfig contains configuration for the SRT reader
+// SRTReaderConfig 包含 SRT 读取器的配置
 type SRTReaderConfig struct {
 	ReconnectDelay time.Duration
 }
 
-// NewSRTReader creates a new SRT reader for the given URL.
-// The URL should be in the format srt://host:port
+// NewSRTReader 为给定 URL 创建一个新的 SRT 读取器。
+// URL 应该是 srt://host:port 的格式
 func NewSRTReader(
 	ctx context.Context,
 	url string,
@@ -52,21 +52,21 @@ func NewSRTReader(
 	}
 }
 
-// parseSRTURL parses an SRT URL and returns host:port
-// Supports: srt://host:port and srt://host:port?streamid=...
+// parseSRTURL 解析 SRT URL 并返回 host:port
+// 支持:srt://host:port 以及 srt://host:port?streamid=...
 func parseSRTURL(url string) (address string, streamID string, err error) {
-	// Remove srt:// prefix
+	// 移除 srt:// 前缀
 	if !strings.HasPrefix(url, "srt://") {
-		return "", "", fmt.Errorf("invalid SRT URL: must start with srt://")
+		return "", "", fmt.Errorf("无效的 SRT URL:必须以 srt:// 开头")
 	}
 
 	rest := strings.TrimPrefix(url, "srt://")
 
-	// Split by ? to separate address from query params
+	// 通过 ? 分隔地址与查询参数
 	parts := strings.SplitN(rest, "?", 2)
 	address = parts[0]
 
-	// Parse query params for streamid
+	// 解析查询参数中的 streamid
 	if len(parts) > 1 {
 		params := strings.Split(parts[1], "&")
 		for _, param := range params {
@@ -78,16 +78,16 @@ func parseSRTURL(url string) (address string, streamID string, err error) {
 		}
 	}
 
-	// Validate address has port
+	// 校验地址包含端口
 	_, _, err = net.SplitHostPort(address)
 	if err != nil {
-		return "", "", fmt.Errorf("invalid SRT address %q: %w", address, err)
+		return "", "", fmt.Errorf("无效的 SRT 地址 %q: %w", address, err)
 	}
 
 	return address, streamID, nil
 }
 
-// Connect establishes connection to the SRT stream
+// Connect 建立到 SRT 流的连接
 func (r *SRTReader) Connect() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -98,15 +98,15 @@ func (r *SRTReader) Connect() error {
 
 	address, streamID, err := parseSRTURL(r.url)
 	if err != nil {
-		return fmt.Errorf("failed to parse SRT URL: %w", err)
+		return fmt.Errorf("解析 SRT URL 失败: %w", err)
 	}
 
-	r.logger.Info("Connecting to SRT stream",
+	r.logger.Info("正在连接到 SRT 流",
 		String("address", address),
 		String("stream_id", streamID))
 
-	// Configure SRT connection for live audio streaming
-	// rtl-airband uses live mode with TSBPD enabled
+	// 为实时音频流配置 SRT 连接
+	// rtl-airband 使用启用了 TSBPD 的 live 模式
 	config := srt.DefaultConfig()
 	config.TransmissionType = "live"
 
@@ -114,33 +114,33 @@ func (r *SRTReader) Connect() error {
 		config.StreamId = streamID
 	}
 
-	// Validate config before dialing
+	// 在拨号前校验配置
 	if err := config.Validate(); err != nil {
-		return fmt.Errorf("invalid SRT config: %w", err)
+		return fmt.Errorf("无效的 SRT 配置: %w", err)
 	}
 
-	r.logger.Debug("SRT config",
+	r.logger.Debug("SRT 配置",
 		String("transmission_type", config.TransmissionType),
 		String("stream_id", config.StreamId))
 
-	// Dial the SRT server
+	// 拨号连接 SRT 服务器
 	conn, err := srt.Dial("srt", address, config)
 	if err != nil {
 		r.lastError = err
-		return fmt.Errorf("failed to connect to SRT stream: %w", err)
+		return fmt.Errorf("连接到 SRT 流失败: %w", err)
 	}
 
 	r.conn = conn
 	r.isConnected = true
 	r.lastError = nil
 
-	r.logger.Info("Connected to SRT stream successfully",
+	r.logger.Info("成功连接到 SRT 流",
 		String("address", address))
 
 	return nil
 }
 
-// Read reads data from the SRT stream
+// Read 从 SRT 流读取数据
 func (r *SRTReader) Read(p []byte) (n int, err error) {
 	r.mu.Lock()
 	if !r.isConnected || r.conn == nil {
@@ -150,7 +150,7 @@ func (r *SRTReader) Read(p []byte) (n int, err error) {
 	conn := r.conn
 	r.mu.Unlock()
 
-	// Check context
+	// 检查上下文
 	select {
 	case <-r.ctx.Done():
 		return 0, r.ctx.Err()
@@ -165,9 +165,9 @@ func (r *SRTReader) Read(p []byte) (n int, err error) {
 		r.mu.Unlock()
 
 		if err == io.EOF {
-			r.logger.Warn("SRT stream ended")
+			r.logger.Warn("SRT 流已结束")
 		} else {
-			r.logger.Error("Error reading from SRT stream", Error(err))
+			r.logger.Error("从 SRT 流读取出错", Error(err))
 		}
 		return n, err
 	}
@@ -175,7 +175,7 @@ func (r *SRTReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-// Close closes the SRT connection
+// Close 关闭 SRT 连接
 func (r *SRTReader) Close() error {
 	r.cancel()
 
@@ -183,7 +183,7 @@ func (r *SRTReader) Close() error {
 	defer r.mu.Unlock()
 
 	if r.conn != nil {
-		r.logger.Info("Closing SRT connection")
+		r.logger.Info("正在关闭 SRT 连接")
 		err := r.conn.Close()
 		r.conn = nil
 		r.isConnected = false
@@ -193,14 +193,14 @@ func (r *SRTReader) Close() error {
 	return nil
 }
 
-// IsConnected returns whether the reader is currently connected
+// IsConnected 返回读取器当前是否已连接
 func (r *SRTReader) IsConnected() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.isConnected
 }
 
-// LastError returns the last error encountered
+// LastError 返回最后遇到的错误
 func (r *SRTReader) LastError() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

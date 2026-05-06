@@ -7,7 +7,7 @@ import (
 	"github.com/yegors/co-atc/internal/weather"
 )
 
-// ChatSession represents an active ATC chat session
+// ChatSession 表示一个活跃的 ATC 聊天会话
 type ChatSession struct {
 	ID              string    `json:"id"`
 	OpenAISessionID string    `json:"openai_session_id"`
@@ -18,17 +18,17 @@ type ChatSession struct {
 	LastActivity    time.Time `json:"last_activity"`
 }
 
-// ChatMessage represents a message in the chat session
+// ChatMessage 表示聊天会话中的一条消息
 type ChatMessage struct {
 	ID        string    `json:"id"`
 	SessionID string    `json:"session_id"`
-	Type      string    `json:"type"` // "user", "assistant", "system"
+	Type      string    `json:"type"` // "user"、"assistant"、"system"
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
 	AudioData []byte    `json:"audio_data,omitempty"`
 }
 
-// AirspaceContext represents the current airspace data for AI context
+// AirspaceContext 表示用于 AI 上下文的当前空域数据
 type AirspaceContext struct {
 	Timestamp            time.Time              `json:"timestamp"`
 	Airport              AirportInfo            `json:"airport"`
@@ -39,7 +39,7 @@ type AirspaceContext struct {
 	ActiveSessions       int                    `json:"active_sessions"`
 }
 
-// AirportInfo represents airport information
+// AirportInfo 表示机场信息
 type AirportInfo struct {
 	Code        string    `json:"code"`
 	Name        string    `json:"name"`
@@ -47,7 +47,7 @@ type AirportInfo struct {
 	ElevationFt int       `json:"elevation_ft"`
 }
 
-// RunwayInfo represents runway information
+// RunwayInfo 表示跑道信息
 type RunwayInfo struct {
 	Name       string   `json:"name"`
 	Heading    int      `json:"heading"`
@@ -56,7 +56,7 @@ type RunwayInfo struct {
 	Operations []string `json:"operations"`
 }
 
-// TranscriptionSummary represents recent radio communications
+// TranscriptionSummary 表示近期的无线电通信
 type TranscriptionSummary struct {
 	Timestamp time.Time `json:"timestamp"`
 	Frequency string    `json:"frequency"`
@@ -65,7 +65,7 @@ type TranscriptionSummary struct {
 	Callsign  string    `json:"callsign,omitempty"`
 }
 
-// PromptData represents data for template rendering
+// PromptData 表示用于模板渲染的数据
 type PromptData struct {
 	Aircraft             string `json:"aircraft"`
 	Weather              string `json:"weather"`
@@ -76,7 +76,7 @@ type PromptData struct {
 	Time                 string `json:"time"`
 }
 
-// SessionConfig represents configuration for a chat session
+// SessionConfig 表示聊天会话的配置
 type SessionConfig struct {
 	InputAudioFormat  string  `json:"input_audio_format"`
 	OutputAudioFormat string  `json:"output_audio_format"`
@@ -91,7 +91,7 @@ type SessionConfig struct {
 	Model             string  `json:"model"`
 }
 
-// WebSocketMessage represents messages sent over WebSocket
+// WebSocketMessage 表示通过 WebSocket 发送的消息
 type WebSocketMessage struct {
 	Type      string                 `json:"type"`
 	SessionID string                 `json:"session_id,omitempty"`
@@ -100,7 +100,7 @@ type WebSocketMessage struct {
 	Timestamp time.Time              `json:"timestamp"`
 }
 
-// AudioChunk represents an audio data chunk
+// AudioChunk 表示音频数据分块
 type AudioChunk struct {
 	SessionID string    `json:"session_id"`
 	Data      []byte    `json:"data"`
@@ -108,7 +108,7 @@ type AudioChunk struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// SessionStatus represents the status of a chat session
+// SessionStatus 表示聊天会话的状态
 type SessionStatus struct {
 	ID           string    `json:"id"`
 	Active       bool      `json:"active"`
