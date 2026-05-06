@@ -1567,22 +1567,20 @@ func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseC
 	return phaseChanges
 }
 
-// evaluatePhaseChange applies phase stability rules and determines if a phase change
-// should be inserted into the database.
+// evaluatePhaseChange 应用阶段稳定性规则并判断是否应将阶段变化插入数据库。
 //
-// The trajectory-based phase detection (TrajectoryTracker.DeterminePhase) already provides
-// noise-resistant classification through trajectory window analysis, so airborne flapping
-// prevention is no longer needed. This function handles only:
+// 基于轨迹的阶段检测(TrajectoryTracker.DeterminePhase)已经通过轨迹窗口分析
+// 提供了抗噪声分类,因此空中抖动预防不再必要。此函数仅处理:
 //
-//  1. T/O preservation — Keep takeoff phase visible for PhasePreservationSeconds
-//  2. T/D post-landing flow — Transition T/D → TAX or T/D → NEW based on ground speed
-//  3. Ground phase protection — Prevent premature TAX→NEW and T/D→NEW transitions
-//  4. Inactive aircraft timeout — Revert long-parked aircraft to NEW
+//  1. T/O 保留 — 在 PhasePreservationSeconds 期间保持起飞阶段可见
+//  2. T/D 着陆后流程 — 根据地速将 T/D → TAX 或 T/D → NEW
+//  3. 地面阶段保护 — 防止过早的 TAX→NEW 与 T/D→NEW 切换
+//  4. 非活跃飞行器超时 — 将长时间停放的飞行器恢复为 NEW
 func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChange, newPhase string) (string, bool) {
 	currentPhase := newPhase
 
-	// ── T/D post-landing flow ────────────────────────────────────────
-	// After landing, guide the aircraft through T/D → TAX → NEW gracefully.
+	// ── T/D 着陆后流程 ────────────────────────────────────────
+	// 着陆后,平稳地引导飞行器经过 T/D → TAX → NEW。
 	if latestPhase != nil && latestPhase.Phase == "T/D" {
 		if currentPhase == "NEW" {
 			groundSpeed := 0.0
@@ -1594,7 +1592,7 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 				groundSpeed <= float64(s.flightPhasesConfig.TaxiingMaxSpeedKts) {
 				currentPhase = "TAX"
 			} else {
-				// Keep T/D visible for the preservation period
+				// 在保留期内保持 T/D 可见
 				timeSinceLanding := time.Since(latestPhase.Timestamp).Seconds()
 				if timeSinceLanding < float64(s.flightPhasesConfig.PhasePreservationSeconds) {
 					currentPhase = "T/D"
@@ -1607,9 +1605,9 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 		}
 	}
 
-	// ── T/O preservation ─────────────────────────────────────────────
-	// Keep takeoff phase visible for at least PhasePreservationSeconds so
-	// controllers can see it in the UI before it transitions to DEP.
+	// ── T/O 保留 ─────────────────────────────────────────────
+	// 至少在 PhasePreservationSeconds 期间保持起飞阶段可见,
+	// 以便管制员能在 UI 中看到它,然后再切换到 DEP。
 	if latestPhase != nil && latestPhase.Phase == "T/O" {
 		timeSinceTakeoff := time.Since(latestPhase.Timestamp).Seconds()
 		if timeSinceTakeoff < float64(s.flightPhasesConfig.PhasePreservationSeconds) {
@@ -1617,10 +1615,9 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 		}
 	}
 
-	// ── Phase stability: suppress directional→UNK flapping ──────────
-	// Directional airborne phases (CLB, DEP, ARR) shouldn't downgrade to
-	// UNK just because a brief turn reverses the distance trend. Only allow
-	// transitions to other meaningful phases, not to UNK.
+	// ── 阶段稳定性:抑制方向性→UNK 抖动 ──────────
+	// 方向性的空中阶段(CLB、DEP、ARR)不应仅因短暂转弯反转
+	// 距离趋势就降级为 UNK。仅允许切换到其他有意义的阶段,而不是 UNK。
 	if latestPhase != nil && currentPhase == "UNK" {
 		switch latestPhase.Phase {
 		case "CLB", "DEP", "ARR":
@@ -1628,18 +1625,18 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 		}
 	}
 
-	// ── Determine if a phase change should be recorded ───────────────
+	// ── 判断是否应记录阶段变化 ───────────────
 	var shouldInsert bool
 
 	if latestPhase == nil {
-		// Brand new aircraft — record initial phase
+		// 全新飞行器 — 记录初始阶段
 		shouldInsert = true
 	} else if latestPhase.Phase != currentPhase {
-		// Phase changed — check for premature ground transitions
+		// 阶段已变化 — 检查是否有过早的地面切换
 		if currentPhase == "NEW" && (latestPhase.Phase == "T/D" || latestPhase.Phase == "TAX") {
 			timeSinceLastPhase := time.Since(latestPhase.Timestamp).Seconds()
 			if timeSinceLastPhase < float64(s.flightPhasesConfig.PhaseTransitionTimeoutSeconds) {
-				// Too soon — keep the current ground phase
+				// 太早 — 保持当前的地面阶段
 				currentPhase = latestPhase.Phase
 			} else {
 				shouldInsert = true
@@ -1648,7 +1645,7 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 			shouldInsert = true
 		}
 	} else {
-		// Phase unchanged — check inactive aircraft timeout
+		// 阶段未变 — 检查非活跃飞行器超时
 		if latestPhase.Phase != "NEW" {
 			timeSinceLastPhase := time.Since(latestPhase.Timestamp).Seconds()
 			if timeSinceLastPhase > float64(s.flightPhasesConfig.PhaseChangeTimeoutSeconds) {
@@ -1661,7 +1658,7 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 	return currentPhase, shouldInsert
 }
 
-// sendPhaseChangeAlerts sends WebSocket alerts for phase changes
+// sendPhaseChangeAlerts 为阶段变化发送 WebSocket 告警
 func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, currentPhases map[string]*PhaseChange) {
 	for _, change := range phaseChanges {
 		aircraft, found := s.storage.GetByHex(change.Hex)
@@ -1674,14 +1671,14 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 			previousPhase = prevPhase.Phase
 		}
 
-		// Log the phase change with detailed aircraft data for debugging
+		// 记录带详细飞行器数据的阶段变化以便调试
 		distanceFromStation := 0.0
 		if lat, lon, hasPosition := aircraft.ADSB.Position(); hasPosition {
 			distanceFromStation = MetersToNM(Haversine(lat, lon, s.stationLat, s.stationLon))
 		}
 
 		if previousPhase == "" {
-			s.logger.Info("New aircraft phase detected",
+			s.logger.Info("检测到新飞行器阶段",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.String("phase", change.Phase),
@@ -1692,7 +1689,7 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 				logger.Bool("on_ground", aircraft.OnGround),
 			)
 		} else {
-			s.logger.Info("Phase change detected",
+			s.logger.Info("检测到阶段变化",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.String("transition", previousPhase+" → "+change.Phase),
@@ -1704,9 +1701,9 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 			)
 		}
 
-		// Send WebSocket message for phase change
+		// 为阶段变化发送 WebSocket 消息
 		if s.wsServer != nil {
-			// Create message data for phase change
+			// 为阶段变化创建消息数据
 			data := map[string]interface{}{
 				"hex":        aircraft.Hex,
 				"flight":     aircraft.Flight,
@@ -1718,16 +1715,16 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 				"timestamp":  change.Timestamp.Format(time.RFC3339),
 			}
 
-			// Broadcast the phase change message
+			// 广播阶段变化消息
 			s.wsServer.Broadcast(&websocket.Message{
 				Type: "phase_change",
 				Data: data,
 			})
 		}
 
-		// Handle special takeoff/landing phases
+		// 处理特殊的起飞/着陆阶段
 		if change.Phase == "T/O" {
-			s.logger.Info("Aircraft TOOK OFF",
+			s.logger.Info("飞行器已起飞",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.String("transition", previousPhase+" → T/O"),
@@ -1735,9 +1732,9 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 				logger.Bool("on_ground", aircraft.OnGround),
 			)
 
-			// T/O phase change message is sent by the main phase change handler
+			// T/O 阶段变化消息由主阶段变化处理器发送
 		} else if change.Phase == "T/D" {
-			s.logger.Info("Aircraft LANDED",
+			s.logger.Info("飞行器已着陆",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.String("transition", previousPhase+" → T/D"),
@@ -1745,12 +1742,12 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 				logger.Bool("on_ground", aircraft.OnGround),
 			)
 
-			// T/D phase change message is sent by the main phase change handler
+			// T/D 阶段变化消息由主阶段变化处理器发送
 		}
 	}
 }
 
-// sendImmediateGroundTransitionAlerts sends immediate WebSocket alerts for ground state transitions
+// sendImmediateGroundTransitionAlerts 为地面状态切换发送立即的 WebSocket 告警
 func (s *Service) sendImmediateGroundTransitionAlerts(phaseChanges []PhaseChangeInsert) {
 	for _, change := range phaseChanges {
 		aircraft, found := s.storage.GetByHex(change.Hex)
@@ -1758,25 +1755,25 @@ func (s *Service) sendImmediateGroundTransitionAlerts(phaseChanges []PhaseChange
 			continue
 		}
 
-		// Get the previous phase for the transition message
+		// 获取前一阶段以用于切换消息
 		var previousPhase string
 		phaseHistory, err := s.storage.GetPhaseHistory(change.Hex)
 		if err == nil && len(phaseHistory) > 1 {
-			// The first item is the current (just inserted), second is the previous
+			// 第一项是当前(刚插入),第二项是前一项
 			previousPhase = phaseHistory[1].Phase
 		}
 
 		if change.Phase == "T/O" {
-			s.logger.Info("Aircraft TOOK OFF (IMMEDIATE)",
+			s.logger.Info("飞行器已起飞(立即)",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.Float64("altitude", aircraft.ADSB.AltBaro.Float64()),
 				logger.String("timestamp", change.Timestamp.Format(time.RFC3339)),
 			)
 
-			// Send phase change message first
+			// 先发送阶段变化消息
 			if s.wsServer != nil {
-				// Send phase_change message
+				// 发送 phase_change 消息
 				phaseData := map[string]interface{}{
 					"hex":        aircraft.Hex,
 					"flight":     aircraft.Flight,
@@ -1793,20 +1790,20 @@ func (s *Service) sendImmediateGroundTransitionAlerts(phaseChanges []PhaseChange
 					Data: phaseData,
 				})
 
-				// T/O phase change message already sent above
+				// T/O 阶段变化消息已在上方发送
 			}
 
 		} else if change.Phase == "T/D" {
-			s.logger.Info("Aircraft LANDED (IMMEDIATE)",
+			s.logger.Info("飞行器已着陆(立即)",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.Float64("altitude", aircraft.ADSB.AltBaro.Float64()),
 				logger.String("timestamp", change.Timestamp.Format(time.RFC3339)),
 			)
 
-			// Send phase change message first
+			// 先发送阶段变化消息
 			if s.wsServer != nil {
-				// Send phase_change message
+				// 发送 phase_change 消息
 				phaseData := map[string]interface{}{
 					"hex":        aircraft.Hex,
 					"flight":     aircraft.Flight,
@@ -1823,50 +1820,50 @@ func (s *Service) sendImmediateGroundTransitionAlerts(phaseChanges []PhaseChange
 					Data: phaseData,
 				})
 
-				// T/D phase change message already sent above
+				// T/D 阶段变化消息已在上方发送
 			}
 		}
 	}
 }
 
-// ProcessRawData processes raw ADS-B data into aircraft objects
+// ProcessRawData 将原始 ADS-B 数据处理为飞行器对象
 func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
-	s.logger.Debug("Processing raw ADS-B data",
+	s.logger.Debug("正在处理原始 ADS-B 数据",
 		logger.Int("aircraft_count", len(rawData.Aircraft)),
 	)
 
 	aircraft := make([]*Aircraft, 0, len(rawData.Aircraft))
-	now := time.Now().UTC() // Ensure we use UTC time
+	now := time.Now().UTC() // 确保使用 UTC 时间
 
 	for _, raw := range rawData.Aircraft {
-		// Skip aircraft without a hex identifier (unusable data)
+		// 跳过没有 hex 标识符的飞行器(不可用数据)
 		if raw.Hex == "" {
 			continue
 		}
 
-		// Get the raw flight name and clean it
+		// 获取原始航班名并清洗
 		flightRaw := raw.Flight
 		flightName := strings.TrimSpace(CleanFlightName(flightRaw))
 
-		// If flightName is empty but hex is available, try to derive tail number
+		// 如果 flightName 为空但 hex 可用,尝试派生尾号
 		if flightName == "" && raw.Hex != "" {
-			tailNumber, err := IcaoToTailNumber(raw.Hex) // Use exported function from atc_utils.go
+			tailNumber, err := IcaoToTailNumber(raw.Hex) // 使用 atc_utils.go 的导出函数
 			if err == nil && tailNumber != "" {
-				flightName = tailNumber + "*" // Appended * to indicate derived tail number
-				s.logger.Debug("Derived tail number from ICAO hex",
+				flightName = tailNumber + "*" // 追加 * 表示派生的尾号
+				s.logger.Debug("从 ICAO hex 派生尾号",
 					logger.String("hex", raw.Hex),
 					logger.String("tail_number", flightName))
 			} else if err != nil {
-				s.logger.Debug("Failed to derive tail number from ICAO hex",
+				s.logger.Debug("从 ICAO hex 派生尾号失败",
 					logger.String("hex", raw.Hex),
 					logger.Error(err))
 			}
 		}
 
-		// Determine airline from callsign only for valid flight numbers (3 letters + 1-4 numbers)
+		// 仅对有效航班号(3 个字母 + 1-4 个数字)从呼号判断航司
 		var airlineName, airlineCountry string
 		if len(flightName) >= 4 && len(flightName) <= 7 {
-			// Check if the first 3 characters are letters
+			// 检查前 3 个字符是否为字母
 			firstThree := strings.ToUpper(flightName[:3])
 			isAllLetters := true
 			for _, c := range firstThree {
@@ -1876,7 +1873,7 @@ func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
 				}
 			}
 
-			// Check if the remaining characters are digits (1-4 digits)
+			// 检查剩余字符是否为数字(1-4 位)
 			remainingChars := flightName[3:]
 			isAllDigits := true
 			for _, c := range remainingChars {
@@ -1886,35 +1883,35 @@ func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
 				}
 			}
 
-			// Only lookup airline if it's a valid flight number (3 letters + 1-4 numbers)
+			// 仅当为有效航班号(3 个字母 + 1-4 个数字)时查询航司
 			if isAllLetters && isAllDigits && len(remainingChars) >= 1 && len(remainingChars) <= 4 {
 				icaoCode := firstThree
 				if s.refService != nil {
 					airlineName = s.refService.LookupAirline(icaoCode)
 					airlineCountry = s.refService.LookupAirlineCountry(icaoCode)
 				}
-				s.logger.Debug("Detected valid flight number",
+				s.logger.Debug("检测到有效航班号",
 					logger.String("flight", flightName),
 					logger.String("airline_code", icaoCode),
 					logger.String("airline", airlineName))
 			}
 		}
 
-		// Sensor validation and OnGround determination handled by fetchAndProcess using batch data
+		// 传感器校验和 OnGround 判定由 fetchAndProcess 使用批量数据处理
 
-		aircraftStatus := "active" // Always set to active for aircraft in current ADSB data
+		aircraftStatus := "active" // 当前 ADSB 数据中的飞行器始终设置为 active
 
-		// Check if this is a simulated aircraft
+		// 检查这是否为模拟飞行器
 		isSimulated := (s.simulationService != nil && s.simulationService.IsSimulated(raw.Hex)) || raw.Type == "sim"
 		var simulationControls *SimulationControls
 
 		if isSimulated {
-			// For simulated aircraft, extract controls from the raw data type field
-			// The simulation service will have already populated the ADSB data with current values
+			// 对于模拟飞行器,从原始数据 type 字段提取控制
+			// 模拟服务已经使用当前值填充 ADSB 数据
 			simulationControls = &SimulationControls{
-				TargetHeading:      NumberOrZero(raw.TrueHeading), // Use current heading as target
-				TargetSpeed:        NumberOrZero(raw.TAS),         // Use current TAS as target
-				TargetVerticalRate: NumberOrZero(raw.BaroRate),    // Use current vertical rate as target
+				TargetHeading:      NumberOrZero(raw.TrueHeading), // 使用当前航向作为目标
+				TargetSpeed:        NumberOrZero(raw.TAS),         // 使用当前 TAS 作为目标
+				TargetVerticalRate: NumberOrZero(raw.BaroRate),    // 使用当前垂直速率作为目标
 			}
 		}
 
@@ -1932,19 +1929,19 @@ func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
 
 		a.ADSB.ATCDerived = computeATCDerivedMetrics(a.ADSB, a.Distance)
 
-		// Trajectory-based predictions (hindcast + forecast)
+		// 基于轨迹的预测(后向预测 + 前向预测)
 		if s.trajectoryTracker != nil {
-			// Forecast: trajectory-aware kinematic model (replaces naive PredictFuturePositions)
+			// 前向预测:轨迹感知的运动学模型(替代朴素的 PredictFuturePositions)
 			if forecast := s.trajectoryTracker.GetForecast(raw.Hex); len(forecast) > 0 {
 				a.Future = PredictionPointsToPositions(forecast)
 			}
-			// Hindcast: backward extrapolation before first ADS-B contact
+			// 后向预测:首次 ADS-B 接触前的反向外推
 			if hindcast := s.trajectoryTracker.GetHindcast(raw.Hex); len(hindcast) > 0 {
 				a.Hindcast = PredictionPointsToPositions(hindcast)
 			}
 		}
 
-		// Fallback to old prediction if trajectory forecast unavailable
+		// 当轨迹前向预测不可用时回退到旧预测
 		if len(a.Future) == 0 && raw.HasPosition() && raw.AltBaro.Float64() != 0 {
 			lat, lon, _ := raw.Position()
 			heading := NumberOrZero(raw.TrueHeading)
@@ -1977,7 +1974,7 @@ func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
 		aircraft = append(aircraft, a)
 	}
 
-	s.logger.Debug("Processed ADS-B data",
+	s.logger.Debug("已处理 ADS-B 数据",
 		logger.Int("processed_count", len(aircraft)),
 	)
 

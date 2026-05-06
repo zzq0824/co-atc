@@ -755,7 +755,7 @@ func (s *AircraftStorage) getPositionHistory(hex string, maxPositions int) ([]ad
 			pos.MagHeading = &v
 		}
 
-		// Set the ID field
+		// 设置 ID 字段
 		pos.ID = &id
 
 		t, err := time.Parse(time.RFC3339, timestamp)
@@ -764,7 +764,7 @@ func (s *AircraftStorage) getPositionHistory(hex string, maxPositions int) ([]ad
 		}
 		pos.Timestamp = t
 
-		// Add metadata to position
+		// 向位置附加元数据
 		metadata := make(map[string]string)
 		if registration != "" {
 			metadata["registration"] = registration
@@ -776,9 +776,9 @@ func (s *AircraftStorage) getPositionHistory(hex string, maxPositions int) ([]ad
 			metadata["source_type"] = sourceType
 		}
 
-		// Log external data for debugging
+		// 调试用:记录外部数据
 		if sourceType == "external-rapidapi" && (registration != "" || aircraftType != "") {
-			s.logger.Debug("Position with external data",
+			s.logger.Debug("含外部数据的位置",
 				logger.String("hex", hex),
 				logger.String("registration", registration),
 				logger.String("aircraft_type", aircraftType),
@@ -788,7 +788,7 @@ func (s *AircraftStorage) getPositionHistory(hex string, maxPositions int) ([]ad
 		positions = append(positions, pos)
 	}
 
-	// Reverse the order to be chronological
+	// 反向排序使其按时间正序排列
 	for i, j := 0, len(positions)-1; i < j; i, j = i+1, j-1 {
 		positions[i], positions[j] = positions[j], positions[i]
 	}
@@ -796,12 +796,12 @@ func (s *AircraftStorage) getPositionHistory(hex string, maxPositions int) ([]ad
 	return positions, nil
 }
 
-// GetAllPositionHistory returns position history for an aircraft from the last 1 hour in descending order by timestamp
+// GetAllPositionHistory 返回某架飞行器最近 1 小时的位置历史,按时间戳降序排列
 func (s *AircraftStorage) GetAllPositionHistory(hex string) ([]adsb.Position, error) {
-	// Calculate 1 hour ago timestamp in RFC3339 format (same format used when storing)
+	// 计算 1 小时前的 RFC3339 格式时间戳(与存储时相同的格式)
 	oneHourAgo := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
 
-	// Query positions for the aircraft from the last 1 hour, ordered by timestamp descending (newest first)
+	// 查询该飞行器最近 1 小时的位置,按时间戳降序(最新优先)排列
 	rows, err := s.db.Query(`
 		SELECT id, lat, lon, alt_baro, gs, tas, true_heading, mag_heading, baro_rate, timestamp, registration, aircraft_type, source_type
 		FROM adsb_targets
@@ -854,7 +854,7 @@ func (s *AircraftStorage) GetAllPositionHistory(hex string) ([]adsb.Position, er
 			pos.VerticalSpeed = nullFloatPtr(verticalSpeed)
 		}
 
-		// Set the ID field
+		// 设置 ID 字段
 		pos.ID = &id
 
 		t, err := time.Parse(time.RFC3339, timestamp)
@@ -863,7 +863,7 @@ func (s *AircraftStorage) GetAllPositionHistory(hex string) ([]adsb.Position, er
 		}
 		pos.Timestamp = t
 
-		// Add metadata to position
+		// 向位置附加元数据
 		metadata := make(map[string]string)
 		if registration != "" {
 			metadata["registration"] = registration
@@ -875,9 +875,9 @@ func (s *AircraftStorage) GetAllPositionHistory(hex string) ([]adsb.Position, er
 			metadata["source_type"] = sourceType
 		}
 
-		// Log external data for debugging
+		// 调试用:记录外部数据
 		if sourceType == "external-rapidapi" && (registration != "" || aircraftType != "") {
-			s.logger.Debug("Position with external data",
+			s.logger.Debug("含外部数据的位置",
 				logger.String("hex", hex),
 				logger.String("registration", registration),
 				logger.String("aircraft_type", aircraftType),
@@ -890,12 +890,12 @@ func (s *AircraftStorage) GetAllPositionHistory(hex string) ([]adsb.Position, er
 	return positions, nil
 }
 
-// GetPositionHistoryWithLimit returns position history for an aircraft with a specified limit in descending order by timestamp
+// GetPositionHistoryWithLimit 返回某架飞行器的位置历史,按时间戳降序排列,附带条数上限
 func (s *AircraftStorage) GetPositionHistoryWithLimit(hex string, limit int) ([]adsb.Position, error) {
-	// Calculate 1 hour ago timestamp in RFC3339 format (same format used when storing)
+	// 计算 1 小时前的 RFC3339 格式时间戳(与存储时相同的格式)
 	oneHourAgo := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
 
-	// Query positions for the aircraft from the last 1 hour, ordered by timestamp descending (newest first) with limit
+	// 查询该飞行器最近 1 小时的位置,按时间戳降序(最新优先)排列,带 limit
 	rows, err := s.db.Query(`
 		SELECT id, lat, lon, alt_baro, gs, tas, track, true_heading, mag_heading, baro_rate, timestamp, registration, aircraft_type, source_type
 		FROM adsb_targets
@@ -955,7 +955,7 @@ func (s *AircraftStorage) GetPositionHistoryWithLimit(hex string, limit int) ([]
 			pos.VerticalSpeed = nullFloatPtr(verticalSpeed)
 		}
 
-		// Set the ID field
+		// 设置 ID 字段
 		pos.ID = &id
 
 		t, err := time.Parse(time.RFC3339, timestamp)
@@ -964,8 +964,8 @@ func (s *AircraftStorage) GetPositionHistoryWithLimit(hex string, limit int) ([]
 		}
 		pos.Timestamp = t
 
-		// Note: Position struct doesn't have metadata field, so we skip metadata for now
-		_ = registration // Avoid unused variable warnings
+		// 注意:Position 结构体没有 metadata 字段,这里暂时跳过
+		_ = registration // 避免“变量未使用”警告
 		_ = aircraftType
 		_ = sourceType
 
@@ -975,10 +975,10 @@ func (s *AircraftStorage) GetPositionHistoryWithLimit(hex string, limit int) ([]
 	return positions, nil
 }
 
-// GetByHex returns an aircraft by its hex ID
+// GetByHex 通过 hex ID 返回一架飞行器
 func (s *AircraftStorage) GetByHex(hex string) (*adsb.Aircraft, bool) {
 
-	// Query aircraft
+	// 查询飞行器
 	row := s.db.QueryRow(`
 		SELECT hex, flight, airline, status, last_seen, on_ground
 		FROM aircraft
@@ -995,40 +995,40 @@ func (s *AircraftStorage) GetByHex(hex string) (*adsb.Aircraft, bool) {
 		if err == sql.ErrNoRows {
 			return nil, false
 		}
-		s.logger.Error("Failed to scan aircraft row", logger.Error(err), logger.String("hex", hex))
+		s.logger.Error("扫描飞行器行失败", logger.Error(err), logger.String("hex", hex))
 		return nil, false
 	}
 
-	// Parse last_seen timestamp
+	// 解析 last_seen 时间戳
 	t, err := time.Parse(time.RFC3339, lastSeen)
 	if err != nil {
-		s.logger.Error("Failed to parse last_seen timestamp", logger.Error(err), logger.String("hex", hex))
+		s.logger.Error("解析 last_seen 时间戳失败", logger.Error(err), logger.String("hex", hex))
 		return nil, false
 	}
 	a.LastSeen = t
 
-	// Convert integer to boolean
+	// 整型转为布尔型
 	a.OnGround = onGround != 0
 
-	// Get the latest ADSB data
+	// 获取最新的 ADSB 数据
 	adsbData, err := s.getLatestADSBData(hex)
 	if err == nil && adsbData != nil {
 		a.ADSB = adsbData
 	}
 
-	// Get minimal position history for map trails
+	// 获取用于地图轨迹的最简位置历史
 	minimalPositions, err := s.getPositionHistoryMinimal(hex)
 	if err == nil {
 		a.History = minimalPositions
 	} else {
 		a.History = []adsb.PositionMinimal{}
-		s.logger.Error("Failed to get position history", logger.Error(err), logger.String("hex", hex))
+		s.logger.Error("获取位置历史失败", logger.Error(err), logger.String("hex", hex))
 	}
 
-	// Calculate future positions if we have the necessary data
+	// 当具备所需数据时计算预测位置
 	if a.ADSB != nil && a.ADSB.HasPosition() && a.ADSB.AltBaro.Float64() != 0 {
 		lat, lon, _ := a.ADSB.Position()
-		// Get heading (use true_heading, track, or mag_heading, whichever is available)
+		// 取航向(优先 true_heading,其次 track,再次 mag_heading)
 		heading := adsb.NumberOrZero(a.ADSB.TrueHeading)
 		if heading == 0 {
 			heading = adsb.NumberOrZero(a.ADSB.Track)
@@ -1037,63 +1037,63 @@ func (s *AircraftStorage) GetByHex(hex string) (*adsb.Aircraft, bool) {
 			heading = adsb.NumberOrZero(a.ADSB.MagHeading)
 		}
 
-		// Get speed (use TAS or GS, whichever is available)
+		// 取速度(TAS 或 GS,任一可用)
 		speed := adsb.NumberOrZero(a.ADSB.TAS)
 		if speed == 0 {
 			speed = adsb.NumberOrZero(a.ADSB.GS)
 		}
 
-		// Get vertical rate (use baro_rate or geom_rate, whichever is available)
+		// 取垂直速率(baro_rate 或 geom_rate,任一可用)
 		verticalRate := adsb.NumberOrZero(a.ADSB.BaroRate)
 		if verticalRate == 0 {
 			verticalRate = adsb.NumberOrZero(a.ADSB.GeomRate)
 		}
 
-		// Only predict if we have valid heading and speed
+		// 仅在航向与速度都有效时进行预测
 		if heading != 0 && speed != 0 {
-			// Calculate future positions
-			// Get magnetic heading for predictions
+			// 计算预测位置
+			// 获取用于预测的磁航向
 			magHeading := adsb.NumberOrZero(a.ADSB.MagHeading)
 			if magHeading == 0 {
-				magHeading = heading // fallback to whatever heading we found
+				magHeading = heading // 回退为已取到的任意航向
 			}
 
 			a.Future = adsb.PredictFuturePositions(
 				lat,
 				lon,
 				a.ADSB.AltBaro.Float64(),
-				heading,    // true heading
-				magHeading, // magnetic heading
+				heading,    // 真航向
+				magHeading, // 磁航向
 				speed,
 				verticalRate,
 			)
 		} else {
-			// Initialize empty future slice
+			// 初始化空的预测切片
 			a.Future = []adsb.Position{}
 		}
 	} else {
-		// Initialize empty future slice
+		// 初始化空的预测切片
 		a.Future = []adsb.Position{}
 	}
 	a.Hindcast = []adsb.Position{}
 
-	// Populate phase data for this aircraft
+	// 填充该飞行器的阶段数据
 	if err := s.populatePhaseData(&a); err != nil {
-		s.logger.Error("Failed to populate phase data", logger.Error(err), logger.String("hex", hex))
-		// Continue returning the aircraft even if phase data fails
+		s.logger.Error("填充阶段数据失败", logger.Error(err), logger.String("hex", hex))
+		// 即便阶段数据失败,仍然返回飞行器
 	}
 
-	// Populate DateLanded and DateTookoff fields from phase_changes table
+	// 从 phase_changes 表填充 DateLanded 和 DateTookoff 字段
 	takeoffTime, err := s.GetLatestTakeoffTime(hex)
 	if err != nil {
-		s.logger.Error("Failed to get latest takeoff time", logger.Error(err), logger.String("hex", hex))
+		s.logger.Error("获取最近一次起飞时间失败", logger.Error(err), logger.String("hex", hex))
 	} else {
 		a.DateTookoff = takeoffTime
 	}
 
 	landingTime, err := s.GetLatestLandingTime(hex)
 	if err != nil {
-		s.logger.Error("Failed to get latest landing time", logger.Error(err), logger.String("hex", hex))
+		s.logger.Error("获取最近一次着陆时间失败", logger.Error(err), logger.String("hex", hex))
 	} else {
 		a.DateLanded = landingTime
 	}
@@ -1101,7 +1101,7 @@ func (s *AircraftStorage) GetByHex(hex string) (*adsb.Aircraft, bool) {
 	return &a, true
 }
 
-// Upsert updates or inserts an aircraft
+// Upsert 更新或插入一架飞行器
 func (s *AircraftStorage) Upsert(aircraft *adsb.Aircraft) {
 	lockSQLiteWrite()
 	defer unlockSQLiteWrite()
@@ -1114,7 +1114,7 @@ func (s *AircraftStorage) Upsert(aircraft *adsb.Aircraft) {
 		}
 
 		if !isSQLiteBusyError(err) || attempt == maxBusyRetries {
-			s.logger.Error("Failed to upsert aircraft",
+			s.logger.Error("飞行器 upsert 失败",
 				logger.Error(err),
 				logger.String("hex", aircraft.Hex),
 				logger.Int("attempt", attempt+1))
@@ -1122,7 +1122,7 @@ func (s *AircraftStorage) Upsert(aircraft *adsb.Aircraft) {
 		}
 
 		backoff := time.Duration((attempt+1)*100) * time.Millisecond
-		s.logger.Warn("SQLite busy during aircraft upsert, retrying",
+		s.logger.Warn("飞行器 upsert 期间 SQLite 繁忙,正在重试",
 			logger.String("hex", aircraft.Hex),
 			logger.Int("attempt", attempt+1),
 			logger.Int("backoff_ms", int(backoff/time.Millisecond)))
@@ -1131,37 +1131,37 @@ func (s *AircraftStorage) Upsert(aircraft *adsb.Aircraft) {
 }
 
 func (s *AircraftStorage) upsertOnce(aircraft *adsb.Aircraft) (err error) {
-	// Ensure all timestamps are in UTC
+	// 确保所有时间戳都使用 UTC
 	aircraft.LastSeen = aircraft.LastSeen.UTC()
 
-	// Begin transaction
+	// 开启事务
 	tx, err := s.db.Begin()
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return fmt.Errorf("开启事务: %w", err)
 	}
 	defer func() {
 		if err == nil {
 			return
 		}
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			s.logger.Error("Failed to rollback transaction", logger.Error(rollbackErr), logger.String("hex", aircraft.Hex))
+			s.logger.Error("回滚事务失败", logger.Error(rollbackErr), logger.String("hex", aircraft.Hex))
 		}
 	}()
 
-	// Check if aircraft already exists
+	// 判断飞行器是否已存在
 	var exists bool
 	err = tx.QueryRow("SELECT 1 FROM aircraft WHERE hex = ?", aircraft.Hex).Scan(&exists)
 	if err != nil && err != sql.ErrNoRows {
-		return fmt.Errorf("check if aircraft exists: %w", err)
+		return fmt.Errorf("判断飞行器是否存在: %w", err)
 	}
 
-	// Set status to active for new data
+	// 新数据默认状态置为 active
 	if aircraft.Status == "" {
 		aircraft.Status = "active"
 	}
 
 	if err == sql.ErrNoRows {
-		// Insert new aircraft with UTC timestamps
+		// 以 UTC 时间戳插入新飞行器
 		now := time.Now().UTC().Format(time.RFC3339)
 		_, err = tx.Exec(`
 			INSERT INTO aircraft (
@@ -1175,10 +1175,10 @@ func (s *AircraftStorage) upsertOnce(aircraft *adsb.Aircraft) (err error) {
 			now, now,
 		)
 		if err != nil {
-			return fmt.Errorf("insert aircraft: %w", err)
+			return fmt.Errorf("插入飞行器: %w", err)
 		}
 	} else {
-		// Update existing aircraft with UTC timestamp for updated_at
+		// 以 UTC 时间戳更新已有飞行器的 updated_at
 		now := time.Now().UTC().Format(time.RFC3339)
 		_, err = tx.Exec(`
 			UPDATE aircraft SET
@@ -1189,18 +1189,18 @@ func (s *AircraftStorage) upsertOnce(aircraft *adsb.Aircraft) (err error) {
 			boolToInt(aircraft.OnGround), now, aircraft.Hex,
 		)
 		if err != nil {
-			return fmt.Errorf("update aircraft: %w", err)
+			return fmt.Errorf("更新飞行器: %w", err)
 		}
 	}
 
 	if aircraft.ADSB != nil {
-		// Convert ADSB data to JSON
+		// 将 ADSB 数据序列化为 JSON
 		rawData, err := json.Marshal(aircraft.ADSB)
 		if err != nil {
-			return fmt.Errorf("marshal ADSB data: %w", err)
+			return fmt.Errorf("序列化 ADSB 数据: %w", err)
 		}
 
-		// Get source type and registration/aircraft type directly from the ADSB data
+		// 直接从 ADSB 数据获取数据来源、注册号和机型
 		sourceType := "local"
 		registration := ""
 		aircraftType := ""
@@ -1217,7 +1217,7 @@ func (s *AircraftStorage) upsertOnce(aircraft *adsb.Aircraft) (err error) {
 			aircraftType = aircraft.ADSB.AircraftType
 		}
 
-		// Insert the ADSB target (OR IGNORE handles dedup via UNIQUE constraint)
+		// 插入 ADSB 目标(通过 UNIQUE 约束 + OR IGNORE 实现去重)
 		_, err = tx.Exec(`
 			INSERT OR IGNORE INTO adsb_targets (
 				aircraft_hex, hex, type, flight, registration, aircraft_type, alt_baro, alt_geom, gs, ias, tas, mach, wd, ws, oat, tat,
@@ -1249,47 +1249,47 @@ func (s *AircraftStorage) upsertOnce(aircraft *adsb.Aircraft) (err error) {
 			aircraft.LastSeen.Format(time.RFC3339), string(rawData), sourceType,
 		)
 		if err != nil {
-			return fmt.Errorf("insert ADSB target: %w", err)
+			return fmt.Errorf("插入 ADSB 目标: %w", err)
 		}
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+		return fmt.Errorf("提交事务: %w", err)
 	}
 
 	return nil
 }
 
-// Count returns the number of aircraft in the database
+// Count 返回数据库中的飞行器数量
 func (s *AircraftStorage) Count() int {
 
 	var count int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM aircraft").Scan(&count)
 	if err != nil {
-		s.logger.Error("Failed to count aircraft", logger.Error(err))
+		s.logger.Error("飞行器计数失败", logger.Error(err))
 		return 0
 	}
 
 	return count
 }
 
-// GetFiltered returns aircraft filtered by altitude, status, and date ranges
+// GetFiltered 按高度、状态和日期范围过滤后返回飞行器
 func (s *AircraftStorage) GetFiltered(
 	minAltitude, maxAltitude float64,
 	status []string,
 	tookOffAfter, tookOffBefore, landedAfter, landedBefore *time.Time,
 ) []*adsb.Aircraft {
 
-	// Build the query with placeholders
+	// 使用占位符构建查询
 	query := `
 		SELECT hex, flight, airline, status, last_seen, on_ground
 		FROM aircraft
 		WHERE 1=1`
 
-	// Create a slice to hold query arguments
+	// 创建用于存放查询参数的切片
 	args := []interface{}{}
 
-	// Add status filter if provided
+	// 如提供了 status 过滤条件则加入
 	if len(status) > 0 {
 		query += " AND status IN (" + strings.Repeat("?,", len(status)-1) + "?)"
 		for _, s := range status {
@@ -1297,25 +1297,25 @@ func (s *AircraftStorage) GetFiltered(
 		}
 	}
 
-	// TODO: Add date filters using JOINs to phase_changes table for T/O and T/D phases
-	// For now, we'll ignore the date filters since they need to be implemented with the new phase_changes table
+	// TODO: 通过对 phase_changes 表进行 JOIN(T/O 与 T/D 阶段)来补充日期过滤
+	// 目前先忽略日期过滤,后续需基于新的 phase_changes 表实现
 	_ = tookOffAfter
 	_ = tookOffBefore
 	_ = landedAfter
 	_ = landedBefore
 
-	// Execute the query
+	// 执行查询
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		s.logger.Error("Failed to query filtered aircraft", logger.Error(err))
+		s.logger.Error("查询过滤后的飞行器失败", logger.Error(err))
 		return []*adsb.Aircraft{}
 	}
 	defer rows.Close()
 
-	// Map to store aircraft by hex
+	// 用于按 hex 存放飞行器的 map
 	aircraftMap := make(map[string]*adsb.Aircraft)
 
-	// Process aircraft rows
+	// 处理飞行器行
 	for rows.Next() {
 		var a adsb.Aircraft
 		var lastSeen string
@@ -1324,57 +1324,57 @@ func (s *AircraftStorage) GetFiltered(
 		if err := rows.Scan(
 			&a.Hex, &a.Flight, &a.Airline, &a.Status, &lastSeen, &onGround,
 		); err != nil {
-			s.logger.Error("Failed to scan aircraft row", logger.Error(err))
+			s.logger.Error("扫描飞行器行失败", logger.Error(err))
 			continue
 		}
 
-		// Parse last_seen timestamp
+		// 解析 last_seen 时间戳
 		t, err := time.Parse(time.RFC3339, lastSeen)
 		if err != nil {
-			s.logger.Error("Failed to parse last_seen timestamp", logger.Error(err))
+			s.logger.Error("解析 last_seen 时间戳失败", logger.Error(err))
 			continue
 		}
 		a.LastSeen = t
 
-		// Convert integer to boolean
+		// 整型转为布尔型
 		a.OnGround = onGround != 0
 
-		// Initialize empty history slice
+		// 初始化空的历史切片
 		a.History = []adsb.PositionMinimal{}
 
-		// Add to map
+		// 加入 map
 		aircraftMap[a.Hex] = &a
 	}
 
 	if err := rows.Err(); err != nil {
-		s.logger.Error("Error iterating aircraft rows", logger.Error(err))
+		s.logger.Error("迭代飞行器行时出错", logger.Error(err))
 		return []*adsb.Aircraft{}
 	}
 
-	// If no aircraft found, return empty slice
+	// 未查到任何飞行器时返回空切片
 	if len(aircraftMap) == 0 {
 		return []*adsb.Aircraft{}
 	}
 
-	// For each aircraft, get the latest ADSB data and position history
+	// 为每架飞行器获取最新的 ADSB 数据与位置历史
 	for hex, aircraft := range aircraftMap {
-		// Get the latest ADSB data
+		// 获取最新的 ADSB 数据
 		adsbData, err := s.getLatestADSBData(hex)
 		if err == nil && adsbData != nil {
 			aircraft.ADSB = adsbData
 		}
 
-		// History data is not populated in filtered aircraft endpoint
-		// Use the combined /aircraft/{hex}/tracks endpoint instead
+		// 过滤接口不填充历史数据
+		// 请改用合并的 /aircraft/{hex}/tracks 端点
 
-		// Populate phase data for this aircraft
+		// 填充该飞行器的阶段数据
 		if err := s.populatePhaseData(aircraft); err != nil {
-			s.logger.Error("Failed to populate phase data", logger.Error(err), logger.String("hex", hex))
-			// Continue processing other aircraft even if phase data fails
+			s.logger.Error("填充阶段数据失败", logger.Error(err), logger.String("hex", hex))
+			// 即便阶段数据失败也继续处理其他飞行器
 		}
 	}
 
-	// Convert map to slice
+	// 将 map 转换为切片
 	aircraft := make([]*adsb.Aircraft, 0, len(aircraftMap))
 	for _, a := range aircraftMap {
 		aircraft = append(aircraft, a)
@@ -1383,7 +1383,7 @@ func (s *AircraftStorage) GetFiltered(
 	return aircraft
 }
 
-// boolToInt converts a boolean to an integer (1 for true, 0 for false)
+// boolToInt 将布尔值转换为整型(true 转 1,false 转 0)
 func boolToInt(b bool) int {
 	if b {
 		return 1
@@ -1417,7 +1417,7 @@ func nullFloatPtr(v sql.NullFloat64) *float64 {
 	return &f
 }
 
-// formatNullableTime formats a nullable time.Time for SQL
+// formatNullableTime 将可空的 time.Time 格式化为 SQL 用值
 func formatNullableTime(t *time.Time) interface{} {
 	if t == nil {
 		return nil
@@ -1425,7 +1425,7 @@ func formatNullableTime(t *time.Time) interface{} {
 	return t.Format(time.RFC3339)
 }
 
-// marshalStringArray converts a string array to a JSON string for storage
+// marshalStringArray 将字符串数组转换为 JSON 字符串以便存储
 func marshalStringArray(arr []string) string {
 	if arr == nil || len(arr) == 0 {
 		return ""
@@ -1439,10 +1439,10 @@ func marshalStringArray(arr []string) string {
 	return string(data)
 }
 
-// GetActiveAircraft retrieves active aircraft data
+// GetActiveAircraft 获取活跃飞行器的数据
 func (s *AircraftStorage) GetActiveAircraft() ([]*AircraftRecord, error) {
 
-	// Query active aircraft with their latest position data
+	// 查询活跃飞行器及其最新位置数据
 	rows, err := s.db.Query(`
 		SELECT a.flight, t.alt_baro, t.tas
 		FROM aircraft a
@@ -1454,11 +1454,11 @@ func (s *AircraftStorage) GetActiveAircraft() ([]*AircraftRecord, error) {
 		WHERE a.status = 'active'
 		ORDER BY a.flight ASC`)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query active aircraft: %w", err)
+		return nil, fmt.Errorf("查询活跃飞行器失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Parse records
+	// 解析记录
 	var aircraft []*AircraftRecord
 	for rows.Next() {
 		var record AircraftRecord
@@ -1466,10 +1466,10 @@ func (s *AircraftStorage) GetActiveAircraft() ([]*AircraftRecord, error) {
 		var altitude, trueAirspeed sql.NullFloat64
 
 		if err := rows.Scan(&callsign, &altitude, &trueAirspeed); err != nil {
-			return nil, fmt.Errorf("failed to scan aircraft: %w", err)
+			return nil, fmt.Errorf("扫描飞行器失败: %w", err)
 		}
 
-		// Handle nullable fields
+		// 处理可空字段
 		if callsign.Valid {
 			record.Callsign = callsign.String
 		}
@@ -1486,7 +1486,7 @@ func (s *AircraftStorage) GetActiveAircraft() ([]*AircraftRecord, error) {
 	return aircraft, nil
 }
 
-// InsertPhaseChange inserts a new phase change record
+// InsertPhaseChange 插入一条新的阶段变更记录
 func (s *AircraftStorage) InsertPhaseChange(hex, flight, phase string, timestamp time.Time, adsbId *int) error {
 	lockSQLiteWrite()
 	defer unlockSQLiteWrite()
@@ -1497,15 +1497,15 @@ func (s *AircraftStorage) InsertPhaseChange(hex, flight, phase string, timestamp
 	`, hex, flight, phase, timestamp.Format(time.RFC3339), adsbId)
 
 	if err != nil {
-		s.logger.Error("Failed to insert phase change", logger.Error(err),
+		s.logger.Error("插入阶段变更失败", logger.Error(err),
 			logger.String("hex", hex), logger.String("phase", phase))
-		return fmt.Errorf("failed to insert phase change: %w", err)
+		return fmt.Errorf("插入阶段变更失败: %w", err)
 	}
 
 	return nil
 }
 
-// GetPhaseHistory returns all phase changes for an aircraft in descending order by timestamp
+// GetPhaseHistory 返回某架飞行器的所有阶段变更,按时间戳降序排列
 func (s *AircraftStorage) GetPhaseHistory(hex string) ([]adsb.PhaseChange, error) {
 
 	rows, err := s.db.Query(`
@@ -1515,7 +1515,7 @@ func (s *AircraftStorage) GetPhaseHistory(hex string) ([]adsb.PhaseChange, error
 		ORDER BY timestamp DESC
 	`, hex)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query phase history: %w", err)
+		return nil, fmt.Errorf("查询阶段历史失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -1526,24 +1526,24 @@ func (s *AircraftStorage) GetPhaseHistory(hex string) ([]adsb.PhaseChange, error
 		var adsbId sql.NullInt64
 
 		if err := rows.Scan(&phase.ID, &phase.Phase, &timestampStr, &adsbId); err != nil {
-			return nil, fmt.Errorf("failed to scan phase change row: %w", err)
+			return nil, fmt.Errorf("扫描阶段变更行失败: %w", err)
 		}
 
-		// Debug logging to see what we're getting from the database
+		// 调试日志,用于查看从数据库读取的数据
 		//s.logger.Debug("Scanned phase change from database",
 		//	logger.String("hex", hex),
 		//	logger.Int("id", phase.ID),
 		//	logger.String("phase", phase.Phase),
 		//	logger.String("timestamp", timestampStr))
 
-		// Parse timestamp
+		// 解析时间戳
 		timestamp, err := time.Parse(time.RFC3339, timestampStr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse timestamp: %w", err)
+			return nil, fmt.Errorf("解析时间戳失败: %w", err)
 		}
 		phase.Timestamp = timestamp
 
-		// Handle nullable adsb_id
+		// 处理可空的 adsb_id
 		if adsbId.Valid {
 			id := int(adsbId.Int64)
 			phase.ADSBId = &id
@@ -1555,7 +1555,7 @@ func (s *AircraftStorage) GetPhaseHistory(hex string) ([]adsb.PhaseChange, error
 	return phases, nil
 }
 
-// GetCurrentPhase returns the latest phase for an aircraft
+// GetCurrentPhase 返回某架飞行器最新的阶段
 func (s *AircraftStorage) GetCurrentPhase(hex string) (*adsb.PhaseChange, error) {
 
 	row := s.db.QueryRow(`
@@ -1572,19 +1572,19 @@ func (s *AircraftStorage) GetCurrentPhase(hex string) (*adsb.PhaseChange, error)
 
 	if err := row.Scan(&phase.ID, &phase.Phase, &timestampStr, &adsbId); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // No phase changes found
+			return nil, nil // 未找到阶段变更记录
 		}
-		return nil, fmt.Errorf("failed to scan current phase: %w", err)
+		return nil, fmt.Errorf("扫描当前阶段失败: %w", err)
 	}
 
-	// Parse timestamp
+	// 解析时间戳
 	timestamp, err := time.Parse(time.RFC3339, timestampStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse timestamp: %w", err)
+		return nil, fmt.Errorf("解析时间戳失败: %w", err)
 	}
 	phase.Timestamp = timestamp
 
-	// Handle nullable adsb_id
+	// 处理可空的 adsb_id
 	if adsbId.Valid {
 		id := int(adsbId.Int64)
 		phase.ADSBId = &id
@@ -1593,7 +1593,7 @@ func (s *AircraftStorage) GetCurrentPhase(hex string) (*adsb.PhaseChange, error)
 	return &phase, nil
 }
 
-// GetLatestTakeoffTime returns the latest takeoff time for an aircraft from phase_changes
+// GetLatestTakeoffTime 从 phase_changes 中返回某架飞行器最近的起飞时间
 func (s *AircraftStorage) GetLatestTakeoffTime(hex string) (*time.Time, error) {
 
 	row := s.db.QueryRow(`
