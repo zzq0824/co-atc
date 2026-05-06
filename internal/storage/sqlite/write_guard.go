@@ -5,9 +5,9 @@ import (
 	"sync"
 )
 
-// sqliteWriteMu serializes writes across all sqlite storage modules that share
-// the same DB handle. SQLite allows one writer at a time, so cross-module
-// writes should use the same lock to avoid SQLITE_BUSY contention.
+// sqliteWriteMu 在共享同一数据库句柄的所有 sqlite 存储模块之间序列化写操作。
+// SQLite 一次只允许一个写者,因此跨模块的写操作应使用相同的锁,
+// 以避免 SQLITE_BUSY 争用。
 var sqliteWriteMu sync.Mutex
 
 func lockSQLiteWrite() {

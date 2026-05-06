@@ -1,258 +1,258 @@
-# Co-ATC: Aircraft Monitoring System
+# Co-ATC：飞行器监控系统
 
-Co-ATC is an AI-enhanced system designed to monitor airspace activity, supporting (imaginary) ATC operations. It integrates real-time ADSB data (local or remote), streams ATC communications (local VHF radio or LiveATC) while leveraging AI to transcribe and interpret communications, track ATC instructions, and generate alerts for potential conflicts or non-compliance.
+Co-ATC 是一个由 AI 增强的系统,旨在监控空域活动,辅助(模拟)空中交通管制(ATC)运行。它整合了实时 ADS-B 数据(本地或远程)、ATC 通信音频流(本地 VHF 无线电或 LiveATC),同时利用 AI 转写并解读通信内容、跟踪 ATC 指令,并对潜在冲突或不合规行为发出告警。
 
-![Co-ATC Main Interface](docs/main_screen.png)
+![Co-ATC 主界面](docs/main_screen.png)
 
-![Co-ATC Main Interface - Aircraft Info](docs/main_screen2.png)
+![Co-ATC 主界面 - 飞行器信息](docs/main_screen2.png)
 
-![Co-ATC Main Interface - Proximity Alerts](docs/main_screen3.png)
+![Co-ATC 主界面 - 邻近告警](docs/main_screen3.png)
 
-![Co-ATC Main Interface - AI ATC](docs/main_screen4.png)
+![Co-ATC 主界面 - AI 智能 ATC](docs/main_screen4.png)
 
-![Co-ATC Main Interface - Map Styles](docs/main_screen5.png)
+![Co-ATC 主界面 - 地图样式](docs/main_screen5.png)
 
-## What Co-ATC Does
+## Co-ATC 的功能
 
-Co-ATC provides air traffic controllers and aviation enthusiasts with:
+Co-ATC 为空中交通管制员和航空爱好者提供:
 
-- **Real-time Aircraft Tracking**: Live visualization of aircraft positions, flight paths, and telemetry data
-- **Interactive Map Interface**: Comprehensive airspace view with aircraft details, weather overlays, and runway information
-- **Use Local Data Sources**: Connects to your ADSB and [VHF band](https://github.com/rtl-airband/RTLSDR-Airband/pull/523) SDRs for mostly local (offline) tracking
-- **AI-Powered Voice Assistant**: Voice-based ATC assistant with comprehensive airspace knowledge and real-time context (OpenAI API key required)
-- **Audio Transcription**: Real-time transcription and analysis of ATC communications using AI (OpenAI API key required)
-- **Flight Phase Detection**: Automatic detection and tracking of aircraft flight phases (taxi, takeoff, departure, cruise, arrival, approach, touchdown)
-- **ATC Clearance Extraction**: AI-powered extraction and tracking of takeoff, landing, and approach clearances (OpenAI API key required)
-- **Aircraft Simulation**: Create and control simulated aircraft for training and testing scenarios
-- **Weather Integration**: Live METAR, TAF, and NOTAM data integration (using "stolen" Windy APIs - sorry!)
-- **Alert System**: Real-time notifications for aircraft status changes and potential issues (incomplete)
+- **实时飞行器追踪**:实时显示飞行器位置、飞行轨迹和遥测数据
+- **交互式地图界面**:全方位空域视图,包含飞行器详情、天气叠加层和跑道信息
+- **使用本地数据源**:连接您的 ADS-B 和 [VHF 频段](https://github.com/rtl-airband/RTLSDR-Airband/pull/523) SDR 实现基本本地(离线)追踪
+- **AI 语音助手**:基于语音的 ATC 助手,具备全面的空域知识和实时上下文(需要 OpenAI API 密钥)
+- **音频转写**:使用 AI 实时转写并分析 ATC 通信(需要 OpenAI API 密钥)
+- **飞行阶段检测**:自动检测和跟踪飞行器各飞行阶段(滑行、起飞、离场、巡航、进场、进近、着陆)
+- **ATC 许可提取**:由 AI 驱动地提取并跟踪起飞、着陆和进近许可(需要 OpenAI API 密钥)
+- **飞行器仿真**:创建并控制模拟飞行器,用于训练和测试场景
+- **气象集成**:实时整合 METAR、TAF 和 NOTAM 数据(借用了 Windy 的 API,抱歉!)
+- **告警系统**:针对飞行器状态变化和潜在问题发出实时通知(尚未完成)
 
-## Current State
+## 当前状态
 
-Co-ATC is in semi-active development with core functionality implemented and operational. The system successfully processes real-time ADS-B data, provides interactive map visualization, transcribes ATC communications, and offers AI-powered assistance (airport advisory services). 
+Co-ATC 处于半活跃开发阶段,核心功能已实现并可正常运行。系统能够成功处理实时 ADS-B 数据、提供交互式地图可视化、转写 ATC 通信内容,并提供 AI 辅助(机场咨询服务)。
 
-For detailed progress and implementation specifics, see [Project Specification and Progress](docs/project_progress.md).
+详细的进度和实现细节请参阅 [项目说明与进度](docs/project_progress.md)。
 
-### ⚠️ SECURITY WARNING
+### ⚠️ 安全警告
 
-**DO NOT EXPOSE THIS APPLICATION TO THE INTERNET**
+**请勿将本应用暴露至互联网**
 
-This application is designed for local use only and should never be made accessible from the internet. It has:
+本应用仅设计用于本地使用,不应被互联网公开访问。它具有以下特性:
 
-- **No authentication system** - Anyone with access can use all features
-- **No authorization controls** - All functionality is available to any user
-- **No security hardening** - Built for development and local use
-- **AI-generated codebase** - Has not undergone professional security review or testing
+- **无身份认证系统** - 任何具有访问权限的人都可使用所有功能
+- **无授权控制** - 所有功能对任何用户开放
+- **无安全加固** - 仅面向开发和本地使用
+- **AI 生成代码库** - 未经过专业安全审查或测试
 
-## Requirements
+## 系统要求
 
-- **Go 1.21 or higher** - To build the project
-- **ADS-B Data Source** - Access to ADS-B data (e.g., local `tar1090` server or external API)
-- **FFmpeg** - Audio processing for radio frequency streams (see installation instructions below)
-- **Modern Web Browser** - Chrome, Firefox, Safari, or Edge for the web interface
-- **OpenAI API Key** - Only needed for AI Advisory, radio transcriptions, and clearance extraction
+- **Go 1.21 或更高版本** - 用于构建项目
+- **ADS-B 数据源** - 可访问 ADS-B 数据(例如本地 `tar1090` 服务器或外部 API)
+- **FFmpeg** - 用于无线电频率音频流处理(参见下文安装说明)
+- **现代浏览器** - Chrome、Firefox、Safari 或 Edge,用于访问 Web 界面
+- **OpenAI API 密钥** - 仅 AI 咨询、无线电转写和许可提取功能需要
 
-### Installing FFmpeg
+### 安装 FFmpeg
 
 #### Windows
-1. **Using Chocolatey** (recommended):
+1. **使用 Chocolatey**(推荐):
    ```powershell
-   # Install Chocolatey if not already installed
+   # 如果尚未安装 Chocolatey,先安装
    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
    
-   # Install FFmpeg
+   # 安装 FFmpeg
    choco install ffmpeg
    ```
 
-2. **Manual Installation**:
-   - Download FFmpeg from [https://ffmpeg.org/download.html#build-windows](https://ffmpeg.org/download.html#build-windows)
-   - Extract the archive to `C:\ffmpeg`
-   - Add `C:\ffmpeg\bin` to your system PATH environment variable
-   - Restart your command prompt/PowerShell
+2. **手动安装**:
+   - 从 [https://ffmpeg.org/download.html#build-windows](https://ffmpeg.org/download.html#build-windows) 下载 FFmpeg
+   - 将压缩包解压到 `C:\ffmpeg`
+   - 将 `C:\ffmpeg\bin` 添加到系统 PATH 环境变量
+   - 重启命令提示符或 PowerShell
 
 #### Mac
-1. **Using Homebrew** (recommended):
+1. **使用 Homebrew**(推荐):
    ```bash
-   # Install Homebrew if not already installed
+   # 如果尚未安装 Homebrew,先安装
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    
-   # Install FFmpeg
+   # 安装 FFmpeg
    brew install ffmpeg
    ```
 
-2. **Using MacPorts**:
+2. **使用 MacPorts**:
    ```bash
    sudo port install ffmpeg
    ```
 
-#### Verify Installation
-After installation, verify FFmpeg is working:
+#### 验证安装
+安装完成后,验证 FFmpeg 是否正常工作:
 ```bash
 ffmpeg -version
 ```
 
-## Installation and Setup
+## 安装与配置
 
-### Option 1: Download Pre-compiled Binaries
+### 方案 1:下载预编译二进制
 
-The quickest way to get Co-ATC running is to download pre-compiled binaries from the releases page.
+获取 Co-ATC 最快的方式是从发布页面下载预编译的二进制文件。
 
-1. **Download the latest release** from [GitHub Releases](https://github.com/yegors/co-atc/releases)
-2. **Clone the repository** (required for assets and www folders):
+1. **从 [GitHub Releases](https://github.com/yegors/co-atc/releases) 下载最新版本**
+2. **克隆仓库**(资源文件和 www 目录所必需):
    ```bash
    git clone https://github.com/yegors/co-atc.git
    cd co-atc
    ```
-3. **Extract the binary** to the project root directory
-4. **Proceed to Configuration** section below
+3. **将二进制文件解压到项目根目录**
+4. **进入下文的「配置」一节继续操作**
 
-### Option 2: Build from Source
+### 方案 2:从源码构建
 
-If you prefer to build from source or need to modify the code:
+如需从源码构建或修改代码:
 
 #### Windows
 ```powershell
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/yegors/co-atc.git
 cd co-atc
 
-# Install dependencies
+# 安装依赖
 go mod download
 
-# Build the application using the build script
+# 使用构建脚本编译应用
 .\build_windows.ps1
 ```
 
 #### Mac
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/yegors/co-atc.git
 cd co-atc
 
-# Install dependencies
+# 安装依赖
 go mod download
 
-# Build the application using the build script (for macOS)
+# 使用构建脚本编译应用(macOS)
 ./build_mac.sh
 ```
 
 #### Linux
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/yegors/co-atc.git
 cd co-atc
 
-# Install dependencies
+# 安装依赖
 go mod download
 
-# Build the application using the build script (auto-detects architecture)
+# 使用构建脚本编译应用(自动检测架构)
 chmod +x ./build_linux.sh
 ./build_linux.sh
 ```
 
-### 2. Configuration
+### 2. 配置
 
-Copy the example configuration and customize for your environment:
+复制示例配置文件并根据您的环境进行自定义:
 
 #### Windows
 ```powershell
-# Copy example configuration
+# 复制示例配置
 copy configs\config.toml.example configs\config.toml
 
-# Edit configuration file
+# 编辑配置文件
 notepad configs\config.toml
 ```
 
 #### Mac/Linux
 ```bash
-# Copy example configuration
+# 复制示例配置
 cp configs/config.toml.example configs/config.toml
 
-# Edit configuration file
+# 编辑配置文件
 nano configs/config.toml
 ```
 
-#### Essential Configuration Settings
+#### 关键配置项
 
-**Mandatory:**
-- `[adsb].source_type` - Choose one source mode:
-   - `tar1090` - base URL serving `aircraft.json`, `receiver.json`, `stats.json`
-   - `readsb-api` - readsb HTTP API endpoint (e.g. `http://host:30152/?all`)
-   - `readsb-file` - local readsb runtime files (auto-detected, optional `readsb_data_dir` override)
-   - `external-rapidapi` - external ADS-B API using `external_source_url` + API host/key
-   - `external-opensky` - OpenSky `/states/all` with optional OAuth2 client-credentials
+**必填项:**
+- `[adsb].source_type` - 选择数据源模式:
+   - `tar1090` - 提供 `aircraft.json`、`receiver.json`、`stats.json` 的基础 URL
+   - `readsb-api` - readsb HTTP API 端点(例如 `http://host:30152/?all`)
+   - `readsb-file` - 本地 readsb 运行时文件(自动检测,可选用 `readsb_data_dir` 覆盖)
+   - `external-rapidapi` - 使用 `external_source_url` + API 主机/密钥的外部 ADS-B API
+   - `external-opensky` - OpenSky `/states/all`,可选使用 OAuth2 客户端凭证
 
-- For `external-opensky` + OAuth2:
-   - Set `opensky_auth_mode = "oauth2"`
-   - Set `opensky_oauth2_credentials_path` to a JSON file shaped as `{"clientId":"...","clientSecret":"..."}`
+- 当 `external-opensky` + OAuth2 时:
+   - 设置 `opensky_auth_mode = "oauth2"`
+   - 设置 `opensky_oauth2_credentials_path` 指向格式为 `{"clientId":"...","clientSecret":"..."}` 的 JSON 文件
 
-**Optional but Recommended:**
-- `[station]` - Configure your airport/station location (Toronto CYYZ example provided)
-- `[[frequencies.sources]]` - Add your local radio frequencies for transcription (Toronto examples provided)
-- `transcription.openai_api_key` - Enable AI transcription features (features disabled if not provided)
-- `atc_chat.openai_api_key` - Enable AI voice assistant (features disabled if not provided)
+**可选但推荐:**
+- `[station]` - 配置您的机场/电台位置(以多伦多 CYYZ 为例)
+- `[[frequencies.sources]]` - 添加用于转写的本地无线电频率(以多伦多为例)
+- `transcription.openai_api_key` - 启用 AI 转写功能(若未提供则禁用)
+- `atc_chat.openai_api_key` - 启用 AI 语音助手(若未提供则禁用)
 
-The configuration file contains comprehensive documentation for all settings with examples for Toronto Pearson (CYYZ). You can use these as templates for your own location and frequencies.
+配置文件中包含针对所有设置项的全面说明文档,并以多伦多皮尔逊国际机场(CYYZ)为示例。您可以将其作为模板,改为您自己的位置和频率。
 
-**Note**: If OpenAI API keys are not provided, the application will start successfully but AI-powered features (transcription, post-processing, and voice assistant) will be disabled. Warning messages will be displayed during startup to indicate which features are unavailable.
+**注意**:如果未提供 OpenAI API 密钥,应用仍可成功启动,但 AI 相关功能(转写、后处理、语音助手)将被禁用。启动期间会显示警告消息以提示哪些功能不可用。
 
-### 3. Run the Application
+### 3. 运行应用
 
 ```powershell
-# Run the built executable
+# 运行已编译的可执行文件
 .\bin\co-atc.exe
 ```
 
-The application will:
-- Start the web server (default: http://localhost:8080)
-- Begin processing ADS-B data
-- Initialize audio streaming and transcription services
-- Create daily SQLite database files automatically
+应用将会:
+- 启动 Web 服务器(默认:http://localhost:8080)
+- 开始处理 ADS-B 数据
+- 初始化音频流和转写服务
+- 自动创建每日 SQLite 数据库文件
 
-### 4. Access the Interface
+### 4. 访问界面
 
-Open your web browser and navigate to `http://localhost:8080` to access the Co-ATC interface.
+打开浏览器并访问 `http://localhost:8080` 即可使用 Co-ATC 界面。
 
-## Key Features
+## 主要功能
 
-### Interactive Map (OpenLayers)
-- OpenLayers map engine with real-time aircraft rendering
-- Modular map architecture under `www/map/` (core, renderers, features, telemetry)
-- Aircraft, trails, labels, selection/hover, proximity, and mini-map
-- Basemap/chart styles: dark, light, OpenStreetMap, VFR sectional, terminal, IFR low, IFR high
-- Supported overlays/layers: airports, runways, navaids, distance rings, weather radar/cloud, airspace overlays, and aviation chart overlay
-- In-map controls for layer toggles/opacities and aircraft display behavior
-- Overlay failure isolation and stable behavior under high aircraft load
+### 交互式地图(OpenLayers)
+- 基于 OpenLayers 的地图引擎,支持实时飞行器渲染
+- `www/map/` 下的模块化地图架构(core、renderers、features、telemetry)
+- 飞行器、轨迹、标签、选中/悬停、邻近告警和小地图
+- 底图/航图样式:深色、浅色、OpenStreetMap、VFR 区域图、终端图、IFR 低空、IFR 高空
+- 支持的叠加层/图层:机场、跑道、导航台、距离环、气象雷达/云图、空域叠加和航图叠加
+- 地图内提供图层切换/透明度以及飞行器显示行为的控制
+- 叠加层故障隔离,在高飞行器负载下仍保持稳定
 
-### Aircraft Monitoring & ADS-B Sources
-- Real-time aircraft telemetry with historical, hindcast, and future trajectories
-- Flight phase tracking with trajectory-aware transitions and signal-loss handling
-- Active runway detection from live approach/landing/departure evidence
-- Data enrichment from local asset datasets (`assets/aircraft.csv`, `assets/airlines.dat`, `assets/airports.csv`, `assets/runways.csv`, `assets/navaids.csv`)
-- Multiple source modes: `tar1090`, `readsb-api`, `readsb-file`, `external-rapidapi`, `external-opensky`
+### 飞行器监控与 ADS-B 数据源
+- 实时飞行器遥测数据,包含历史、回算和未来轨迹
+- 飞行阶段跟踪,支持基于轨迹的状态切换以及信号丢失处理
+- 基于实时进近/着陆/离场证据的活跃跑道检测
+- 通过本地数据集进行数据增强(`assets/aircraft.csv`、`assets/airlines.dat`、`assets/airports.csv`、`assets/runways.csv`、`assets/navaids.csv`)
+- 多种数据源模式:`tar1090`、`readsb-api`、`readsb-file`、`external-rapidapi`、`external-opensky`
 
-### AI + Audio Workflow
-- Multi-frequency ATC stream ingestion and low-latency browser audio delivery
-- Real-time transcription + optional AI post-processing and clearance extraction
-- Voice ATC assistant with live airspace/context updates
-- Transcription history and operational data exposed through REST + WebSocket
+### AI + 音频工作流
+- 多频率 ATC 流接入与低延迟浏览器音频投放
+- 实时转写 + 可选的 AI 后处理与许可提取
+- 配备实时空域/上下文更新的语音 ATC 助手
+- 通过 REST + WebSocket 暴露转写历史和运行数据
 
-### Simulation & Operations
-- Simulated aircraft with real-time control (heading/speed/vertical rate)
-- Integration of simulation traffic into the same monitoring and alert pipelines
-- Settings panel includes ADS-B source health and concise decoder metrics
+### 仿真与运行
+- 模拟飞行器,可实时控制(航向/速度/垂直速率)
+- 仿真流量与真实监控/告警管线的整合
+- 设置面板包含 ADS-B 数据源健康状况和精简的解码器指标
 
-## API Documentation
+## API 文档
 
-Co-ATC provides a comprehensive RESTful API for accessing aircraft data, frequency information, and transcriptions. For detailed API documentation, including endpoints, request parameters, and response formats, see the [API Specification](docs/api_spec.md).
+Co-ATC 提供了用于访问飞行器数据、频率信息和转写内容的全面 RESTful API。详细的 API 文档(包括端点、请求参数和响应格式)请参阅 [API 规范](docs/api_spec.md)。
 
-## Technical Documentation
+## 技术文档
 
-For detailed technical information about the system architecture, implementation details, and internal workings, see the [Technical Documentation](docs/technical_docs.md).
+关于系统架构、实现细节和内部工作原理的详细技术信息,请参阅 [技术文档](docs/technical_docs.md)。
 
-## Configuration Notes
+## 配置说明
 
-- **Database**: SQLite databases are created daily as `co-atc-YYYY-MM-DD.db`
-- **Static Files**: Web interface files served from configurable directory (default: `www`)
-- **Audio Latency**: Optimized for low-latency streaming with configurable buffer sizes
-- **Performance**: Supports high-frequency data updates with intelligent filtering and caching
+- **数据库**:SQLite 数据库每日创建,文件名形如 `co-atc-YYYY-MM-DD.db`
+- **静态文件**:Web 界面文件由可配置目录提供(默认:`www`)
+- **音频延迟**:针对低延迟流式传输进行优化,缓冲区大小可配置
+- **性能**:支持高频率数据更新,具备智能过滤与缓存

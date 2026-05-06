@@ -103,10 +103,10 @@
                         <div class="p-4 h-full overflow-y-auto overflow-x-hidden bg-panel">
                             <!-- Display Settings -->
                             <section class="mb-5">
-                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">Display</h3>
+                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">显示</h3>
                                 <div class="grid gap-3">
                                     <div class="flex items-center justify-between gap-2.5">
-                                        <span class="text-sm">Smoothing Between Updates</span>
+                                        <span class="text-sm">更新之间的平滑过渡</span>
                                         <label class="switch">
                                             <input type="checkbox" x-model="$store.atc.settings.aircraftAnimation.enabled" @change="$store.atc.toggleAnimation()">
                                             <span class="slider"></span>
@@ -114,7 +114,7 @@
                                     </div>
 
                                     <div class="flex items-center justify-between gap-2.5" x-show="$store.atc.settings.aircraftAnimation.enabled">
-                                        <span class="text-sm">Target FPS</span>
+                                        <span class="text-sm">目标 FPS</span>
                                         <div class="flex items-center flex-1 min-w-0">
                                             <input type="range"
                                                    x-model.number="$store.atc.settings.aircraftAnimation.interpolationFps"
@@ -132,11 +132,11 @@
                             
                             <!-- General Settings -->
                             <section class="mb-5">
-                                 <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">General Settings</h3>
+                                 <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">常规设置</h3>
                                  <div class="grid gap-2.5">
                                            
                                     <div class="flex items-center justify-between gap-2.5">
-                                        <span class="text-sm">Tracks Limit</span>
+                                        <span class="text-sm">轨迹上限</span>
                                         <div class="flex items-center flex-1 min-w-0">
                                             <input type="range"
                                                    x-model.number="$store.atc.settings.tracksLimit"
@@ -150,7 +150,7 @@
                                     </div>
 
                                     <div class="flex items-center justify-between gap-2.5">
-                                        <span class="text-sm">Hide Remote Ground Aircraft</span>
+                                        <span class="text-sm">隐藏远端地面飞行器</span>
                                         <label class="switch">
                                             <input type="checkbox" x-model="$store.atc.settings.excludeOtherAirportsGrounded" @change="$store.atc.requestNewAircraftData()">
                                             <span class="slider"></span>
@@ -161,38 +161,38 @@
 
                             <!-- ADS-B Source -->
                             <section class="mb-5">
-                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">ADS-B Source</h3>
+                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">ADS-B 数据源</h3>
                                 <div class="grid gap-2.5 text-xs">
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm">Mode</span>
+                                        <span class="text-sm">模式</span>
                                         <span class="font-mono text-text/80" x-text="$store.atc.adsbSourceInfo?.source_type || '—'"></span>
                                     </div>
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm">Status</span>
+                                        <span class="text-sm">状态</span>
                                         <span class="font-mono"
                                               :class="$store.atc.adsbSourceInfo?.status === 'ok' ? 'text-highlight' : 'text-danger'"
                                               x-text="$store.atc.adsbSourceInfo?.status || 'unknown'"></span>
                                     </div>
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm">Aircraft Feed</span>
+                                        <span class="text-sm">飞行器数据流</span>
                                         <span class="font-mono"
                                               :class="$store.atc.adsbSourceInfo?.aircraft?.available ? 'text-highlight' : 'text-text/60'"
                                               x-text="$store.atc.adsbSourceInfo?.aircraft?.available ? 'available' : 'unavailable'"></span>
                                     </div>
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm">Receiver</span>
+                                        <span class="text-sm">接收机</span>
                                         <span class="font-mono"
                                               :class="$store.atc.adsbSourceInfo?.receiver?.available ? 'text-highlight' : 'text-text/60'"
                                               x-text="$store.atc.adsbSourceInfo?.receiver?.available ? 'available' : 'n/a'"></span>
                                     </div>
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm">Stats</span>
+                                        <span class="text-sm">统计</span>
                                         <span class="font-mono"
                                               :class="$store.atc.adsbSourceInfo?.stats?.available ? 'text-highlight' : 'text-text/60'"
                                               x-text="$store.atc.adsbSourceInfo?.stats?.available ? 'available' : 'n/a'"></span>
                                     </div>
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm">Updated</span>
+                                        <span class="text-sm">更新于</span>
                                         <span class="font-mono text-text/80" x-text="$store.atc.adsbSourceInfo?.updated_at ? new Date($store.atc.adsbSourceInfo.updated_at).toLocaleTimeString() : '—'"></span>
                                     </div>
 
@@ -203,19 +203,19 @@
                                     <div x-show="$store.atc.adsbSourceInfo?.receiver?.available" class="bg-background/30 border border-border/40 rounded p-2 space-y-1">
                                         <div class="text-text/70">Receiver</div>
                                         <div class="flex items-center justify-between">
-                                            <span>Version</span>
+                                            <span>版本</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbReceiverSummary()?.version || '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Refresh</span>
+                                            <span>刷新</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbReceiverSummary()?.refreshMs !== null ? ($store.atc.getAdsbReceiverSummary()?.refreshMs + ' ms') : '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>History</span>
+                                            <span>历史</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbReceiverSummary()?.historySeconds !== null ? ($store.atc.getAdsbReceiverSummary()?.historySeconds + ' s') : '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Features</span>
+                                            <span>功能特性</span>
                                             <span class="text-text/80 font-mono" x-text="[
                                                 $store.atc.getAdsbReceiverSummary()?.readsb ? 'readsb' : null,
                                                 $store.atc.getAdsbReceiverSummary()?.zstd ? 'zstd' : null,
@@ -225,33 +225,33 @@
                                     </div>
 
                                     <div x-show="$store.atc.adsbSourceInfo?.stats?.available" class="bg-background/30 border border-border/40 rounded p-2 space-y-1">
-                                        <div class="text-text/70">Decoder Stats</div>
+                                        <div class="text-text/70">解码器统计</div>
                                         <div class="flex items-center justify-between">
-                                            <span>Aircraft (pos/no-pos)</span>
+                                            <span>飞行器(有位置/无位置)</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbStatsSummary()?.aircraftWithPos !== null ? (($store.atc.getAdsbStatsSummary()?.aircraftWithPos || 0) + ' / ' + ($store.atc.getAdsbStatsSummary()?.aircraftWithoutPos || 0)) : '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Messages / min</span>
+                                            <span>消息/分钟</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbStatsSummary()?.messagesPerMin ?? '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Positions / min</span>
+                                            <span>位置/分钟</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbStatsSummary()?.positionsPerMin ?? '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Tracks</span>
+                                            <span>轨迹</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbStatsSummary()?.tracksAll ?? '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Signal / Noise</span>
+                                            <span>信号/噪声</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbStatsSummary()?.signalDb !== null ? ($store.atc.formatSignedNumber($store.atc.getAdsbStatsSummary()?.signalDb, 1) + ' / ' + $store.atc.formatSignedNumber($store.atc.getAdsbStatsSummary()?.noiseDb, 1) + ' dBFS') : '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>SNR</span>
+                                            <span>信噪比</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbStatsSummary()?.snrDb !== null ? ($store.atc.formatSignedNumber($store.atc.getAdsbStatsSummary()?.snrDb, 1) + ' dB') : '—'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Gain / PPM</span>
+                                            <span>增益 / PPM</span>
                                             <span class="text-text/80 font-mono" x-text="$store.atc.getAdsbStatsSummary()?.gainDb !== null ? ($store.atc.getAdsbStatsSummary()?.gainDb.toFixed(1) + ' dB · ' + $store.atc.formatSignedNumber($store.atc.getAdsbStatsSummary()?.estimatedPpm, 1) + ' ppm') : '—'"></span>
                                         </div>
                                     </div>
@@ -260,45 +260,45 @@
                             
                             <!-- Debug Settings -->
                             <section class="mb-5">
-                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">Debug Settings</h3>
+                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">调试设置</h3>
                                 <div class="grid gap-2.5">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-sm whitespace-nowrap">WebSocket</span>
                                         <button @click="$store.atc.toggleWebSocketUpdates()"
-                                                title="Toggle WebSocket updates"
+                                                title="切换 WebSocket 更新"
                                                 :class="{
                                                     'bg-green-500/20 border-green-500/50 text-green-400': !$store.atc.wsUpdatesPaused,
                                                     'bg-red-500/20 border-red-500/50 text-red-400': $store.atc.wsUpdatesPaused
                                                 }"
                                                 class="px-2.5 py-1 rounded border text-[11px] font-medium transition-all duration-200 flex items-center gap-1.5 cursor-pointer">
                                             <i :class="$store.atc.wsUpdatesPaused ? 'fas fa-play' : 'fas fa-pause'" class="text-[9px]"></i>
-                                            <span x-text="$store.atc.wsUpdatesPaused ? 'Resume' : 'Pause'"></span>
+                                            <span x-text="$store.atc.wsUpdatesPaused ? '恢复' : '暂停'"></span>
                                         </button>
                                     </div>
 
                                     <div x-show="$store.atc.mapPerformanceStats" class="text-xs text-text/70 bg-background/30 border border-border/40 rounded p-2 space-y-1">
                                         <div class="flex items-center justify-between">
-                                            <span x-text="$store.atc.mapPerformanceStats?.smoothingEnabled ? 'Render FPS' : 'Update Rate (/s)'"></span>
+                                            <span x-text="$store.atc.mapPerformanceStats?.smoothingEnabled ? '渲染 FPS' : '更新速率 (/秒)'"></span>
                                             <span class="text-highlight" x-text="$store.atc.mapPerformanceStats?.animationFps"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Render Frame (ms)</span>
+                                            <span>渲染帧耗时(ms)</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.smoothingEnabled ? $store.atc.mapPerformanceStats?.animationFrameMs : '-'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Render Targets / Frame</span>
+                                            <span>每帧渲染目标</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.smoothingEnabled ? (($store.atc.mapPerformanceStats?.animationAnimatedThisFrame ?? 0) + ' / ' + ($store.atc.mapPerformanceStats?.animationVisibleTargets ?? 0)) : '-'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Render Marker Updates /s</span>
+                                            <span>渲染 Marker 更新/秒</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.smoothingEnabled ? $store.atc.mapPerformanceStats?.animationMarkerUpdatesPerSec : '-'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Map Refresh /s</span>
+                                            <span>地图刷新/秒</span>
                                             <span class="text-highlight" x-text="$store.atc.mapPerformanceStats?.refreshPerSec"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Map Refresh Avg (ms)</span>
+                                            <span>地图刷新平均耗时(ms)</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.avgRefreshMs"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
@@ -318,11 +318,11 @@
                                             <span x-text="$store.atc.mapPerformanceStats?.animationPredictedPerSec"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Dropped Frames</span>
+                                            <span>丢帧数</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.animationDroppedFrames"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Render Quality</span>
+                                            <span>渲染质量</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.animationQuality"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
@@ -373,11 +373,11 @@
                             
                             <!-- Station Position -->
                             <section class="mb-5">
-                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">Station</h3>
+                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">站点</h3>
                                 <div class="grid gap-2.5">
                                     <!-- GPS Coordinates (always visible) -->
                                     <div class="flex items-center justify-between gap-2.5">
-                                        <span class="text-sm">Position</span>
+                                        <span class="text-sm">位置</span>
                                         <div class="text-xs text-text/70 font-mono">
                                             <span x-text="($store.atc.stationOverride.active ? $store.atc.stationOverride.latitude : $store.atc.stationLatitude)?.toFixed(6) || '—'"></span>,
                                             <span x-text="($store.atc.stationOverride.active ? $store.atc.stationOverride.longitude : $store.atc.stationLongitude)?.toFixed(6) || '—'"></span>
@@ -386,7 +386,7 @@
 
                                     <!-- Override checkbox -->
                                     <div class="flex items-center justify-between gap-2.5">
-                                        <span class="text-sm">Override</span>
+                                        <span class="text-sm">覆盖</span>
                                         <label class="switch">
                                             <input type="checkbox"
                                                    :checked="$store.atc.stationOverride.active"
@@ -401,7 +401,7 @@
                                         <!-- GPS Coordinate Inputs -->
                                         <div class="grid grid-cols-2 gap-2">
                                             <div>
-                                                <label class="text-xs text-text/70 block mb-1">Latitude</label>
+                                                <label class="text-xs text-text/70 block mb-1">纬度</label>
                                                 <input type="number"
                                                        x-model="$store.atc.stationOverride.latitude"
                                                        step="0.000001"
@@ -409,7 +409,7 @@
                                                        class="w-full px-2 py-1 text-xs bg-background border border-border rounded text-text">
                                             </div>
                                             <div>
-                                                <label class="text-xs text-text/70 block mb-1">Longitude</label>
+                                                <label class="text-xs text-text/70 block mb-1">经度</label>
                                                 <input type="number"
                                                        x-model="$store.atc.stationOverride.longitude"
                                                        step="0.000001"
@@ -421,23 +421,23 @@
                                         <!-- Action Buttons -->
                                         <div class="flex gap-1">
                                             <button @click="$store.atc.setStationFromMap()"
-                                                    title="Click map to set coordinates"
+                                                    title="点击地图设置坐标"
                                                     :class="$store.atc.stationOverride.mapClickMode ? 'bg-orange-600/70 text-white' : 'bg-slate-700/50 hover:bg-slate-600/70 text-slate-300 hover:text-white'"
                                                     class="flex items-center justify-center w-8 h-8 rounded transition-all border border-slate-600/50 hover:border-slate-500">
                                                 <i class="fas fa-crosshairs text-xs"></i>
                                             </button>
                                             <button @click="$store.atc.useGeolocation()"
-                                                    title="Use device location"
+                                                    title="使用设备定位"
                                                     class="flex items-center justify-center w-8 h-8 bg-blue-700/50 hover:bg-blue-600/70 text-blue-300 hover:text-white rounded transition-all border border-blue-600/50 hover:border-blue-500">
                                                 <i class="fas fa-location-arrow text-xs"></i>
                                             </button>
                                             <button @click="$store.atc.applyStationOverride()"
                                                     class="flex-1 px-3 py-1.5 bg-emerald-700/50 hover:bg-emerald-600/70 text-emerald-300 hover:text-white rounded transition-all border border-emerald-600/50 hover:border-emerald-500 font-medium text-xs">
-                                                Apply
+                                                应用
                                             </button>
                                             <button x-show="$store.atc.stationOverride.active"
                                                     @click="$store.atc.clearStationOverride()"
-                                                    title="Clear override"
+                                                    title="清除覆盖"
                                                     class="flex items-center justify-center w-8 h-8 bg-red-700/50 hover:bg-red-600/70 text-red-300 hover:text-white rounded transition-all border border-red-600/50 hover:border-red-500">
                                                 <i class="fas fa-times text-xs"></i>
                                             </button>
@@ -445,7 +445,7 @@
 
                                         <!-- Auto-Update Toggle -->
                                         <div class="flex items-center justify-between gap-2.5">
-                                            <span class="text-sm">Auto-update from GPS</span>
+                                            <span class="text-sm">从 GPS 自动更新</span>
                                             <label class="switch">
                                                 <input type="checkbox"
                                                        x-model="$store.atc.stationOverride.autoUpdate"
@@ -456,7 +456,7 @@
 
                                         <!-- Update Interval -->
                                         <div x-show="$store.atc.stationOverride.autoUpdate" class="flex items-center justify-between gap-2.5">
-                                            <span class="text-sm">Update interval</span>
+                                            <span class="text-sm">更新间隔</span>
                                             <select x-model="$store.atc.stationOverride.updateInterval"
                                                     @change="$store.atc.updateGeolocationInterval()"
                                                     class="px-2 py-1 text-xs bg-background border border-border rounded text-text">
@@ -471,7 +471,7 @@
                                         <div x-show="$store.atc.stationOverride.mapClickMode"
                                              class="text-xs text-orange-400 bg-orange-900/20 border border-orange-700/50 rounded px-2 py-1.5">
                                             <i class="fas fa-crosshairs mr-1"></i>
-                                            Click on the map to set station location
+                                            点击地图以设置站点位置
                                         </div>
 
                                         <div x-show="$store.atc.stationOverride.autoUpdate && $store.atc.stationOverride.geolocationStatus"
@@ -485,24 +485,24 @@
 
                             <!-- Simulated Aircraft Settings -->
                             <section class="mb-5">
-                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">Simulated Aircraft</h3>
+                                <h3 class="text-highlight text-sm border-b border-border pb-1 mb-2.5">模拟飞行器</h3>
                                 <div class="grid gap-2.5">
                                     <button @click="$store.atc.showCreateSimulatedAircraft = true"
                                             class="px-3 py-1.5 bg-blue-700/50 hover:bg-blue-600/70 text-blue-300 hover:text-white rounded transition-all border border-blue-600/50 hover:border-blue-500 font-medium text-xs">
                                         <i class="fas fa-plus mr-1"></i>
-                                        Add Simulated Aircraft
+                                        添加模拟飞行器
                                     </button>
                                     
                                     <!-- Simulated Aircraft List -->
                                     <div class="mt-4">
                                         <h4 class="text-sm font-medium text-text mb-2 flex items-center gap-2">
                                             <i class="fas fa-gamepad text-blue-400"></i>
-                                            Active Simulated Aircraft
+                                            活跃的模拟飞行器
                                         </h4>
                                         <div>
                                             <template x-if="Object.values($store.atc.aircraft).filter(a => a.is_simulated).length === 0">
                                                 <div class="text-xs text-text/60 italic p-2 bg-background/30 rounded border border-border/30">
-                                                    No simulated aircraft active
+                                                    暂无活跃的模拟飞行器
                                                 </div>
                                             </template>
 
@@ -517,7 +517,7 @@
                                                                 </div>
                                                             </div>
                                                             <button @click="
-                                                                if (confirm('Remove simulated aircraft ' + (aircraft.flight || aircraft.hex) + '?')) {
+                                                                if (confirm('确定要移除模拟飞行器 ' + (aircraft.flight || aircraft.hex) + ' 吗?')) {
                                                                     $store.atc.removeSimulatedAircraft(aircraft.hex);
                                                                 }
                                                             "
@@ -541,10 +541,10 @@
                         <!-- Static Alerts Bar -->
                         <div id="alerts-bar" class="absolute top-4 left-1/2 transform -translate-x-1/2 w-1/2 z-[10000]">
                             <div class="bg-black/60 backdrop-blur-sm border-2 border-highlight/40 rounded-lg shadow-[0_5px_15px_rgba(0,0,0,0.5)] px-3 py-2 w-full min-h-[40px] flex items-center">
-                                <div class="text-text/80 text-xs font-medium mr-2">Alerts:</div>
+                                <div class="text-text/80 text-xs font-medium mr-2">告警:</div>
                                 <div id="alerts-container" class="flex flex-wrap gap-1.5 items-center flex-1">
                                     <!-- Static "None" text that's always visible when no alerts -->
-                                    <div class="text-text/50 text-xs" id="no-alerts-text">None</div>
+                                    <div class="text-text/50 text-xs" id="no-alerts-text">无</div>
                                     
                                     <!-- Dynamic alerts will be added here by JavaScript -->
                                 </div>
@@ -552,7 +552,7 @@
                                 <button @click="$store.atc.clearAllAircraftAlerts()"
                                         x-show="$store.atc.aircraftAlerts.length > 0"
                                         class="ml-2 text-text/40 hover:text-text/80 transition-colors duration-200 cursor-pointer flex items-center justify-center w-4 h-4"
-                                        title="Clear all alerts">
+                                        title="清除所有告警">
                                     <i class="fas fa-times text-xs"></i>
                                 </button>
                                 
@@ -565,9 +565,9 @@
                             <button @click="open = !open"
                                     @keydown.escape.window="open = false"
                                     type="button"
-                                    title="Map controls"
+                                    title="地图控件"
                                     class="filter-input text-xs px-3 py-1.5 rounded border border-border bg-panel/85 text-text min-w-[180px] flex items-center justify-between backdrop-blur-sm hover:border-highlight/60 transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
-                                <span class="uppercase tracking-wide text-text/80">Map Controls</span>
+                                <span class="uppercase tracking-wide text-text/80">地图控件</span>
                                 <i class="fas" :class="open ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
                             </button>
 
@@ -576,7 +576,7 @@
                                  x-transition.origin.bottom.right
                                                                      class="absolute bottom-full right-0 mb-2 w-[340px] max-w-[calc(100vw-1rem)] max-h-[65vh] overflow-y-auto overflow-x-hidden bg-panel/95 border border-border rounded-md shadow-[0_8px_20px_rgba(0,0,0,0.45)] p-3 space-y-3">
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-text/70 mb-2">Map Style</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-text/70 mb-2">地图样式</div>
                                     <div class="grid grid-cols-2 gap-1.5">
                                         <button type="button" @click="$store.atc.settings.mapStyle='vfr-sectional'; $store.atc.setMapStyle()" class="px-2 py-1.5 text-xs rounded border transition-colors"
                                                 :class="$store.atc.settings.mapStyle==='vfr-sectional' ? 'border-highlight/60 bg-highlight/20 text-highlight' : 'border-border bg-background text-text hover:bg-highlight/15'">VFR Sectional</button>
@@ -585,23 +585,23 @@
                                         <button type="button" @click="$store.atc.settings.mapStyle='ifr-high'; $store.atc.setMapStyle()" class="px-2 py-1.5 text-xs rounded border transition-colors"
                                                 :class="$store.atc.settings.mapStyle==='ifr-high' ? 'border-highlight/60 bg-highlight/20 text-highlight' : 'border-border bg-background text-text hover:bg-highlight/15'">IFR High</button>
                                         <button type="button" @click="$store.atc.settings.mapStyle='dark'; $store.atc.setMapStyle()" class="px-2 py-1.5 text-xs rounded border transition-colors"
-                                                :class="$store.atc.settings.mapStyle==='dark' ? 'border-highlight/60 bg-highlight/20 text-highlight' : 'border-border bg-background text-text hover:bg-highlight/15'">Dark</button>
+                                                :class="$store.atc.settings.mapStyle==='dark' ? 'border-highlight/60 bg-highlight/20 text-highlight' : 'border-border bg-background text-text hover:bg-highlight/15'">深色</button>
                                         <button type="button" @click="$store.atc.settings.mapStyle='light'; $store.atc.setMapStyle()" class="px-2 py-1.5 text-xs rounded border transition-colors"
-                                                :class="$store.atc.settings.mapStyle==='light' ? 'border-highlight/60 bg-highlight/20 text-highlight' : 'border-border bg-background text-text hover:bg-highlight/15'">Light</button>
+                                                :class="$store.atc.settings.mapStyle==='light' ? 'border-highlight/60 bg-highlight/20 text-highlight' : 'border-border bg-background text-text hover:bg-highlight/15'">浅色</button>
                                         <button type="button" @click="$store.atc.settings.mapStyle='osm'; $store.atc.setMapStyle()" class="px-2 py-1.5 text-xs rounded border transition-colors"
                                                 :class="$store.atc.settings.mapStyle==='osm' ? 'border-highlight/60 bg-highlight/20 text-highlight' : 'border-border bg-background text-text hover:bg-highlight/15'">OpenStreetMap</button>
                                     </div>
                                 </div>
 
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-text/70 mb-2">Aircraft</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-text/70 mb-2">飞行器</div>
                                     <div class="space-y-1.5">
                                         <div class="flex items-center gap-2.5 min-h-[30px]">
                                             <label class="switch shrink-0">
                                                 <input type="checkbox" x-model="$store.atc.settings.showLabels" @change="$store.atc.toggleLabels()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">Labels</span>
+                                            <span class="text-sm min-w-[96px]">标签</span>
                                         </div>
 
                                         <div class="flex items-center gap-2.5 min-h-[30px]">
@@ -609,7 +609,7 @@
                                                 <input type="checkbox" x-model="$store.atc.settings.showPaths" @change="$store.atc.togglePaths()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">Tracks</span>
+                                            <span class="text-sm min-w-[96px]">轨迹</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showPaths">
                                                 <input type="range"
                                                        x-model.number="$store.atc.settings.trailLength"
@@ -625,14 +625,14 @@
                                 </div>
 
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-text/70 mb-2">Layers</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-text/70 mb-2">图层</div>
                                     <div class="space-y-1.5">
                                         <div class="flex items-center gap-2.5 min-h-[30px]">
                                             <label class="switch shrink-0">
                                                 <input type="checkbox" x-model="$store.atc.settings.showRings" @change="$store.atc.toggleRings()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">Distance Rings</span>
+                                            <span class="text-sm min-w-[96px]">距离环</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showRings">
                                                 <input type="range" x-model.number="$store.atc.settings.ringsOpacity" min="0.1" max="1" step="0.1" @input="$store.atc.setRingsOpacity()" class="flex-1 h-1 bg-background rounded">
                                                 <span class="w-10 text-right text-xs" x-text="Math.round($store.atc.settings.ringsOpacity * 100) + '%'" ></span>
@@ -644,7 +644,7 @@
                                                 <input type="checkbox" x-model="$store.atc.settings.showAirspaceBoundaries" @change="$store.atc.toggleAirspaceBoundaries()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">Airspace</span>
+                                            <span class="text-sm min-w-[96px]">空域</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showAirspaceBoundaries">
                                                 <input type="range" x-model.number="$store.atc.settings.airspaceOpacity" min="0.1" max="1" step="0.1" @input="$store.atc.setAirspaceOpacity()" class="flex-1 h-1 bg-background rounded">
                                                 <span class="w-10 text-right text-xs" x-text="Math.round($store.atc.settings.airspaceOpacity * 100) + '%'" ></span>
@@ -668,7 +668,7 @@
                                                 <input type="checkbox" x-model="$store.atc.settings.showNoaaInfrared" @change="$store.atc.toggleNoaaInfrared()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">NOAA Infrared</span>
+                                            <span class="text-sm min-w-[96px]">NOAA 红外</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showNoaaInfrared">
                                                 <input type="range" x-model.number="$store.atc.settings.noaaInfraredOpacity" min="0.1" max="1" step="0.1" @input="$store.atc.setNoaaInfraredOpacity()" class="flex-1 h-1 bg-background rounded">
                                                 <span class="w-10 text-right text-xs" x-text="Math.round($store.atc.settings.noaaInfraredOpacity * 100) + '%'" ></span>
@@ -680,7 +680,7 @@
                                                 <input type="checkbox" x-model="$store.atc.settings.showNoaaRadar" @change="$store.atc.toggleNoaaRadar()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">NOAA Radar</span>
+                                            <span class="text-sm min-w-[96px]">NOAA 雷达</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showNoaaRadar">
                                                 <input type="range" x-model.number="$store.atc.settings.noaaRadarOpacity" min="0.1" max="1" step="0.1" @input="$store.atc.setNoaaRadarOpacity()" class="flex-1 h-1 bg-background rounded">
                                                 <span class="w-10 text-right text-xs" x-text="Math.round($store.atc.settings.noaaRadarOpacity * 100) + '%'" ></span>
@@ -692,7 +692,7 @@
                                                 <input type="checkbox" x-model="$store.atc.settings.showAirports" @change="$store.atc.toggleAirports()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">Airports</span>
+                                            <span class="text-sm min-w-[96px]">机场</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showAirports">
                                                 <input type="range" x-model.number="$store.atc.settings.airportsOpacity" min="0.1" max="1" step="0.1" @input="$store.atc.setAirportsOpacity()" class="flex-1 h-1 bg-background rounded">
                                                 <span class="w-10 text-right text-xs" x-text="Math.round($store.atc.settings.airportsOpacity * 100) + '%'" ></span>
@@ -704,7 +704,7 @@
                                                 <input type="checkbox" x-model="$store.atc.settings.showHeliports" @change="$store.atc.toggleHeliports()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">Heliports</span>
+                                            <span class="text-sm min-w-[96px]">直升机场</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showHeliports">
                                                 <input type="range" x-model.number="$store.atc.settings.heliportsOpacity" min="0.1" max="1" step="0.1" @input="$store.atc.setHeliportsOpacity()" class="flex-1 h-1 bg-background rounded">
                                                 <span class="w-10 text-right text-xs" x-text="Math.round($store.atc.settings.heliportsOpacity * 100) + '%'" ></span>
@@ -716,7 +716,7 @@
                                                 <input type="checkbox" x-model="$store.atc.settings.showNavaids" @change="$store.atc.toggleNavaids()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">Navaids</span>
+                                            <span class="text-sm min-w-[96px]">导航台</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showNavaids">
                                                 <input type="range" x-model.number="$store.atc.settings.navaidsOpacity" min="0.1" max="1" step="0.1" @input="$store.atc.setNavaidsOpacity()" class="flex-1 h-1 bg-background rounded">
                                                 <span class="w-10 text-right text-xs" x-text="Math.round($store.atc.settings.navaidsOpacity * 100) + '%'" ></span>
@@ -728,7 +728,7 @@
                                                 <input type="checkbox" x-model="$store.atc.settings.showAllRunways" @change="$store.atc.toggleAllRunways()">
                                                 <span class="slider"></span>
                                             </label>
-                                            <span class="text-sm min-w-[96px]">Other Runways</span>
+                                            <span class="text-sm min-w-[96px]">其它跑道</span>
                                             <div class="flex items-center gap-2 shrink-0 w-[126px]" x-show="$store.atc.settings.showAllRunways">
                                                 <input type="range" x-model.number="$store.atc.settings.allRunwaysOpacity" min="0.1" max="1" step="0.1" @input="$store.atc.setAllRunwaysOpacity()" class="flex-1 h-1 bg-background rounded">
                                                 <span class="w-10 text-right text-xs" x-text="Math.round($store.atc.settings.allRunwaysOpacity * 100) + '%'" ></span>
@@ -745,10 +745,10 @@
                          :class="{ 'opacity-100 visible': $store.atc.connected === false && $store.atc.initialDataLoaded, 'opacity-0 invisible pointer-events-none': $store.atc.connected !== false || !$store.atc.initialDataLoaded }">
                         <div class="text-center text-danger text-4xl font-bold uppercase tracking-wider animate-pulse bg-black/50 p-8 rounded-lg shadow-2xl">
                             <i class="fas fa-wifi-slash text-6xl mb-4 block"></i>
-                            Connection Lost
+                            连接已断开
                             <div class="mt-3 text-base text-text/80 normal-case tracking-normal" x-show="$store.atc.wsReconnectAttempt > 0">
-                                Reconnect attempt #<span x-text="$store.atc.wsReconnectAttempt"></span>
-                                <span x-show="$store.atc.wsNextRetryDelayMs !== null"> · next in <span x-text="Math.ceil($store.atc.wsNextRetryDelayMs / 1000)"></span>s</span>
+                                第 <span x-text="$store.atc.wsReconnectAttempt"></span> 次重连尝试
+                                <span x-show="$store.atc.wsNextRetryDelayMs !== null"> · 下次将在 <span x-text="Math.ceil($store.atc.wsNextRetryDelayMs / 1000)"></span> 秒后</span>
                             </div>
                         </div>
                     </div>
@@ -774,8 +774,8 @@
                             <div class="p-6">
                                 <!-- Welcome Message -->
                                 <div class="mb-6">
-                                    <h3 class="text-xl text-text mb-2">Welcome to Co-ATC</h3>
-                                    <p class="text-text/80">Real-time aircraft tracking and monitoring for modern air traffic control operations.</p>
+                                    <h3 class="text-xl text-text mb-2">欢迎使用 Co-ATC</h3>
+                                    <p class="text-text/80">面向现代空中交通管制运行的实时飞行器追踪与监控系统。</p>
                                 </div>
                                 
                                 <!-- Station Data -->
@@ -783,20 +783,20 @@
                                     <!-- Station Info -->
                                     <div class="bg-black/30 rounded-lg p-4 border border-border">
                                         <h4 class="text-highlight text-sm border-b border-border pb-1 mb-3">
-                                            <i class="fas fa-broadcast-tower mr-1"></i>Station Information
+                                            <i class="fas fa-broadcast-tower mr-1"></i>站点信息
                                         </h4>
                                         <div class="space-y-2">
                                             <div class="flex justify-between">
-                                                <span class="text-text/70">Airport Code:</span>
+                                                <span class="text-text/70">机场代码:</span>
                                                 <span class="font-mono font-bold" x-text="$store.atc.stationAirportCode || '-'"></span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-text/70">Coordinates:</span>
+                                                <span class="text-text/70">坐标:</span>
                                                 <span class="font-mono" x-text="$store.atc.stationLatitude && $store.atc.stationLongitude ?
                                                     $store.atc.stationLatitude.toFixed(4) + ', ' + $store.atc.stationLongitude.toFixed(4) : '-'"></span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-text/70">Elevation:</span>
+                                                <span class="text-text/70">海拔:</span>
                                                 <span class="font-mono" x-text="$store.atc.stationElevationFeet ? $store.atc.stationElevationFeet + ' ft' : '-'"></span>
                                             </div>
                                         </div>
@@ -805,19 +805,19 @@
                                     <!-- Aircraft Data -->
                                     <div class="bg-black/30 rounded-lg p-4 border border-border">
                                         <h4 class="text-highlight text-sm border-b border-border pb-1 mb-3">
-                                            <i class="fas fa-plane mr-1"></i>Aircraft Status
+                                            <i class="fas fa-plane mr-1"></i>飞行器状态
                                         </h4>
                                         <div class="space-y-2">
                                             <div class="flex justify-between">
-                                                <span class="text-text/70">In Air:</span>
+                                                <span class="text-text/70">空中:</span>
                                                 <span class="font-mono font-bold text-highlight" x-text="$store.atc.counts.air_total || '0'"></span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-text/70">On Ground:</span>
+                                                <span class="text-text/70">地面:</span>
                                                 <span class="font-mono font-bold text-gray-400" x-text="$store.atc.counts.ground_total || '0'"></span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-text/70">Total Aircraft:</span>
+                                                <span class="text-text/70">飞行器总数:</span>
                                                 <span class="font-mono font-bold" x-text="($store.atc.counts.air_total || 0) + ($store.atc.counts.ground_total || 0)"></span>
                                             </div>
                                         </div>
@@ -827,11 +827,11 @@
                                 <!-- METAR Data -->
                                 <div x-show="$store.atc.getLatestMetar()" class="bg-black/30 rounded-lg p-4 border border-border mb-6">
                                     <h4 class="text-highlight text-sm border-b border-border pb-1 mb-3">
-                                        <i class="fas fa-cloud mr-1"></i>Latest METAR
+                                        <i class="fas fa-cloud mr-1"></i>最新 METAR
                                     </h4>
-                                                                        <div class="font-mono text-xs bg-black/50 p-3 rounded overflow-x-auto whitespace-nowrap">                                        <span x-text="$store.atc.metar && $store.atc.metar.trend && $store.atc.metar.trend.length > 0 ? $store.atc.metar.trend[0].metar : 'No METAR data available'"></span>                                    </div>                                </div>                            </div>                                                        <!-- Connection Status -->                            <div class="bg-black/30 p-3 border-t border-border/50 flex justify-center">                                <div class="flex items-center gap-2 text-sm">                                    <template x-if="$store.atc.connected === true">                                        <div class="flex items-center text-highlight">                                            <i class="fas fa-check-circle mr-2"></i>                                            Connected to Data Stream                                        </div>                                    </template>                                    <template x-if="$store.atc.connected === null">                                        <div class="flex items-center text-yellow-400">                                            <i class="fas fa-spinner fa-spin mr-2"></i>                                            Connecting to Data Stream...                                        </div>                                    </template>                                    <template x-if="$store.atc.connected === false">                                        <div class="flex items-center text-red-400">                                            <i class="fas fa-exclamation-triangle mr-2"></i>                                            Connection Lost - Reconnecting...
-                                            <span class="ml-2 text-red-300/90" x-show="$store.atc.wsReconnectAttempt > 0">(attempt #<span x-text="$store.atc.wsReconnectAttempt"></span>)</span>
-                                        </div>                                    </template>                                </div>                            </div>                                                        <!-- Footer with Start Button -->                            <div class="bg-black/50 p-4 border-t border-highlight/20 flex justify-center">                                <button @click="$store.atc.closeSplashScreen()"                                        :disabled="$store.atc.connected !== true"                                        :class="{                                            'bg-highlight hover:bg-highlight/80 text-white cursor-pointer': $store.atc.connected === true,                                            'bg-gray-600 text-gray-400 cursor-not-allowed': $store.atc.connected !== true                                        }"                                        class="font-bold py-2 px-6 rounded-full transition-all duration-200 flex items-center">                                    <template x-if="$store.atc.connected === true">                                        <div class="flex items-center">                                            <i class="fas fa-play mr-2"></i>                                            Start Monitoring                                        </div>                                    </template>                                    <template x-if="$store.atc.connected !== true">                                        <div class="flex items-center">                                            <i class="fas fa-spinner fa-spin mr-2"></i>                                            <span x-text="$store.atc.connected === null ? 'Waiting for Connection...' : 'Reconnecting...'"></span>                                        </div>                                    </template>                                </button>                            </div>
+                                                                        <div class="font-mono text-xs bg-black/50 p-3 rounded overflow-x-auto whitespace-nowrap">                                        <span x-text="$store.atc.metar && $store.atc.metar.trend && $store.atc.metar.trend.length > 0 ? $store.atc.metar.trend[0].metar : '暂无 METAR 数据'"></span>                                    </div>                                </div>                            </div>                                                        <!-- Connection Status -->                            <div class="bg-black/30 p-3 border-t border-border/50 flex justify-center">                                <div class="flex items-center gap-2 text-sm">                                    <template x-if="$store.atc.connected === true">                                        <div class="flex items-center text-highlight">                                            <i class="fas fa-check-circle mr-2"></i>                                            已连接到数据流                                        </div>                                    </template>                                    <template x-if="$store.atc.connected === null">                                        <div class="flex items-center text-yellow-400">                                            <i class="fas fa-spinner fa-spin mr-2"></i>                                            正在连接数据流……                                        </div>                                    </template>                                    <template x-if="$store.atc.connected === false">                                        <div class="flex items-center text-red-400">                                            <i class="fas fa-exclamation-triangle mr-2"></i>                                            连接已断开 - 正在重连……
+                                            <span class="ml-2 text-red-300/90" x-show="$store.atc.wsReconnectAttempt > 0">(第 <span x-text="$store.atc.wsReconnectAttempt"></span> 次尝试)</span>
+                                        </div>                                    </template>                                </div>                            </div>                                                        <!-- Footer with Start Button -->                            <div class="bg-black/50 p-4 border-t border-highlight/20 flex justify-center">                                <button @click="$store.atc.closeSplashScreen()"                                        :disabled="$store.atc.connected !== true"                                        :class="{                                            'bg-highlight hover:bg-highlight/80 text-white cursor-pointer': $store.atc.connected === true,                                            'bg-gray-600 text-gray-400 cursor-not-allowed': $store.atc.connected !== true                                        }"                                        class="font-bold py-2 px-6 rounded-full transition-all duration-200 flex items-center">                                    <template x-if="$store.atc.connected === true">                                        <div class="flex items-center">                                            <i class="fas fa-play mr-2"></i>                                            开始监控                                        </div>                                    </template>                                    <template x-if="$store.atc.connected !== true">                                        <div class="flex items-center">                                            <i class="fas fa-spinner fa-spin mr-2"></i>                                            <span x-text="$store.atc.connected === null ? '等待连接……' : '正在重连……'"></span>                                        </div>                                    </template>                                </button>                            </div>
                         </div>
                     </div>
                 </main>
@@ -847,7 +847,7 @@
                 <div x-show="!$store.atc.selectedAircraft" class="flex-1 min-h-0 flex flex-col p-3 bg-panel">
                     <div class="mb-3">
                         <div class="flex justify-between items-center mb-1.5 relative pb-1">
-                            <h3 class="text-highlight text-base m-0">Tracked Targets</h3>
+                            <h3 class="text-highlight text-base m-0">追踪目标</h3>
                             <!-- Subtle green underline -->
                             <div class="absolute bottom-0 left-0 right-0 h-px bg-highlight/30"></div>
                         </div>
@@ -859,7 +859,7 @@
                         <div class="relative flex-1">
                             <input type="text"
                                    class="filter-input w-full p-1.5 pr-8 border border-border text-text rounded-md text-sm transition-all duration-200 focus:outline-none"
-                                   placeholder="Search callsign, category"
+                                   placeholder="搜索呼号、类别"
                                    x-model="$store.atc.searchTerm"
                                    @input.debounce.300ms="$store.atc.applyFilters()"
                                    @keydown.tab.prevent="$store.atc.cycleToNextAircraft()"
@@ -1423,7 +1423,7 @@
                                             </div>
                                             <div class="flex items-center gap-1">
                                                 <div class="w-2 h-0.5 bg-gray-400 opacity-60" style="border-top: 1px dashed #888888;"></div>
-                                                <span class="text-text/80">History</span>
+                                                <span class="text-text/80">历史</span>
                                             </div>
                                             <div class="flex items-center gap-1">
                                                 <div class="w-2 h-0.5 bg-warning" style="border-top: 1px dashed #FFC107;"></div>
@@ -2184,7 +2184,7 @@
                 <label class="block text-sm text-text mb-2">Position</label>
                 <div class="grid grid-cols-2 gap-2 mb-2">
                     <div>
-                        <label class="text-xs text-text/70 block mb-1">Latitude</label>
+                        <label class="text-xs text-text/70 block mb-1">纬度</label>
                         <input type="number"
                                x-model="$store.atc.simulationModal.lat"
                                step="0.000001"
@@ -2192,7 +2192,7 @@
                                class="w-full px-2 py-1 text-xs bg-background border border-border rounded text-text">
                     </div>
                     <div>
-                        <label class="text-xs text-text/70 block mb-1">Longitude</label>
+                        <label class="text-xs text-text/70 block mb-1">经度</label>
                         <input type="number"
                                x-model="$store.atc.simulationModal.lon"
                                step="0.000001"

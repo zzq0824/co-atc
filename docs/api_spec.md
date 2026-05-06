@@ -1,14 +1,14 @@
-# Co-ATC API Specification
+# Co-ATC API 规范
 
-This document provides detailed information about the Co-ATC API endpoints, request parameters, and response formats.
+本文档详细介绍 Co-ATC API 端点、请求参数和响应格式。
 
-## Aircraft Data Endpoints
+## 飞行器数据端点
 
 ### GET /api/v1/aircraft
 
-Retrieves the current list of all tracked aircraft.
+获取当前所有被追踪飞行器的列表。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "timestamp": "2025-05-19T01:02:03.456Z",
@@ -123,43 +123,43 @@ Retrieves the current list of all tracked aircraft.
 }
 ```
 
-**Enhanced Response Structure:**
-- `counts`: Detailed aircraft counts by ground/air and active/total status
-- `distance`: Distance from station in nautical miles
-- `is_simulated`: Boolean indicating if aircraft is simulated
-- `phase_data`: Current flight phase information
-- `clearances`: Recent ATC clearances issued to the aircraft
-- `future`: Future trajectory predictions (up to 5 positions)
+**增强响应结构:**
+- `counts`: 按地面/空中和活跃/总数划分的飞行器详细计数
+- `distance`: 距离站点的距离(海里)
+- `is_simulated`: boolean,指示飞行器是否为模拟飞行器
+- `phase_data`: 当前飞行阶段信息
+- `clearances`: 最近向飞行器发出的 ATC 许可
+- `future`: 未来轨迹预测(最多 5 个位置)
 
-The response includes detailed counts of aircraft by status:
-- `counts.ground_active`: Number of grounded aircraft currently transmitting
-- `counts.ground_total`: Total number of grounded aircraft being tracked
-- `counts.air_active`: Number of airborne aircraft currently transmitting
-- `counts.air_total`: Total number of airborne aircraft being tracked
+响应包含按状态划分的飞行器详细计数:
+- `counts.ground_active`: 当前正在传输数据的地面飞行器数量
+- `counts.ground_total`: 被追踪的地面飞行器总数
+- `counts.air_active`: 当前正在传输数据的空中飞行器数量
+- `counts.air_total`: 被追踪的空中飞行器总数
 
-The `status` field for each aircraft indicates its current status:
-- `active`: Aircraft is currently transmitting ADS-B data
-- `stale`: Aircraft has not transmitted data recently but is still within the history window
-- `signal_lost`: Aircraft has disappeared from ADS-B coverage but is still being tracked
+每个飞行器的 `status` 字段指示其当前状态:
+- `active`: 飞行器当前正在传输 ADS-B 数据
+- `stale`: 飞行器最近未传输数据,但仍在历史窗口内
+- `signal_lost`: 飞行器已从 ADS-B 覆盖范围中消失,但仍被追踪
 
-**Query Parameters:**
-- `min_altitude` (optional): Minimum altitude in feet
-- `max_altitude` (optional): Maximum altitude in feet
-- `status` (optional): Comma-separated list of statuses to include (active, stale, signal_lost)
-- `callsign` (optional): Filter by callsign (partial match)
-- `last_seen_minutes` (optional): Only include aircraft seen within the last N minutes
-- `took_off_after` (optional): Only include aircraft that took off after this time (RFC3339 format)
-- `took_off_before` (optional): Only include aircraft that took off before this time (RFC3339 format)
-- `landed_after` (optional): Only include aircraft that landed after this time (RFC3339 format)
-- `landed_before` (optional): Only include aircraft that landed before this time (RFC3339 format)
-- `distance_nm` (optional): Only include aircraft within this distance (in nautical miles) from the reference
-- `ref_lat` and `ref_lon` (optional): Reference coordinates for distance filtering
-- `ref_hex` (optional): Reference aircraft hex code for distance filtering
-- `ref_flight` (optional): Reference flight number for distance filtering
-- `exclude_other_airports_grounded` (optional): Exclude grounded aircraft outside the airport range (1 = true, 0 = false)
-- `simple` (optional): Return a lightweight response with essential fields only (1 = true, 0 = false)
+**查询参数:**
+- `min_altitude` (可选): 最小高度(英尺)
+- `max_altitude` (可选): 最大高度(英尺)
+- `status` (可选): 要包含的状态列表,以逗号分隔(active、stale、signal_lost)
+- `callsign` (可选): 按呼号过滤(部分匹配)
+- `last_seen_minutes` (可选): 仅包含在最近 N 分钟内被发现的飞行器
+- `took_off_after` (可选): 仅包含在该时间之后起飞的飞行器(RFC3339 格式)
+- `took_off_before` (可选): 仅包含在该时间之前起飞的飞行器(RFC3339 格式)
+- `landed_after` (可选): 仅包含在该时间之后着陆的飞行器(RFC3339 格式)
+- `landed_before` (可选): 仅包含在该时间之前着陆的飞行器(RFC3339 格式)
+- `distance_nm` (可选): 仅包含距离参考点不超过该距离(海里)的飞行器
+- `ref_lat` 和 `ref_lon` (可选): 用于距离过滤的参考坐标
+- `ref_hex` (可选): 用于距离过滤的参考飞行器 hex 代码
+- `ref_flight` (可选): 用于距离过滤的参考航班号
+- `exclude_other_airports_grounded` (可选): 排除机场范围之外的地面飞行器(1 = true,0 = false)
+- `simple` (可选): 返回仅包含必要字段的轻量级响应(1 = true,0 = false)
 
-**Simple Response Format (when `simple=1`):**
+**简单响应格式 (当 `simple=1` 时):**
 ```json
 {
   "timestamp": "2025-05-19T01:02:03.456Z",
@@ -189,28 +189,28 @@ The `status` field for each aircraft indicates its current status:
 }
 ```
 
-The simple response excludes: history, future predictions, phase history, clearances, airline info, raw ADSB data, and detailed counts.
+简单响应不包含: 历史记录、未来预测、阶段历史、许可、航空公司信息、原始 ADSB 数据和详细计数。
 
 ### GET /api/v1/aircraft/{hex}
 
-Retrieves data for a specific aircraft by its ICAO hex code.
+通过 ICAO hex 代码获取特定飞行器的数据。
 
-**Response Format:**
-Same as individual aircraft object in the `/aircraft` endpoint.
+**响应格式:**
+与 `/aircraft` 端点中的单个飞行器对象相同。
 
 ### GET /api/v1/aircraft/{hex}/tracks
 
-Retrieves both position history and future predictions for a specific aircraft.
+获取特定飞行器的位置历史和未来预测。
 
-**Numeric Precision Policy (applies to `history`, `future`, and `hindcast`):**
-- GPS coordinates (`lat`, `lon`): 6 decimal places
-- Motion/attitude fields (`altitude`, `speed_gs`, `speed_true`, `track`, `true_heading`, `mag_heading`, `vertical_speed`): whole numbers
-- `vertical_speed` is populated from stored data when available, with fallback derivation from adjacent altitude/time points when missing
+**数值精度策略 (适用于 `history`、`future` 和 `hindcast`):**
+- GPS 坐标 (`lat`、`lon`): 6 位小数
+- 运动/姿态字段 (`altitude`、`speed_gs`、`speed_true`、`track`、`true_heading`、`mag_heading`、`vertical_speed`): 整数
+- `vertical_speed` 在可用时由存储数据填充,缺失时由相邻高度/时间点回退推导
 
-**Query Parameters:**
-- `limit` (optional): Maximum number of historical positions to return (default: 1000, range: 100-3600)
+**查询参数:**
+- `limit` (可选): 返回的历史位置最大数量(默认: 1000,范围: 100-3600)
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "hex": "a1b2c3",
@@ -248,13 +248,13 @@ Retrieves both position history and future predictions for a specific aircraft.
 }
 ```
 
-## Health and Status Endpoints
+## 健康和状态端点
 
 ### GET /api/v1/health
 
-Returns the health status of the server.
+返回服务器的健康状态。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "status": "active",
@@ -265,9 +265,9 @@ Returns the health status of the server.
 
 ### GET /api/v1/config
 
-Returns the public configuration settings.
+返回公开的配置设置。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "adsb": {
@@ -290,9 +290,9 @@ Returns the public configuration settings.
 
 ### GET /api/v1/adsb/source
 
-Returns ADS-B source mode health and source metadata for Settings UI.
+返回 ADS-B 源模式健康状况和源元数据,用于设置界面。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "source_type": "tar1090",
@@ -323,17 +323,17 @@ Returns ADS-B source mode health and source metadata for Settings UI.
 }
 ```
 
-**Mode behavior:**
-- `external-rapidapi`: `receiver` and `stats` are unavailable (`available=false`, `data=null`)
-- `external-opensky`: `receiver` and `stats` are unavailable (`available=false`, `data=null`)
-- `readsb-api`: `receiver` and `stats` are unavailable (`available=false`, `data=null`)
-- `tar1090` and `readsb-file`: `receiver` and `stats` include raw JSON payloads from source files
+**模式行为:**
+- `external-rapidapi`: `receiver` 和 `stats` 不可用 (`available=false`,`data=null`)
+- `external-opensky`: `receiver` 和 `stats` 不可用 (`available=false`,`data=null`)
+- `readsb-api`: `receiver` 和 `stats` 不可用 (`available=false`,`data=null`)
+- `tar1090` 和 `readsb-file`: `receiver` 和 `stats` 包含来自源文件的原始 JSON 负载
 
 ### GET /api/v1/station
 
-Returns the station's configured location and weather data.
+返回站点配置的位置和气象数据。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "latitude": 43.6777,
@@ -383,9 +383,9 @@ Returns the station's configured location and weather data.
 
 ### POST /api/v1/station
 
-Sets or clears station coordinate override.
+设置或清除站点坐标覆盖。
 
-**Request Body:**
+**请求体:**
 ```json
 {
   "latitude": 43.6777,
@@ -393,7 +393,7 @@ Sets or clears station coordinate override.
 }
 ```
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "success": true,
@@ -405,9 +405,9 @@ Sets or clears station coordinate override.
 
 ### GET /api/v1/wx
 
-Returns cached weather data (METAR, TAF, NOTAMs).
+返回缓存的气象数据(METAR、TAF、NOTAM)。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "timestamp": "2025-05-19T01:02:03.456Z",
@@ -432,13 +432,13 @@ Returns cached weather data (METAR, TAF, NOTAMs).
 }
 ```
 
-## Frequency Data Endpoints
+## 频率数据端点
 
 ### GET /api/v1/frequencies
 
-Retrieves the list of all monitored ATC frequencies.
+获取所有被监听的 ATC 频率列表。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "timestamp": "2025-05-19T01:02:03.456Z",
@@ -463,13 +463,13 @@ Retrieves the list of all monitored ATC frequencies.
 
 ### GET /api/v1/frequencies/{id}
 
-Retrieves data for a specific frequency by its ID.
+通过 ID 获取特定频率的数据。
 
 ### GET /api/v1/stream/{id}
 
-Streams audio for a specific frequency.
+为特定频率提供音频流。
 
-**Response Headers:**
+**响应头:**
 ```
 Content-Type: audio/mpeg
 Transfer-Encoding: chunked
@@ -477,26 +477,26 @@ Cache-Control: no-cache, no-store
 X-Bitrate: 128
 ```
 
-## WebSocket Endpoints
+## WebSocket 端点
 
 ### GET /api/v1/ws
 
-WebSocket endpoint for real-time aircraft updates and transcriptions.
+用于实时飞行器更新和转写的 WebSocket 端点。
 
-**Message Types:**
-- `aircraft_added`: New aircraft detected
-- `aircraft_update`: Aircraft data updated
-- `aircraft_predicted_state`: Interpolated/predicted aircraft state for smooth client-side motion
-- `aircraft_removed`: Aircraft no longer tracked
-- `aircraft_bulk_request`: Client requests bulk aircraft data
-- `aircraft_bulk_response`: Server sends bulk aircraft data
-- `filter_update`: Client updates filter preferences
-- `transcription`: Real-time transcription updates
-- `phase_change`: Aircraft phase changes
-- `clearance_issued`: ATC clearance issued
-- `alert`: System alerts
+**消息类型:**
+- `aircraft_added`: 检测到新飞行器
+- `aircraft_update`: 飞行器数据已更新
+- `aircraft_predicted_state`: 用于客户端流畅运动的插值/预测飞行器状态
+- `aircraft_removed`: 飞行器不再被追踪
+- `aircraft_bulk_request`: 客户端请求批量飞行器数据
+- `aircraft_bulk_response`: 服务器发送批量飞行器数据
+- `filter_update`: 客户端更新过滤偏好
+- `transcription`: 实时转写更新
+- `phase_change`: 飞行器阶段变化
+- `clearance_issued`: 已发出 ATC 许可
+- `alert`: 系统告警
 
-**Client-to-Server Messages:**
+**客户端到服务器消息:**
 ```json
 {
   "type": "aircraft_bulk_request",
@@ -510,7 +510,7 @@ WebSocket endpoint for real-time aircraft updates and transcriptions.
 }
 ```
 
-**Server-to-Client Messages:**
+**服务器到客户端消息:**
 ```json
 {
   "type": "aircraft_update",
@@ -524,21 +524,21 @@ WebSocket endpoint for real-time aircraft updates and transcriptions.
 }
 ```
 
-**WebSocket Aircraft Numeric Precision Policy:**
-- `aircraft_added` full payload (`data.aircraft.adsb`):
-  - `lat`, `lon` → 6 decimal places
-  - `alt_baro`, `alt_geom`, `gs`, `tas`, `ias`, `track`, `true_heading`, `mag_heading`, `baro_rate`, `geom_rate` → whole numbers
-- `aircraft_update` and `aircraft_predicted_state` deltas (`data.delta`):
-  - `lat`, `lon` → 6 decimal places
-  - `alt_baro`, `alt_geom`, `gs`, `tas`, `ias`, `track`, `true_heading`, `mag_heading`, `baro_rate`, `geom_rate`, `vertical_speed`, `vertical_rate` → whole numbers
+**WebSocket 飞行器数值精度策略:**
+- `aircraft_added` 完整负载 (`data.aircraft.adsb`):
+  - `lat`、`lon` → 6 位小数
+  - `alt_baro`、`alt_geom`、`gs`、`tas`、`ias`、`track`、`true_heading`、`mag_heading`、`baro_rate`、`geom_rate` → 整数
+- `aircraft_update` 和 `aircraft_predicted_state` 增量 (`data.delta`):
+  - `lat`、`lon` → 6 位小数
+  - `alt_baro`、`alt_geom`、`gs`、`tas`、`ias`、`track`、`true_heading`、`mag_heading`、`baro_rate`、`geom_rate`、`vertical_speed`、`vertical_rate` → 整数
 
-## ATC Chat Endpoints
+## ATC Chat 端点
 
 ### POST /api/v1/atc-chat/session
 
-Creates a new ATC chat session.
+创建一个新的 ATC chat 会话。
 
-**Request Body:**
+**请求体:**
 ```json
 {
   "instructions": "Custom AI instructions",
@@ -546,7 +546,7 @@ Creates a new ATC chat session.
 }
 ```
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "session_id": "12345",
@@ -557,9 +557,9 @@ Creates a new ATC chat session.
 
 ### DELETE /api/v1/atc-chat/session/{sessionId}
 
-Ends an ATC chat session.
+结束 ATC chat 会话。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "status": "success",
@@ -570,9 +570,9 @@ Ends an ATC chat session.
 
 ### GET /api/v1/atc-chat/session/{sessionId}/status
 
-Gets the status of an ATC chat session.
+获取 ATC chat 会话的状态。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "id": "12345",
@@ -585,9 +585,9 @@ Gets the status of an ATC chat session.
 
 ### POST /api/v1/atc-chat/session/{sessionId}/update-context
 
-Updates the session context with fresh airspace data.
+使用最新的空域数据更新会话上下文。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "status": "success",
@@ -597,9 +597,9 @@ Updates the session context with fresh airspace data.
 
 ### GET /api/v1/atc-chat/sessions
 
-Lists all active ATC chat sessions.
+列出所有活跃的 ATC chat 会话。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "sessions": [
@@ -616,9 +616,9 @@ Lists all active ATC chat sessions.
 
 ### GET /api/v1/atc-chat/airspace-status
 
-Gets current airspace status for ATC chat.
+获取 ATC chat 当前的空域状态。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "aircraft_count": 25,
@@ -630,23 +630,23 @@ Gets current airspace status for ATC chat.
 
 ### GET /api/v1/atc-chat/ws/{sessionId}
 
-WebSocket endpoint for ATC chat audio streaming.
+用于 ATC chat 音频流的 WebSocket 端点。
 
-**WebSocket Message Types:**
-- `connection_ready`: Client connection established
-- `openai_ready`: OpenAI connection established
-- `connection_error`: Connection error occurred
-- `session.update`: Session context updated
-- `response.audio.delta`: Audio response chunk
-- `response.audio.done`: Audio response complete
+**WebSocket 消息类型:**
+- `connection_ready`: 客户端连接已建立
+- `openai_ready`: OpenAI 连接已建立
+- `connection_error`: 发生连接错误
+- `session.update`: 会话上下文已更新
+- `response.audio.delta`: 音频响应分块
+- `response.audio.done`: 音频响应完成
 
-## Simulation Endpoints
+## 模拟端点
 
 ### POST /api/v1/simulation/aircraft
 
-Creates a simulated aircraft.
+创建一个模拟飞行器。
 
-**Request Body:**
+**请求体:**
 ```json
 {
   "hex": "123456",
@@ -660,7 +660,7 @@ Creates a simulated aircraft.
 }
 ```
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "success": true,
@@ -671,9 +671,9 @@ Creates a simulated aircraft.
 
 ### PUT /api/v1/simulation/aircraft/{hex}/controls
 
-Updates simulation controls for an aircraft.
+更新飞行器的模拟控制参数。
 
-**Request Body:**
+**请求体:**
 ```json
 {
   "heading": 180,
@@ -682,7 +682,7 @@ Updates simulation controls for an aircraft.
 }
 ```
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "success": true,
@@ -692,9 +692,9 @@ Updates simulation controls for an aircraft.
 
 ### DELETE /api/v1/simulation/aircraft/{hex}
 
-Removes a simulated aircraft.
+移除一个模拟飞行器。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "success": true,
@@ -704,9 +704,9 @@ Removes a simulated aircraft.
 
 ### GET /api/v1/simulation/aircraft
 
-Lists all simulated aircraft.
+列出所有模拟飞行器。
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "timestamp": "2025-05-19T01:02:03.456Z",
@@ -728,17 +728,17 @@ Lists all simulated aircraft.
 }
 ```
 
-## Transcription Endpoints
+## 转写端点
 
 ### GET /api/v1/transcriptions
 
-Returns a paginated list of all transcriptions.
+返回所有转写的分页列表。
 
-**Query Parameters:**
-- `limit` (optional): Maximum number of transcriptions to return (default: 100)
-- `offset` (optional): Offset for pagination (default: 0)
+**查询参数:**
+- `limit` (可选): 返回的最大转写数量(默认: 100)
+- `offset` (可选): 分页偏移量(默认: 0)
 
-**Response Format:**
+**响应格式:**
 ```json
 {
   "timestamp": "2025-05-20T20:15:35Z",
@@ -761,35 +761,35 @@ Returns a paginated list of all transcriptions.
 
 ### GET /api/v1/transcriptions/frequency/{id}
 
-Returns transcriptions for a specific frequency.
+返回特定频率的转写。
 
 ### GET /api/v1/transcriptions/time-range
 
-Returns transcriptions within a specified time range.
+返回指定时间范围内的转写。
 
-**Query Parameters:**
-- `start_time` (required): Start time in RFC3339 format
-- `end_time` (optional): End time in RFC3339 format
-- `limit` (optional): Maximum number of transcriptions to return (default: 100)
-- `offset` (optional): Offset for pagination (default: 0)
+**查询参数:**
+- `start_time` (必填): 开始时间(RFC3339 格式)
+- `end_time` (可选): 结束时间(RFC3339 格式)
+- `limit` (可选): 返回的最大转写数量(默认: 100)
+- `offset` (可选): 分页偏移量(默认: 0)
 
 ### GET /api/v1/transcriptions/speaker/{type}
 
-Returns transcriptions by speaker type (ATC or PILOT).
+按说话人类型(ATC 或 PILOT)返回转写。
 
 ### GET /api/v1/transcriptions/callsign/{callsign}
 
-Returns transcriptions for a specific aircraft callsign.
+返回特定飞行器呼号的转写。
 
-## Error Responses
+## 错误响应
 
-All endpoints return appropriate HTTP status codes:
-- `200 OK`: Success
-- `400 Bad Request`: Invalid request parameters
-- `404 Not Found`: Resource not found
-- `500 Internal Server Error`: Server error
+所有端点都返回适当的 HTTP 状态码:
+- `200 OK`: 成功
+- `400 Bad Request`: 请求参数无效
+- `404 Not Found`: 资源未找到
+- `500 Internal Server Error`: 服务器错误
 
-Error responses include a JSON object with error details:
+错误响应包含一个带有错误详情的 JSON 对象:
 ```json
 {
   "error": "Invalid parameter",

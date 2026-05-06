@@ -23,14 +23,14 @@ func firstNonEmptyString(values ...interface{}) string {
 	return ""
 }
 
-// FormatAircraftData formats aircraft data for template rendering
-// Uses the same format as ATC chat for consistency
+// FormatAircraftData 格式化飞行器数据用于模板渲染
+// 使用与 ATC 聊天相同的格式以保持一致性
 func FormatAircraftData(aircraft []*adsb.Aircraft, airport AirportInfo) string {
 	if len(aircraft) == 0 {
 		return "No aircraft currently in the airspace."
 	}
 
-	// Separate aircraft by ground status
+	// 按地面状态分离飞行器
 	var airborne []*adsb.Aircraft
 	var onGround []*adsb.Aircraft
 
@@ -44,7 +44,7 @@ func FormatAircraftData(aircraft []*adsb.Aircraft, airport AirportInfo) string {
 
 	var builder strings.Builder
 
-	// Airborne aircraft section
+	// 空中飞行器部分
 	builder.WriteString(fmt.Sprintf("AIRBORNE (%d aircraft):\n", len(airborne)))
 	if len(airborne) == 0 {
 		builder.WriteString("No airborne aircraft\n")
@@ -57,7 +57,7 @@ func FormatAircraftData(aircraft []*adsb.Aircraft, airport AirportInfo) string {
 
 	builder.WriteString("\n")
 
-	// Ground aircraft section
+	// 地面飞行器部分
 	builder.WriteString(fmt.Sprintf("ON GROUND (%d aircraft):\n", len(onGround)))
 	if len(onGround) == 0 {
 		builder.WriteString("No ground aircraft\n")
@@ -71,11 +71,11 @@ func FormatAircraftData(aircraft []*adsb.Aircraft, airport AirportInfo) string {
 	return builder.String()
 }
 
-// formatAirborneAircraft formats a single airborne aircraft for display
+// formatAirborneAircraft 格式化单个空中飞行器以供显示
 func formatAirborneAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 	var builder strings.Builder
 
-	// Basic info - callsign and operator
+	// 基本信息 - 呼号和运营人
 	callsign := ac.Flight
 	if callsign == "" {
 		callsign = "Unknown"
@@ -103,16 +103,16 @@ func formatAirborneAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 	builder.WriteString(fmt.Sprintf("%s", callsign))
 	builder.WriteString(fmt.Sprintf(" | Airline: %s | Operator: %s | Type: %s | ", airline, operator, typeCode))
 
-	// Wake category
+	// 尾流类别
 	if ac.ADSB != nil && ac.ADSB.Category != "" {
 		builder.WriteString(fmt.Sprintf("Wake Category: %s | ", ac.ADSB.Category))
 	}
 
-	// Flight parameters
+	// 飞行参数
 	if ac.ADSB != nil {
 		builder.WriteString("Flight params: ")
 
-		// Use magnetic heading if available (0-360° are all valid), fallback to track
+		// 如果可用,使用磁航向(0-360° 都有效),否则回退到航迹
 		if ac.ADSB.MagHeading != nil && *ac.ADSB.MagHeading >= 0 && *ac.ADSB.MagHeading <= 360 {
 			builder.WriteString(fmt.Sprintf("HDG: %.0f", *ac.ADSB.MagHeading))
 		} else if ac.ADSB.Track != nil && *ac.ADSB.Track != 0 {
@@ -135,14 +135,14 @@ func formatAirborneAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 			builder.WriteString(fmt.Sprintf(", VS: %.0f fpm", *ac.ADSB.BaroRate))
 		}
 
-		// Add squawk code if available
+		// 如果可用,添加应答机编码
 		if ac.ADSB.Squawk != "" {
 			builder.WriteString(fmt.Sprintf(", squawk: %s", ac.ADSB.Squawk))
 		}
 
 		builder.WriteString(", status: airborne")
 
-		// Add takeoff time - always show, use N/A if unknown
+		// 添加起飞时间 - 始终显示,如果未知则使用 N/A
 		if ac.DateTookoff != nil {
 			timeSince := time.Since(*ac.DateTookoff)
 			builder.WriteString(fmt.Sprintf(", T/O: %s ago", formatDuration(timeSince)))
@@ -151,7 +151,7 @@ func formatAirborneAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 		}
 	}
 
-	// Airport position (distance and bearing to airport)
+	// 机场位置(到机场的距离和方位)
 	if ac.Distance != nil && ac.ADSB != nil && ac.ADSB.HasPosition() {
 		lat, lon, _ := ac.ADSB.Position()
 		bearingToStation := adsb.CalculateBearing(lat, lon, airport.Coordinates[0], airport.Coordinates[1])
@@ -162,7 +162,7 @@ func formatAirborneAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 		builder.WriteString(fmt.Sprintf(" | ATC Derived: ETA to Station: %s", formatEtaToStation(*ac.ADSB.ATCDerived.ETAStationSec)))
 	}
 
-	// Flight phase
+	// 飞行阶段
 	if ac.Phase != nil && len(ac.Phase.Current) > 0 {
 		currentPhase := ac.Phase.Current[0]
 		fullPhaseName := getFullPhaseName(currentPhase.Phase)
@@ -170,7 +170,7 @@ func formatAirborneAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 		builder.WriteString(fmt.Sprintf(" | Phase: %s (%s)", fullPhaseName, formatDuration(timeSince)))
 	}
 
-	// Telemetry status
+	// 遥测状态
 	builder.WriteString(fmt.Sprintf(" | Telemetry: %s", ac.Status))
 	if !ac.LastSeen.IsZero() {
 		timeSince := time.Since(ac.LastSeen)
@@ -180,11 +180,11 @@ func formatAirborneAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 	return builder.String()
 }
 
-// formatGroundAircraft formats a single ground aircraft for display
+// formatGroundAircraft 格式化单个地面飞行器以供显示
 func formatGroundAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 	var builder strings.Builder
 
-	// Basic info - callsign and operator
+	// 基本信息 - 呼号和运营人
 	callsign := ac.Flight
 	if callsign == "" {
 		callsign = "Unknown"
@@ -212,16 +212,16 @@ func formatGroundAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 	builder.WriteString(fmt.Sprintf("%s", callsign))
 	builder.WriteString(fmt.Sprintf(" | Airline: %s | Operator: %s | Type: %s | ", airline, operator, typeCode))
 
-	// Wake category
+	// 尾流类别
 	if ac.ADSB != nil && ac.ADSB.Category != "" {
 		builder.WriteString(fmt.Sprintf("Wake Category: %s | ", ac.ADSB.Category))
 	}
 
-	// Flight parameters
+	// 飞行参数
 	if ac.ADSB != nil {
 		builder.WriteString("Flight params: ")
 
-		// Use magnetic heading if available (0-360° are all valid), fallback to track
+		// 如果可用,使用磁航向(0-360° 都有效),否则回退到航迹
 		if ac.ADSB.MagHeading != nil && *ac.ADSB.MagHeading >= 0 && *ac.ADSB.MagHeading <= 360 {
 			builder.WriteString(fmt.Sprintf("HDG: %.0f", *ac.ADSB.MagHeading))
 		} else if ac.ADSB.Track != nil && *ac.ADSB.Track != 0 {
@@ -244,14 +244,14 @@ func formatGroundAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 			builder.WriteString(fmt.Sprintf(", VS: %.0f fpm", *ac.ADSB.BaroRate))
 		}
 
-		// Add squawk code if available
+		// 如果可用,添加应答机编码
 		if ac.ADSB.Squawk != "" {
 			builder.WriteString(fmt.Sprintf(", squawk: %s", ac.ADSB.Squawk))
 		}
 
 		builder.WriteString(", status: on ground")
 
-		// Add takeoff time - always show, use N/A if unknown
+		// 添加起飞时间 - 始终显示,如果未知则使用 N/A
 		if ac.DateTookoff != nil {
 			timeSince := time.Since(*ac.DateTookoff)
 			builder.WriteString(fmt.Sprintf(", T/O: %s ago", formatDuration(timeSince)))
@@ -264,7 +264,7 @@ func formatGroundAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 		builder.WriteString(fmt.Sprintf(" | ATC Derived: ETA to Station: %s", formatEtaToStation(*ac.ADSB.ATCDerived.ETAStationSec)))
 	}
 
-	// Flight phase
+	// 飞行阶段
 	if ac.Phase != nil && len(ac.Phase.Current) > 0 {
 		currentPhase := ac.Phase.Current[0]
 		fullPhaseName := getFullPhaseName(currentPhase.Phase)
@@ -272,7 +272,7 @@ func formatGroundAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 		builder.WriteString(fmt.Sprintf(" | Phase: %s (%s)", fullPhaseName, formatDuration(timeSince)))
 	}
 
-	// Telemetry status
+	// 遥测状态
 	builder.WriteString(fmt.Sprintf(" | Telemetry: %s", ac.Status))
 	if !ac.LastSeen.IsZero() {
 		timeSince := time.Since(ac.LastSeen)
@@ -282,7 +282,7 @@ func formatGroundAircraft(ac *adsb.Aircraft, airport AirportInfo) string {
 	return builder.String()
 }
 
-// getFullPhaseName converts phase codes to full names
+// getFullPhaseName 将阶段代码转换为完整名称
 func getFullPhaseName(phase string) string {
 	switch phase {
 	case "NEW":
@@ -302,11 +302,11 @@ func getFullPhaseName(phase string) string {
 	case "T/D":
 		return "Touchdown"
 	default:
-		return phase // Return original if not recognized
+		return phase // 如果无法识别则返回原值
 	}
 }
 
-// FormatWeatherData formats weather data for template rendering
+// FormatWeatherData 格式化气象数据用于模板渲染
 func FormatWeatherData(weather *weather.WeatherData) string {
 	if weather == nil {
 		return "Weather data not available."
@@ -314,12 +314,12 @@ func FormatWeatherData(weather *weather.WeatherData) string {
 
 	var builder strings.Builder
 
-	// Extract latest METAR - only show decoded, not raw
+	// 提取最新 METAR - 仅显示已解码的,不显示原始的
 	if weather.METAR != nil {
 		if metarMap, ok := weather.METAR.(map[string]interface{}); ok {
 			if trend, exists := metarMap["trend"]; exists {
 				if trendSlice, ok := trend.([]interface{}); ok && len(trendSlice) > 0 {
-					// Get the latest METAR (first in trend array)
+					// 获取最新 METAR(趋势数组中的第一个)
 					if latestMetar, ok := trendSlice[0].(map[string]interface{}); ok {
 						if txt, exists := latestMetar["txt"]; exists {
 							if txtSlice, ok := txt.([]interface{}); ok && len(txtSlice) > 0 {
@@ -332,7 +332,7 @@ func FormatWeatherData(weather *weather.WeatherData) string {
 		}
 	}
 
-	// TAF summary (keep this but simplified)
+	// TAF 摘要(保留但简化)
 	if weather.TAF != nil {
 		if tafMap, ok := weather.TAF.(map[string]interface{}); ok {
 			tafText := firstNonEmptyString(tafMap["taf"], tafMap["decoded"], tafMap["raw"])
@@ -344,7 +344,7 @@ func FormatWeatherData(weather *weather.WeatherData) string {
 		}
 	}
 
-	// Last updated
+	// 最后更新
 	if !weather.LastUpdated.IsZero() {
 		timeSince := time.Since(weather.LastUpdated)
 		builder.WriteString(fmt.Sprintf("Last updated: %s ago\n", formatDuration(timeSince)))
@@ -353,7 +353,7 @@ func FormatWeatherData(weather *weather.WeatherData) string {
 	return builder.String()
 }
 
-// FormatRunwayData formats runway data for template rendering
+// FormatRunwayData 格式化跑道数据用于模板渲染
 func FormatRunwayData(runways []RunwayInfo) string {
 	if len(runways) == 0 {
 		return "Runway information not available."
@@ -372,7 +372,7 @@ func FormatRunwayData(runways []RunwayInfo) string {
 	return builder.String()
 }
 
-// FormatActiveRunwaysData formats detected active runways for template rendering
+// FormatActiveRunwaysData 格式化检测到的活动跑道用于模板渲染
 func FormatActiveRunwaysData(scores []adsb.RunwayScore) string {
 	if len(scores) == 0 {
 		return "No active runway detected."
@@ -387,7 +387,7 @@ func FormatActiveRunwaysData(scores []adsb.RunwayScore) string {
 	return strings.TrimSpace(builder.String())
 }
 
-// FormatTranscriptionHistory formats recent communications for template rendering
+// FormatTranscriptionHistory 格式化最近通信用于模板渲染
 func FormatTranscriptionHistory(communications []TranscriptionSummary) string {
 	if len(communications) == 0 {
 		return "No recent radio communications available."
@@ -411,7 +411,7 @@ func FormatTranscriptionHistory(communications []TranscriptionSummary) string {
 	return builder.String()
 }
 
-// FormatAirportData formats airport information for template rendering
+// FormatAirportData 格式化机场信息用于模板渲染
 func FormatAirportData(airport AirportInfo) string {
 	var builder strings.Builder
 	builder.WriteString("AIRPORT INFORMATION:\n\n")
@@ -425,7 +425,7 @@ func FormatAirportData(airport AirportInfo) string {
 	return builder.String()
 }
 
-// formatDuration formats a duration in a human-readable way
+// formatDuration 以人类可读的方式格式化持续时间
 func formatDuration(d time.Duration) string {
 	if d < time.Minute {
 		return fmt.Sprintf("%ds", int(d.Seconds()))

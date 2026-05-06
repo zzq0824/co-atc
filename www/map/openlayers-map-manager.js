@@ -1,20 +1,20 @@
 /**
- * Module: map/openlayers-map-manager
- * Why it exists:
- * - Serves as the central orchestration layer for all OpenLayers-backed map behavior.
- * - Coordinates data-driven rendering, interaction wiring, and map-specific UI state.
+ * 模块: map/openlayers-map-manager
+ * 存在原因:
+ * - 作为所有由 OpenLayers 驱动地图行为的中心编排层。
+ * - 协调数据驱动的渲染、交互连接以及地图特有的 UI 状态。
  *
- * Key responsibilities:
- * - Own aircraft, trail, overlay, reference, and effect feature lifecycle.
- * - Integrate map engine, renderers, interactions, and feature modules.
- * - Apply filtering/visibility decisions and incremental visual updates.
- * - Manage special map workflows (proximity selection, mini-map, popup overlays).
+ * 主要职责:
+ * - 拥有飞行器、航迹、覆盖层、参考层以及效果要素的生命周期。
+ * - 集成地图引擎、渲染器、交互以及各功能模块。
+ * - 应用过滤/可见性决策以及增量视觉更新。
+ * - 管理特殊的地图工作流(邻近选中、小地图、弹出覆盖层)。
  *
- * Quirks / contracts:
- * - This class intentionally holds broad cross-cutting state to minimize transient
- *   object churn in hot update paths.
- * - Uses defensive checks around optional feature modules to preserve graceful
- *   degradation when subsets are unavailable.
+ * 怪癖 / 契约:
+ * - 该类有意持有大范围跨切面状态,以最大限度减少
+ *   热点更新路径中的临时对象抖动。
+ * - 围绕可选要素模块使用防御性检查,以在子集不可用时
+ *   保持优雅降级。
  */
 (function () {
     class OpenLayersMapManager {
@@ -165,7 +165,7 @@
                     opacity: 0.65,
                     refreshPolicy: { type: 'none' },
                     attribution: this.CONFIG?.aviationChartOverlayAttribution || '',
-                    licenseNotes: 'Disabled by default; configure approved source URL before use.',
+                    licenseNotes: '默认禁用;使用前请配置已批准的源 URL。',
                     failureIsolation: { disableOnError: true, maxErrors: 2, retryMaxAttempts: 3, retryBaseMs: 2000 },
                 },
                 {
@@ -181,7 +181,7 @@
                     opacity: 0.55,
                     refreshPolicy: { type: 'interval', intervalMs: 120000 },
                     attribution: this.CONFIG?.weatherRadarAttribution || 'NEXRAD courtesy of <a href="https://mesonet.agron.iastate.edu/">IEM</a>',
-                    licenseNotes: 'Disabled by default; configure approved NEXRAD source before use.',
+                    licenseNotes: '默认禁用;使用前请配置已批准的 NEXRAD 数据源。',
                     failureIsolation: { disableOnError: true, maxErrors: 2, retryMaxAttempts: 3, retryBaseMs: 5000 },
                 },
                 {
@@ -201,7 +201,7 @@
                     opacity: 0.55,
                     refreshPolicy: { type: 'interval', intervalMs: 900000 },
                     attribution: this.CONFIG?.noaaInfraredAttribution || 'NOAA nowCOAST infrared',
-                    licenseNotes: 'Disabled by default; configure approved NOAA infrared source before use.',
+                    licenseNotes: '默认禁用;使用前请配置已批准的 NOAA 红外数据源。',
                     failureIsolation: { disableOnError: true, maxErrors: 2, retryMaxAttempts: 3, retryBaseMs: 5000 },
                 },
                 {
@@ -221,7 +221,7 @@
                     opacity: 0.55,
                     refreshPolicy: { type: 'interval', intervalMs: 120000 },
                     attribution: this.CONFIG?.noaaRadarAttribution || 'NOAA nowCOAST radar',
-                    licenseNotes: 'Disabled by default; configure approved NOAA radar source before use.',
+                    licenseNotes: '默认禁用;使用前请配置已批准的 NOAA 雷达数据源。',
                     failureIsolation: { disableOnError: true, maxErrors: 2, retryMaxAttempts: 3, retryBaseMs: 5000 },
                 },
                 {
@@ -236,7 +236,7 @@
                     opacity: 0.5,
                     refreshPolicy: { type: 'none' },
                     attribution: this.CONFIG?.airspaceOverlayAttribution || 'openAIP.net',
-                    licenseNotes: 'Disabled by default; configure approved OpenAIP TMS source before use.',
+                    licenseNotes: '默认禁用;使用前请配置已批准的 OpenAIP TMS 数据源。',
                     failureIsolation: { disableOnError: true, maxErrors: 2, retryMaxAttempts: 2, retryBaseMs: 3000 },
                 },
             ];
@@ -342,10 +342,10 @@
             }).join('');
 
             const frequencyTable = frequencyRows
-                ? `<table class="ref-popup-table"><tr><th>Type</th><th>Desc</th><th>MHz</th></tr>${frequencyRows}</table>`
+                ? `<table class="ref-popup-table"><tr><th>类型</th><th>描述</th><th>MHz</th></tr>${frequencyRows}</table>`
                 : '';
 
-            return `<div class="ref-popup-title">${airport?.name || airport?.ident || 'Airport'}</div>
+            return `<div class="ref-popup-title">${airport?.name || airport?.ident || '机场'}</div>
                 <div class="ref-popup-subtitle">${airport?.ident || ''} · ${(airport?.type || '').replace(/_/g, ' ')} · ${airport?.elevation_ft ?? '?'} ft</div>
                 ${airport?.municipality ? `<div class="ref-popup-detail">${airport.municipality}, ${airport?.iso_country || ''}</div>` : ''}
                 ${airport?.iata_code ? `<div class="ref-popup-detail">IATA: ${airport.iata_code}</div>` : ''}
@@ -359,11 +359,11 @@
                 frequencyDisplay = `${(frequencyKHz / 1000).toFixed(frequencyKHz >= 100000 ? 2 : 1)} ${frequencyKHz >= 100000 ? 'MHz' : 'kHz'}`;
             }
 
-            return `<div class="ref-popup-title">${navaid?.ident || ''} - ${navaid?.name || 'Navaid'}</div>
+            return `<div class="ref-popup-title">${navaid?.ident || ''} - ${navaid?.name || '导航台'}</div>
                 <div class="ref-popup-subtitle">${navaid?.type || ''}${frequencyDisplay ? ` · ${frequencyDisplay}` : ''}</div>
-                ${navaid?.elevation_ft ? `<div class="ref-popup-detail">Elev: ${navaid.elevation_ft} ft</div>` : ''}
-                ${navaid?.associated_airport ? `<div class="ref-popup-detail">Airport: ${navaid.associated_airport}</div>` : ''}
-                ${navaid?.usage_type ? `<div class="ref-popup-detail">Usage: ${navaid.usage_type}${navaid?.power ? ` · ${navaid.power}` : ''}</div>` : ''}`;
+                ${navaid?.elevation_ft ? `<div class="ref-popup-detail">海拔: ${navaid.elevation_ft} ft</div>` : ''}
+                ${navaid?.associated_airport ? `<div class="ref-popup-detail">机场: ${navaid.associated_airport}</div>` : ''}
+                ${navaid?.usage_type ? `<div class="ref-popup-detail">用途: ${navaid.usage_type}${navaid?.power ? ` · ${navaid.power}` : ''}</div>` : ''}`;
         }
 
         _heliportPopupHtml(heliport) {

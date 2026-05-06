@@ -15,7 +15,7 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// OpenAIClient handles communication with OpenAI's Realtime Transcription API
+// OpenAIClient 处理与 OpenAI 的实时转写 API 的通信
 type OpenAIClient struct {
 	apiKey     string
 	model      string
@@ -23,7 +23,7 @@ type OpenAIClient struct {
 	logger     *logger.Logger
 }
 
-// OpenAIWebSocketConn represents a WebSocket connection to OpenAI
+// OpenAIWebSocketConn 表示到 OpenAI 的 WebSocket 连接
 type OpenAIWebSocketConn struct {
 	conn      *websocket.Conn
 	mu        sync.Mutex
@@ -31,15 +31,15 @@ type OpenAIWebSocketConn struct {
 	closeChan chan struct{}
 }
 
-// NewOpenAIClient creates a new OpenAI client
+// NewOpenAIClient 创建一个新的 OpenAI 客户端
 func NewOpenAIClient(apiKey, model string, timeoutSeconds int, logger *logger.Logger) *OpenAIClient {
 	timeout := time.Duration(timeoutSeconds) * time.Second
 	if timeout <= 0 {
-		timeout = 120 * time.Second // Default to 2 minutes if not specified
+		timeout = 120 * time.Second // 如果未指定,默认为 2 分钟
 	}
 
 	if apiKey == "" {
-		logger.Warn("OpenAI API key is empty - transcription and post-processing features will not work")
+		logger.Warn("OpenAI API 密钥为空 - 转写和后处理功能将无法工作")
 	}
 
 	return &OpenAIClient{
@@ -52,18 +52,18 @@ func NewOpenAIClient(apiKey, model string, timeoutSeconds int, logger *logger.Lo
 	}
 }
 
-// CreateSession creates a new transcription session
+// CreateSession 创建一个新的转写会话
 func (c *OpenAIClient) CreateSession(ctx context.Context, config Config) (string, string, error) {
-	// Check if OpenAI API key is provided - fail fast if missing
+	// 检查是否提供 OpenAI API 密钥 - 如果缺失则快速失败
 	if c.apiKey == "" {
-		return "", "", fmt.Errorf("OpenAI API key is required for transcription sessions")
+		return "", "", fmt.Errorf("转写会话需要 OpenAI API 密钥")
 	}
 
-	c.logger.Info("Creating new OpenAI transcription session",
+	c.logger.Info("正在创建新的 OpenAI 转写会话",
 		logger.String("model", c.model),
 		logger.String("language", config.Language),
 		logger.String("noise_reduction", config.NoiseReduction))
-	// Build request body using flat fields (the creation endpoint uses this format)
+	// 使用扁平字段构建请求体(创建端点使用此格式)
 	type InputAudioNoiseReduction struct {
 		Type string `json:"type"`
 	}
@@ -88,7 +88,7 @@ func (c *OpenAIClient) CreateSession(ctx context.Context, config Config) (string
 		TurnDetection            *TurnDetection            `json:"turn_detection,omitempty"`
 	}
 
-	// Create the request body
+	// 创建请求体
 	reqBody := TranscriptionSessionRequest{
 		InputAudioFormat: "pcm16",
 		InputAudioTranscription: &InputAudioTranscription{
@@ -98,14 +98,14 @@ func (c *OpenAIClient) CreateSession(ctx context.Context, config Config) (string
 		},
 	}
 
-	// Add noise reduction if specified (omit for "none" or empty — API requires null to disable)
+	// 如果指定,添加噪声降低(对 "none" 或空值省略 — API 需要 null 来禁用)
 	if config.NoiseReduction != "" && config.NoiseReduction != "none" {
 		reqBody.InputAudioNoiseReduction = &InputAudioNoiseReduction{
 			Type: config.NoiseReduction,
 		}
 	}
 
-	// Add turn detection if specified
+	// 如果指定,添加轮次检测
 	if config.TurnDetectionType != "" {
 		prefixPaddingMs := config.PrefixPaddingMs
 		silenceDurationMs := config.SilenceDurationMs
@@ -115,7 +115,7 @@ func (c *OpenAIClient) CreateSession(ctx context.Context, config Config) (string
 			Type: config.TurnDetectionType,
 		}
 
-		// Only add non-zero values
+		// 仅添加非零值
 		if prefixPaddingMs > 0 {
 			reqBody.TurnDetection.PrefixPaddingMs = &prefixPaddingMs
 		}
@@ -129,44 +129,44 @@ func (c *OpenAIClient) CreateSession(ctx context.Context, config Config) (string
 		}
 	}
 
-	// Marshal request body to JSON
+	// 将请求体序列化为 JSON
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to marshal request body: %w", err)
+		return "", "", fmt.Errorf("序列化请求体失败: %w", err)
 	}
 
-	// Create request
+	// 创建请求
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/realtime/transcription_sessions", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create request: %w", err)
+		return "", "", fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	// Set headers
+	// 设置头部
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	req.Header.Set("openai-beta", "realtime=v1")
 
-	// Execute request
+	// 执行请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to execute request: %w", err)
+		return "", "", fmt.Errorf("执行请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Check response status
+	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", "", fmt.Errorf("unexpected status code: %d, response: %s", resp.StatusCode, string(bodyBytes))
+		return "", "", fmt.Errorf("意外的状态码: %d,响应: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	// Read the response body for logging
+	// 读取响应体用于日志记录
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to read response body: %w", err)
+		return "", "", fmt.Errorf("读取响应体失败: %w", err)
 	}
 
-	// Log the response body
-	c.logger.Debug("OpenAI API response",
+	// 记录响应体
+	c.logger.Debug("OpenAI API 响应",
 		logger.String("response", string(bodyBytes)))
 
 	sessionID, clientSecret, err := parseTranscriptionSessionResponse(bodyBytes)
@@ -174,12 +174,12 @@ func (c *OpenAIClient) CreateSession(ctx context.Context, config Config) (string
 		return "", "", err
 	}
 
-	// Log the parsed result
+	// 记录解析结果
 	secretPrefix := clientSecret
 	if len(secretPrefix) > 10 {
 		secretPrefix = secretPrefix[:10] + "..."
 	}
-	c.logger.Debug("Parsed OpenAI API response",
+	c.logger.Debug("已解析 OpenAI API 响应",
 		logger.String("session_id", sessionID),
 		logger.String("client_secret_value_prefix", secretPrefix))
 
@@ -196,14 +196,14 @@ func parseTranscriptionSessionResponse(bodyBytes []byte) (string, string, error)
 	}
 
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return "", "", fmt.Errorf("failed to parse response: %w", err)
+		return "", "", fmt.Errorf("解析响应失败: %w", err)
 	}
 
 	if result.SessionID == "" {
-		return "", "", fmt.Errorf("failed to parse response: missing session id")
+		return "", "", fmt.Errorf("解析响应失败: 缺少 session id")
 	}
 	if result.ClientSecret.Value == "" {
-		return "", "", fmt.Errorf("failed to parse response: missing client secret")
+		return "", "", fmt.Errorf("解析响应失败: 缺少 client secret")
 	}
 
 	return result.SessionID, result.ClientSecret.Value, nil
@@ -213,32 +213,32 @@ func realtimeTranscriptionWebSocketURL() string {
 	return "wss://api.openai.com/v1/realtime?intent=transcription"
 }
 
-// ConnectWebSocket establishes a WebSocket connection to the transcription API with reconnection logic
+// ConnectWebSocket 建立到转写 API 的 WebSocket 连接,带重连逻辑
 func (c *OpenAIClient) ConnectWebSocket(ctx context.Context, sessionID, clientSecret string) (*OpenAIWebSocketConn, error) {
 	if sessionID == "" {
-		return nil, fmt.Errorf("session id is required to connect to transcription WebSocket")
+		return nil, fmt.Errorf("连接转写 WebSocket 需要 session id")
 	}
 	if clientSecret == "" {
-		return nil, fmt.Errorf("client secret is required to connect to transcription WebSocket")
+		return nil, fmt.Errorf("连接转写 WebSocket 需要 client secret")
 	}
 
-	// Create WebSocket URL
+	// 创建 WebSocket URL
 	wsURL := realtimeTranscriptionWebSocketURL()
-	c.logger.Debug("Connecting to OpenAI WebSocket",
+	c.logger.Debug("正在连接 OpenAI WebSocket",
 		logger.String("url", wsURL),
 		logger.String("session_id", sessionID))
 
-	// Create WebSocket dialer
+	// 创建 WebSocket 拨号器
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 45 * time.Second,
 	}
 
-	// Set headers
+	// 设置头部
 	headers := http.Header{}
 	headers.Set("Authorization", fmt.Sprintf("Bearer %s", clientSecret))
 	headers.Set("openai-beta", "realtime=v1")
 
-	// Connect to WebSocket with retry logic
+	// 使用重试逻辑连接到 WebSocket
 	var conn *websocket.Conn
 	var resp *http.Response
 	var err error
@@ -247,35 +247,35 @@ func (c *OpenAIClient) ConnectWebSocket(ctx context.Context, sessionID, clientSe
 	retryInterval := 2 * time.Second
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		c.logger.Debug("Attempting to connect to OpenAI WebSocket",
+		c.logger.Debug("正在尝试连接 OpenAI WebSocket",
 			logger.Int("attempt", attempt+1),
 			logger.Int("max_attempts", maxRetries))
 
 		conn, resp, err = dialer.DialContext(ctx, wsURL, headers)
 		if err == nil {
-			c.logger.Debug("Successfully connected to OpenAI WebSocket",
+			c.logger.Debug("成功连接到 OpenAI WebSocket",
 				logger.String("status", resp.Status))
 			break
 		}
 
-		c.logger.Error("Failed to connect to OpenAI WebSocket",
+		c.logger.Error("连接 OpenAI WebSocket 失败",
 			logger.Int("attempt", attempt+1),
 			logger.Error(err))
 
 		if attempt == maxRetries-1 {
-			return nil, fmt.Errorf("failed to connect to WebSocket after %d attempts: %w", maxRetries, err)
+			return nil, fmt.Errorf("尝试 %d 次后连接 WebSocket 失败: %w", maxRetries, err)
 		}
 
-		// Wait before retrying
+		// 重试前等待
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(retryInterval):
-			// Continue with retry
+			// 继续重试
 		}
 	}
 
-	// Create WebSocket connection
+	// 创建 WebSocket 连接
 	wsConn := &OpenAIWebSocketConn{
 		conn:      conn,
 		closeChan: make(chan struct{}),
@@ -289,25 +289,25 @@ const (
 	openAIWebSocketReadTimeout  = 10 * time.Minute
 )
 
-// Send sends a message to the WebSocket
+// Send 向 WebSocket 发送消息
 func (ws *OpenAIWebSocketConn) Send(message string) error {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 
 	if ws.closed {
-		return fmt.Errorf("WebSocket connection is closed")
+		return fmt.Errorf("WebSocket 连接已关闭")
 	}
 
 	if err := ws.conn.SetWriteDeadline(time.Now().Add(openAIWebSocketWriteTimeout)); err != nil {
-		return fmt.Errorf("failed to set WebSocket write deadline: %w", err)
+		return fmt.Errorf("设置 WebSocket 写入截止时间失败: %w", err)
 	}
 	return ws.conn.WriteMessage(websocket.TextMessage, []byte(message))
 }
 
-// Receive receives a message from the WebSocket
+// Receive 从 WebSocket 接收消息
 func (ws *OpenAIWebSocketConn) Receive() (string, error) {
 	if err := ws.conn.SetReadDeadline(time.Now().Add(openAIWebSocketReadTimeout)); err != nil {
-		return "", fmt.Errorf("failed to set WebSocket read deadline: %w", err)
+		return "", fmt.Errorf("设置 WebSocket 读取截止时间失败: %w", err)
 	}
 	_, message, err := ws.conn.ReadMessage()
 	if err != nil {
@@ -317,7 +317,7 @@ func (ws *OpenAIWebSocketConn) Receive() (string, error) {
 	return string(message), nil
 }
 
-// Close closes the WebSocket connection
+// Close 关闭 WebSocket 连接
 func (ws *OpenAIWebSocketConn) Close() error {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
@@ -331,18 +331,18 @@ func (ws *OpenAIWebSocketConn) Close() error {
 	return ws.conn.Close()
 }
 
-// PostProcessTranscription sends a transcription to OpenAI for post-processing
+// PostProcessTranscription 将转写发送到 OpenAI 进行后处理
 func (c *OpenAIClient) PostProcessTranscription(ctx context.Context, content string, systemPrompt string, model string) (*PostProcessingResult, error) {
-	// Check if OpenAI API key is provided - fail fast if missing
+	// 检查是否提供 OpenAI API 密钥 - 如果缺失则快速失败
 	if c.apiKey == "" {
-		return nil, fmt.Errorf("OpenAI API key is required for post-processing")
+		return nil, fmt.Errorf("后处理需要 OpenAI API 密钥")
 	}
 
-	c.logger.Debug("Post-processing transcription",
+	c.logger.Debug("正在对转写进行后处理",
 		logger.String("content", content),
 		logger.String("model", model))
 
-	// Create request body
+	// 创建请求体
 	type Message struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
@@ -355,7 +355,7 @@ func (c *OpenAIClient) PostProcessTranscription(ctx context.Context, content str
 		Temperature float64   `json:"temperature"`
 	}
 
-	// Create messages
+	// 创建消息
 	messages := []Message{
 		{
 			Role:    "system",
@@ -367,44 +367,44 @@ func (c *OpenAIClient) PostProcessTranscription(ctx context.Context, content str
 		},
 	}
 
-	// Create request
+	// 创建请求
 	request := Request{
 		Model:       model,
 		Messages:    messages,
-		MaxTokens:   2048, // Adjust as needed
-		Temperature: 0.0,  // Set temperature to 0 for deterministic output
+		MaxTokens:   2048, // 根据需要调整
+		Temperature: 0.0,  // 设置温度为 0 以获得确定性输出
 	}
 
-	// Marshal request to JSON
+	// 将请求序列化为 JSON
 	jsonData, err := json.Marshal(request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("序列化请求失败: %w", err)
 	}
 
-	// Create HTTP request
+	// 创建 HTTP 请求
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	// Set headers
+	// 设置头部
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 
-	// Execute request
+	// 执行请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("执行请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Check response status
+	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status code: %d, response: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("意外的状态码: %d,响应: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	// Parse response
+	// 解析响应
 	var result struct {
 		Choices []struct {
 			Message struct {
@@ -413,44 +413,44 @@ func (c *OpenAIClient) PostProcessTranscription(ctx context.Context, content str
 		} `json:"choices"`
 	}
 
-	// Read response body
+	// 读取响应体
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("读取响应体失败: %w", err)
 	}
 
-	// Parse response
+	// 解析响应
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 
-	// Check if we have choices
+	// 检查我们是否有 choices
 	if len(result.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in response")
+		return nil, fmt.Errorf("响应中没有 choices")
 	}
 
-	// Parse the content as JSON
+	// 将内容解析为 JSON
 	var processingResult PostProcessingResult
 	if err := json.Unmarshal([]byte(result.Choices[0].Message.Content), &processingResult); err != nil {
-		return nil, fmt.Errorf("failed to parse processing result: %w", err)
+		return nil, fmt.Errorf("解析处理结果失败: %w", err)
 	}
 
 	return &processingResult, nil
 }
 
-// PostProcessBatch sends a batch of transcriptions to OpenAI for post-processing
+// PostProcessBatch 将一批转写发送到 OpenAI 进行后处理
 func (c *OpenAIClient) PostProcessBatch(ctx context.Context, systemPrompt string, userInput string, model string) ([]TranscriptionBatch, error) {
-	// Check if OpenAI API key is provided - fail fast if missing
+	// 检查是否提供 OpenAI API 密钥 - 如果缺失则快速失败
 	if c.apiKey == "" {
-		return nil, fmt.Errorf("OpenAI API key is required for post-processing")
+		return nil, fmt.Errorf("后处理需要 OpenAI API 密钥")
 	}
 
-	c.logger.Debug("Post-processing batch of transcriptions",
+	c.logger.Debug("正在对批量转写进行后处理",
 		logger.String("model", model),
 		logger.Int("system_prompt_length", len(systemPrompt)),
 		logger.Int("user_input_length", len(userInput)))
 
-	// Create request body
+	// 创建请求体
 	type Message struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
@@ -463,7 +463,7 @@ func (c *OpenAIClient) PostProcessBatch(ctx context.Context, systemPrompt string
 		Temperature float64   `json:"temperature"`
 	}
 
-	// Create messages
+	// 创建消息
 	messages := []Message{
 		{
 			Role:    "system",
@@ -475,23 +475,23 @@ func (c *OpenAIClient) PostProcessBatch(ctx context.Context, systemPrompt string
 		},
 	}
 
-	// Create request
+	// 创建请求
 	request := Request{
 		Model:       model,
 		Messages:    messages,
-		MaxTokens:   4096, // Increased for batch processing
-		Temperature: 0.0,  // Set temperature to 0 for deterministic output
+		MaxTokens:   4096, // 为批处理增加
+		Temperature: 0.0,  // 设置温度为 0 以获得确定性输出
 	}
 
-	// Marshal request to JSON
+	// 将请求序列化为 JSON
 	jsonData, err := json.Marshal(request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("序列化请求失败: %w", err)
 	}
 
-	// Log the full request at info level for auditing
+	// 在 info 级别记录完整请求用于审计
 	prettyRequest, _ := json.MarshalIndent(request, "", "  ")
-	c.logger.Debug("OpenAI post-processing request",
+	c.logger.Debug("OpenAI 后处理请求",
 		logger.String("model", model),
 		logger.Int("system_prompt_length", len(systemPrompt)),
 		logger.Int("user_input_length", len(userInput)),
@@ -499,30 +499,30 @@ func (c *OpenAIClient) PostProcessBatch(ctx context.Context, systemPrompt string
 		logger.String("user_input", userInput),
 		logger.String("full_request", string(prettyRequest)))
 
-	// Create HTTP request
+	// 创建 HTTP 请求
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	// Set headers
+	// 设置头部
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 
-	// Execute request
+	// 执行请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("执行请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Check response status
+	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status code: %d, response: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("意外的状态码: %d,响应: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	// Parse response
+	// 解析响应
 	var result struct {
 		Choices []struct {
 			Message struct {
@@ -531,59 +531,59 @@ func (c *OpenAIClient) PostProcessBatch(ctx context.Context, systemPrompt string
 		} `json:"choices"`
 	}
 
-	// Read response body
+	// 读取响应体
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("读取响应体失败: %w", err)
 	}
 
-	// Log the response at info level for auditing
-	c.logger.Info("OpenAI post-processing response",
+	// 在 info 级别记录响应用于审计
+	c.logger.Info("OpenAI 后处理响应",
 		logger.Int("status_code", resp.StatusCode),
 		logger.Int("response_length", len(bodyBytes)),
 		logger.String("response", string(bodyBytes)))
 
-	// Parse response
+	// 解析响应
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 
-	// Check if we have choices
+	// 检查我们是否有 choices
 	if len(result.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in response")
+		return nil, fmt.Errorf("响应中没有 choices")
 	}
 
-	// Extract the content from the response
+	// 从响应中提取内容
 	content := result.Choices[0].Message.Content
 
-	// Find the JSON array in the content (in case there's additional text)
+	// 在内容中查找 JSON 数组(以防有附加文本)
 	startIdx := strings.Index(content, "[")
 	endIdx := strings.LastIndex(content, "]")
 
 	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
-		// Log error with full response content for debugging
-		c.logger.Error("Failed to find JSON array in OpenAI response - this indicates the LLM is not following the expected format",
+		// 记录错误以及完整响应内容用于调试
+		c.logger.Error("在 OpenAI 响应中找不到 JSON 数组 - 这表示 LLM 未遵循预期格式",
 			logger.String("full_response", content),
 			logger.String("model", model))
-		return nil, fmt.Errorf("OpenAI response does not contain valid JSON array: %s", content)
+		return nil, fmt.Errorf("OpenAI 响应不包含有效的 JSON 数组: %s", content)
 	}
 
 	jsonContent := content[startIdx : endIdx+1]
 
-	// Parse the content as JSON array of TranscriptionBatch
+	// 将内容解析为 TranscriptionBatch 的 JSON 数组
 	var results []TranscriptionBatch
 	if err := json.Unmarshal([]byte(jsonContent), &results); err != nil {
-		// Log error with extracted JSON content for debugging
-		c.logger.Error("Failed to unmarshal OpenAI response as JSON array",
+		// 记录错误以及提取的 JSON 内容用于调试
+		c.logger.Error("将 OpenAI 响应解码为 JSON 数组失败",
 			logger.String("error", err.Error()),
 			logger.String("extracted_json", jsonContent),
 			logger.String("full_response", content),
 			logger.String("model", model))
-		return nil, fmt.Errorf("failed to parse OpenAI response as JSON: %w", err)
+		return nil, fmt.Errorf("将 OpenAI 响应解析为 JSON 失败: %w", err)
 	}
 
-	// Log successful parsing with result count
-	c.logger.Debug("Successfully parsed OpenAI response",
+	// 记录成功解析以及结果数量
+	c.logger.Debug("成功解析 OpenAI 响应",
 		logger.Int("result_count", len(results)),
 		logger.String("model", model))
 

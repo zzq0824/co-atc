@@ -42,7 +42,7 @@ type openSkyStatesResponse struct {
 	States [][]interface{} `json:"states"`
 }
 
-// Client is responsible for fetching ADS-B data from the configured source.
+// Client 负责从配置的数据源获取 ADS-B 数据。
 type Client struct {
 	httpClient *http.Client
 	logger     *logger.Logger
@@ -71,7 +71,7 @@ type Client struct {
 	openSkyTokenExpiry time.Time
 }
 
-// NewClient creates a new ADS-B client.
+// NewClient 创建一个新的 ADS-B 客户端。
 func NewClient(
 	adsbCfg config.ADSBConfig,
 	stationLat float64,
@@ -123,7 +123,7 @@ func NewClient(
 	return client
 }
 
-// ValidateSource performs a startup probe and returns error if source is unreachable or invalid.
+// ValidateSource 执行启动探测,如果数据源不可达或无效则返回错误。
 func (c *Client) ValidateSource(ctx context.Context) error {
 	_, err := c.fetchBySource(ctx)
 	if err != nil {
@@ -132,7 +132,7 @@ func (c *Client) ValidateSource(ctx context.Context) error {
 	return nil
 }
 
-// FetchData fetches ADS-B data from the configured source.
+// FetchData 从配置的数据源获取 ADS-B 数据。
 func (c *Client) FetchData(ctx context.Context) (*RawAircraftData, error) {
 	data, err := c.fetchBySource(ctx)
 	if err != nil {
@@ -143,7 +143,7 @@ func (c *Client) FetchData(ctx context.Context) (*RawAircraftData, error) {
 	return data, nil
 }
 
-// GetSourceStatus returns the latest source status snapshot.
+// GetSourceStatus 返回最新的数据源状态快照。
 func (c *Client) GetSourceStatus() SourceStatus {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -167,7 +167,7 @@ func (c *Client) fetchBySource(ctx context.Context) (*RawAircraftData, error) {
 	case SourceTypeReadsbFile:
 		return c.fetchReadsbFileData()
 	default:
-		return nil, fmt.Errorf("unknown source type: %s", c.sourceType)
+		return nil, fmt.Errorf("未知的数据源类型:%s", c.sourceType)
 	}
 }
 
@@ -184,12 +184,12 @@ func (c *Client) fetchTar1090Data(ctx context.Context) (*RawAircraftData, error)
 
 	receiverData, err := c.fetchJSONObjectURL(ctx, receiverURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load tar1090 receiver.json: %w", err)
+		return nil, fmt.Errorf("加载 tar1090 receiver.json 失败:%w", err)
 	}
 
 	statsData, err := c.fetchJSONObjectURL(ctx, statsURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load tar1090 stats.json: %w", err)
+		return nil, fmt.Errorf("加载 tar1090 stats.json 失败:%w", err)
 	}
 
 	c.setSuccessStatus(data, receiverData, statsData)
@@ -218,12 +218,12 @@ func (c *Client) fetchReadsbFileData() (*RawAircraftData, error) {
 
 	aircraftBody, err := os.ReadFile(aircraftPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read readsb aircraft.json from %s: %w", aircraftPath, err)
+		return nil, fmt.Errorf("从 %s 读取 readsb aircraft.json 失败:%w", aircraftPath, err)
 	}
 
 	var data RawAircraftData
 	if err := json.Unmarshal(aircraftBody, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse readsb aircraft.json from %s: %w", aircraftPath, err)
+		return nil, fmt.Errorf("解析来自 %s 的 readsb aircraft.json 失败:%w", aircraftPath, err)
 	}
 	for i := range data.Aircraft {
 		data.Aircraft[i].SourceType = SourceTypeReadsbFile
@@ -231,20 +231,20 @@ func (c *Client) fetchReadsbFileData() (*RawAircraftData, error) {
 
 	receiverBody, err := os.ReadFile(receiverPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read readsb receiver.json from %s: %w", receiverPath, err)
+		return nil, fmt.Errorf("从 %s 读取 readsb receiver.json 失败:%w", receiverPath, err)
 	}
 	receiverData, err := parseJSONObject(receiverBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse readsb receiver.json from %s: %w", receiverPath, err)
+		return nil, fmt.Errorf("解析来自 %s 的 readsb receiver.json 失败:%w", receiverPath, err)
 	}
 
 	statsBody, err := os.ReadFile(statsPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read readsb stats.json from %s: %w", statsPath, err)
+		return nil, fmt.Errorf("从 %s 读取 readsb stats.json 失败:%w", statsPath, err)
 	}
 	statsData, err := parseJSONObject(statsBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse readsb stats.json from %s: %w", statsPath, err)
+		return nil, fmt.Errorf("解析来自 %s 的 readsb stats.json 失败:%w", statsPath, err)
 	}
 
 	c.setSuccessStatus(&data, receiverData, statsData)
@@ -254,12 +254,12 @@ func (c *Client) fetchReadsbFileData() (*RawAircraftData, error) {
 func (c *Client) fetchStandardAircraftURL(ctx context.Context, sourceURL string, sourceType string) (*RawAircraftData, error) {
 	body, err := c.fetchURL(ctx, sourceURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch aircraft JSON from %s: %w", sourceURL, err)
+		return nil, fmt.Errorf("从 %s 获取 aircraft JSON 失败:%w", sourceURL, err)
 	}
 
 	var data RawAircraftData
 	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse aircraft JSON from %s: %w", sourceURL, err)
+		return nil, fmt.Errorf("解析来自 %s 的 aircraft JSON 失败:%w", sourceURL, err)
 	}
 
 	for i := range data.Aircraft {
@@ -279,14 +279,14 @@ func (c *Client) fetchExternalData(ctx context.Context) (*RawAircraftData, error
 
 	body, err := c.fetchURL(ctx, requestURL, headers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch external API data from %s: %w", requestURL, err)
+		return nil, fmt.Errorf("从 %s 获取外部 API 数据失败:%w", requestURL, err)
 	}
 
 	var externalData ExternalAPIResponse
 	if err := json.Unmarshal(body, &externalData); err != nil {
 		var data RawAircraftData
 		if err2 := json.Unmarshal(body, &data); err2 != nil {
-			return nil, fmt.Errorf("failed to parse external API JSON from %s: %w", requestURL, err)
+			return nil, fmt.Errorf("解析来自 %s 的外部 API JSON 失败:%w", requestURL, err)
 		}
 		for i := range data.Aircraft {
 			data.Aircraft[i].SourceType = SourceTypeExternalAPI
@@ -336,15 +336,15 @@ func (c *Client) fetchOpenSkyData(ctx context.Context) (*RawAircraftData, error)
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch OpenSky states from %s: %w", requestURL, err)
+		return nil, fmt.Errorf("从 %s 获取 OpenSky 状态失败:%w", requestURL, err)
 	}
 
 	var payload openSkyStatesResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("failed to parse OpenSky response from %s: %w", requestURL, err)
+		return nil, fmt.Errorf("解析来自 %s 的 OpenSky 响应失败:%w", requestURL, err)
 	}
 	if payload.States == nil {
-		return nil, fmt.Errorf("invalid OpenSky response from %s: missing states", requestURL)
+		return nil, fmt.Errorf("来自 %s 的无效 OpenSky 响应:缺少 states", requestURL)
 	}
 
 	aircraft := make([]ADSBTarget, 0, len(payload.States))
@@ -374,11 +374,11 @@ func (c *Client) fetchOpenSkyData(ctx context.Context) (*RawAircraftData, error)
 func (c *Client) buildOpenSkyStatesURL() (string, error) {
 	base := normalizeBaseURL(c.openSkyBaseURL)
 	if base == "" {
-		return "", fmt.Errorf("opensky base URL is empty")
+		return "", fmt.Errorf("opensky 基础 URL 为空")
 	}
 	baseURL, err := url.Parse(base + "states/all")
 	if err != nil {
-		return "", fmt.Errorf("invalid opensky base URL: %w", err)
+		return "", fmt.Errorf("无效的 opensky 基础 URL:%w", err)
 	}
 
 	deltaLat := c.searchRadiusNM / 60.0
@@ -418,7 +418,7 @@ func (c *Client) getOpenSkyAuthHeaders(ctx context.Context) (map[string]string, 
 			"Authorization": "Bearer " + token,
 		}, nil
 	default:
-		return nil, fmt.Errorf("unsupported opensky auth mode: %s", c.openSkyAuthMode)
+		return nil, fmt.Errorf("不支持的 opensky 认证模式:%s", c.openSkyAuthMode)
 	}
 }
 
@@ -434,15 +434,15 @@ func (c *Client) getOpenSkyBearerToken(ctx context.Context) (string, error) {
 
 	credentialsBlob, err := os.ReadFile(c.openSkyCredsPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read opensky oauth2 credentials file %s: %w", c.openSkyCredsPath, err)
+		return "", fmt.Errorf("读取 opensky oauth2 凭据文件 %s 失败:%w", c.openSkyCredsPath, err)
 	}
 
 	var creds openSkyOAuth2Credentials
 	if err := json.Unmarshal(credentialsBlob, &creds); err != nil {
-		return "", fmt.Errorf("failed to parse opensky oauth2 credentials file %s: %w", c.openSkyCredsPath, err)
+		return "", fmt.Errorf("解析 opensky oauth2 凭据文件 %s 失败:%w", c.openSkyCredsPath, err)
 	}
 	if strings.TrimSpace(creds.ClientID) == "" || strings.TrimSpace(creds.ClientSecret) == "" {
-		return "", fmt.Errorf("opensky oauth2 credentials file %s must include clientId and clientSecret", c.openSkyCredsPath)
+		return "", fmt.Errorf("opensky oauth2 凭据文件 %s 必须包含 clientId 和 clientSecret", c.openSkyCredsPath)
 	}
 
 	form := url.Values{}
@@ -452,31 +452,31 @@ func (c *Client) getOpenSkyBearerToken(ctx context.Context) (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.openSkyTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", fmt.Errorf("failed to create opensky oauth2 token request: %w", err)
+		return "", fmt.Errorf("创建 opensky oauth2 令牌请求失败:%w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("opensky oauth2 token request failed: %w", err)
+		return "", fmt.Errorf("opensky oauth2 令牌请求失败:%w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read opensky oauth2 token response: %w", err)
+		return "", fmt.Errorf("读取 opensky oauth2 令牌响应失败:%w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("opensky oauth2 token request returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return "", fmt.Errorf("opensky oauth2 令牌请求返回状态 %d:%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	var tokenResp openSkyOAuth2TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return "", fmt.Errorf("failed to parse opensky oauth2 token response: %w", err)
+		return "", fmt.Errorf("解析 opensky oauth2 令牌响应失败:%w", err)
 	}
 	if strings.TrimSpace(tokenResp.AccessToken) == "" {
-		return "", fmt.Errorf("opensky oauth2 token response did not include access_token")
+		return "", fmt.Errorf("opensky oauth2 令牌响应未包含 access_token")
 	}
 
 	expiresIn := tokenResp.ExpiresIn
@@ -639,6 +639,7 @@ func (c *Client) fetchURL(ctx context.Context, sourceURL string, headers map[str
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
+	// 注:上述错误消息保留英文以匹配 client.go fetchOpenSkyData 中的字符串检查
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -672,7 +673,7 @@ func (c *Client) resolveReadsbDir() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("readsb-file mode could not auto-detect required files (aircraft.json, receiver.json, stats.json)")
+	return "", fmt.Errorf("readsb-file 模式无法自动检测所需文件(aircraft.json,receiver.json,stats.json)")
 }
 
 func hasReadsbFiles(dir string) bool {
@@ -692,7 +693,7 @@ func parseJSONObject(body []byte) (map[string]interface{}, error) {
 		return nil, err
 	}
 	if data == nil {
-		return nil, fmt.Errorf("JSON payload is not an object")
+		return nil, fmt.Errorf("JSON 载荷不是对象")
 	}
 	return data, nil
 }
@@ -787,12 +788,12 @@ func (c *Client) setAircraftError(err error) {
 	c.sourceStatus = status
 }
 
-// UpdateStationCoords updates the station coordinates used for external API calls.
+// UpdateStationCoords 更新用于外部 API 调用的站点坐标。
 func (c *Client) UpdateStationCoords(lat, lon float64) {
 	c.stationLat = lat
 	c.stationLon = lon
 
-	c.logger.Debug("Station coordinates updated",
+	c.logger.Debug("站点坐标已更新",
 		logger.Float64("latitude", lat),
 		logger.Float64("longitude", lon))
 }

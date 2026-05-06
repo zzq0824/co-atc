@@ -1,55 +1,55 @@
-# ADS-B Source Refactor Plan (Review First)
+# ADS-B 数据源重构计划（请先审阅）
 
-## Objective
+## 目标
 
-Refactor ADS-B source configuration and startup behavior to support four explicit source types, smarter source handling, readsb auto-detection, and source metadata exposure to the frontend.
+重构 ADS-B 数据源配置和启动行为，以支持四种显式数据源类型、更智能的源处理、readsb 自动检测以及向前端暴露源元数据。
 
-This document is planning-only and does **not** implement code changes yet.
+本文档仅作计划用途，**尚未**实施代码变更。
 
-## Requested Modes (normalized)
+## 请求模式（已规范化）
 
-The implementation will support these `adsb.source_type` values:
+实现将支持以下 `adsb.source_type` 值：
 
-1. `external_api` (rename of current `external`)
-   - Existing external API mode with URL template + headers.
-   - Aircraft data only.
-   - No receiver/stats metadata.
+1. `external_api`（重命名自当前的 `external`）
+   - 使用带 URL 模板和 headers 的现有外部 API 模式。
+   - 仅飞行器数据。
+   - 无接收器/统计元数据。
 
 2. `tar1090`
-   - Configured by base URL only.
-   - Must read and validate all three files:
+   - 仅由基础 URL 配置。
+   - 必须读取并校验所有三个文件：
      - `aircraft.json`
      - `receiver.json`
      - `stats.json`
-   - Aircraft ingestion same as current local JSON path flow.
-   - Receiver/stats exposed by new API.
+   - 飞行器摄入流程与当前本地 JSON 路径流相同。
+   - 接收器/统计通过新 API 暴露。
 
 3. `readsb_api`
-   - Configured by exact URL for aircraft endpoint (example: `http://192.168.1.60:30152/?all`).
-   - Aircraft data only.
-   - No receiver/stats metadata.
+   - 由飞行器端点的精确 URL 配置（示例：`http://192.168.1.60:30152/?all`）。
+   - 仅飞行器数据。
+   - 无接收器/统计元数据。
 
 4. `readsb_file`
-   - No per-source config required except `source_type`.
-   - Auto-detect and read local files from standard readsb runtime directories.
-   - Must consume:
+   - 除 `source_type` 外不需要每数据源配置。
+   - 自动检测并从标准 readsb 运行时目录读取本地文件。
+   - 必须消费：
      - `aircraft.json`
      - `receiver.json`
      - `stats.json`
-   - Behaves like tar1090 triple-file mode for metadata exposure.
+   - 元数据暴露行为与 tar1090 三文件模式相同。
 
 ---
 
-## Proposed Config Schema
+## 提议的配置模式
 
-### Clean-slate strategy (no legacy support)
+### 清晰策略（无遗留支持）
 
-- Remove legacy ADS-B keys and aliases from code and docs.
-- Accept only the new explicit `source_type` values and mode-specific fields.
-- Fail startup on unknown/legacy keys in `[adsb]` by strict schema validation.
-- Update `configs/config.toml.example` to only show the new schema.
+- 从代码和文档中移除遗留 ADS-B 键和别名。
+- 仅接受新的显式 `source_type` 值和模式特定字段。
+- 通过严格模式校验，对 `[adsb]` 中未知/遗留键的启动失败。
+- 更新 `configs/config.toml.example` 仅展示新模式。
 
-### Proposed ADS-B config (target)
+### 提议的 ADS-B 配置（目标）
 
 ```toml
 [adsb]
@@ -78,62 +78,62 @@ readsb_api_url = "http://192.168.1.60:30152/?all"
 readsb_data_dir = ""
 ```
 
-### Source-type strictness
+### 数据源类型严格性
 
-- Accepted values are only:
+- 接受的值仅为：
   - `external_api`
   - `tar1090`
   - `readsb_api`
   - `readsb_file`
 
-Any other value fails validation.
+任何其他值都会校验失败。
 
 ---
 
-## Auto-detection: `readsb_file`
+## 自动检测：`readsb_file`
 
-For `readsb_file`, startup probes directories in order (first valid wins):
+对于 `readsb_file`，启动按顺序探测目录（首个有效的胜出）：
 
-1. `adsb.readsb_data_dir` (if explicitly set)
+1. `adsb.readsb_data_dir`（如果显式设置）
 2. `/run/readsb`
 3. `/var/run/readsb`
 4. `/run/dump1090-fa`
 5. `/run/dump1090-mutability`
 
-Validation criteria for a candidate directory:
+候选目录的校验标准：
 
-- Files exist and are readable:
+- 文件存在且可读：
   - `aircraft.json`
   - `receiver.json`
   - `stats.json`
-- `aircraft.json` parses into current `RawAircraftData` model.
-- `receiver.json` and `stats.json` parse as generic JSON objects (strict schema not required initially).
+- `aircraft.json` 解析为当前 `RawAircraftData` 模型。
+- `receiver.json` 和 `stats.json` 解析为通用 JSON 对象（最初不要求严格模式）。
 
-If no valid directory is found, process startup fails.
+如果未找到有效目录，进程启动失败。
 
 ---
 
-## Data Access Design
+## 数据访问设计
 
-## 1) Aircraft ingestion abstraction
+## 1) 飞行器摄入抽象
 
-Introduce a source reader abstraction (names tentative):
+引入数据源读取抽象（名称暂定）：
 
-- `AircraftProvider` (returns parsed aircraft payload)
-- `SourceMetaProvider` (returns receiver/stats payload where available)
+- `AircraftProvider`（返回解析后的飞行器载荷）
+- `SourceMetaProvider`（返回可用的接收器/统计载荷）
 
-Concrete implementations:
+具体实现：
 
-- `ExternalAPIProvider` (`external_api`)
-- `Tar1090Provider` (`tar1090`)
-- `ReadsbAPIProvider` (`readsb_api`)
-- `ReadsbFileProvider` (`readsb_file`)
+- `ExternalAPIProvider`（`external_api`）
+- `Tar1090Provider`（`tar1090`）
+- `ReadsbAPIProvider`（`readsb_api`）
+- `ReadsbFileProvider`（`readsb_file`）
 
-`adsb.Client` becomes source-agnostic and delegates to selected provider.
+`adsb.Client` 变为与数据源无关，并委托给所选 provider。
 
-## 2) Metadata capture and API exposure
+## 2) 元数据捕获与 API 暴露
 
-Metadata model (tentative):
+元数据模型（暂定）：
 
 ```json
 {
@@ -147,20 +147,20 @@ Metadata model (tentative):
 }
 ```
 
-Service behavior:
+服务行为：
 
-- Cache last successful receiver/stats for file/API sources that provide them.
-- For modes without metadata (`external_api`, `readsb_api`), return `receiver=null`, `stats=null`, and `available=true` if aircraft stream is healthy.
+- 为提供元数据的文件/API 数据源缓存最新成功的 receiver/stats。
+- 对于无元数据的模式（`external_api`、`readsb_api`），如果飞行器流健康则返回 `receiver=null`、`stats=null` 和 `available=true`。
 
 ---
 
-## New API Endpoint
+## 新 API 端点
 
-Add a new endpoint for Settings sidebar display:
+为 Settings 侧边栏显示新增端点：
 
 - `GET /api/v1/adsb/source`
 
-Response (shape):
+响应（结构）：
 
 ```json
 {
@@ -183,159 +183,159 @@ Response (shape):
 }
 ```
 
-Notes:
+注意：
 
-- In `external_api` and `readsb_api`, receiver/stats availability is `false` with `data=null`.
-- Endpoint is read-only and does not alter existing aircraft API.
+- 在 `external_api` 和 `readsb_api` 中，receiver/stats 可用性为 `false`，`data=null`。
+- 端点为只读，不会改变现有飞行器 API。
 
 ---
 
-## Startup Validation and Fail-fast Rules
+## 启动校验与快速失败规则
 
-System must terminate on startup if configured source is inaccessible or invalid.
+如果配置的数据源不可访问或无效，系统必须在启动时终止。
 
-Validation per mode:
+每种模式的校验：
 
 1. `external_api`
-   - Validate required config fields.
-   - Perform a startup probe request with timeout.
-   - Require HTTP 200 and JSON parse success.
+   - 校验所需配置字段。
+   - 执行带超时的启动探测请求。
+   - 要求 HTTP 200 且 JSON 解析成功。
 
 2. `tar1090`
-   - Validate `tar1090_base_url`.
-   - Probe all required files (`aircraft.json`, `receiver.json`, `stats.json`).
-   - Require HTTP 200 for all and JSON parse success.
+   - 校验 `tar1090_base_url`。
+   - 探测所有必需文件（`aircraft.json`、`receiver.json`、`stats.json`）。
+   - 全部要求 HTTP 200 且 JSON 解析成功。
 
 3. `readsb_api`
-   - Validate `readsb_api_url`.
-   - Probe URL; require HTTP 200 and aircraft parse success.
+   - 校验 `readsb_api_url`。
+   - 探测 URL；要求 HTTP 200 且飞行器解析成功。
 
 4. `readsb_file`
-   - Auto-detect directory.
-   - Require all three files present/readable and parseable.
+   - 自动检测目录。
+   - 要求所有三个文件都存在/可读且可解析。
 
-Failure behavior:
+失败行为:
 
-- Return explicit error from config/source validation path.
-- `main.go` exits non-zero before services start.
-
----
-
-## Frontend Plan (Settings Sidebar)
-
-Placement:
-
-- Add a new section in left Settings panel above current Debug section.
-- Suggested title: `ADS-B Source`.
-
-Displayed fields (minimal):
-
-- Source type/mode
-- Aircraft feed status
-- Receiver metadata status/value preview (if available)
-- Stats metadata status/value preview (if available)
-- Last update timestamp
-- Last error text (if any)
-
-Frontend tasks:
-
-- Add store state in `www/app.js` for source metadata.
-- Poll `GET /api/v1/adsb/source` on interval (e.g., 5s) or piggyback existing periodic refresh.
-- Render section in `www/index.html` directly above Debug Settings.
+- 从配置/数据源校验路径返回明确错误。
+- `main.go` 在服务启动前以非零代码退出。
 
 ---
 
-## Backend Change Map (planned files)
+## 前端计划（Settings 侧边栏）
+
+位置：
+
+- 在左侧 Settings 面板的当前 Debug 区块上方添加新区块。
+- 建议标题：`ADS-B Source`。
+
+显示字段（最小集）：
+
+- 数据源类型/模式
+- 飞行器订阅状态
+- 接收器元数据状态/值预览（如可用）
+- 统计元数据状态/值预览（如可用）
+- 最后更新时间戳
+- 最后错误文本（如有）
+
+前端任务：
+
+- 在 `www/app.js` 添加数据源元数据的存储状态。
+- 按间隔（例如 5s）轮询 `GET /api/v1/adsb/source`，或附加在现有定期刷新中。
+- 在 `www/index.html` 中直接在 Debug Settings 上方渲染该区块。
+
+---
+
+## 后端变更映射（计划文件）
 
 - `internal/config/config.go`
-  - Expand ADS-B enum + strict validation.
-  - Add mode-specific required-field logic.
+  - 扩展 ADS-B 枚举 + 严格校验。
+  - 添加模式特定的必需字段逻辑。
 
 - `configs/config.toml.example`
-  - Replace old ADS-B section with new 4-mode schema and comments.
+  - 用新的 4 模式模式和注释替换旧的 ADS-B 区段。
 
 - `internal/adsb/client.go`
-  - Refactor into provider-based fetching.
+  - 重构为基于 provider 的拉取。
 
-- `internal/adsb/*` (new files likely)
-  - Add provider implementations for `external_api`, `tar1090`, `readsb_api`, `readsb_file`.
-  - Add startup probe/validation helper(s).
-  - Add metadata cache structs.
+- `internal/adsb/*`（可能新增文件）
+  - 添加 `external_api`、`tar1090`、`readsb_api`、`readsb_file` 的 provider 实现。
+  - 添加启动探测/校验辅助函数。
+  - 添加元数据缓存结构体。
 
 - `internal/adsb/service.go`
-  - Surface source metadata accessor for API handler.
+  - 为 API 处理器暴露数据源元数据访问器。
 
 - `internal/api/handlers.go`
-  - Add `GetADSBSourceStatus` handler.
+  - 添加 `GetADSBSourceStatus` 处理器。
 
 - `internal/api/routes.go`
-  - Register `GET /api/v1/adsb/source`.
+  - 注册 `GET /api/v1/adsb/source`。
 
 - `www/app.js`
-  - Fetch/store ADS-B source metadata.
+  - 拉取/存储 ADS-B 数据源元数据。
 
 - `www/index.html`
-  - New Settings section above Debug.
+  - 在 Debug 上方新增 Settings 区块。
 
 - `docs/api_spec.md`
-  - Document new endpoint.
+  - 记录新端点。
 
 ---
 
-## Implementation Phases
+## 实施阶段
 
-### Phase A - Config + Validation Foundation
+### 阶段 A - 配置 + 校验基础
 
-1. Extend config schema and enum handling.
-2. Remove old ADS-B config fields from struct/validation.
-3. Add strict mode-specific config validation.
+1. 扩展配置模式和枚举处理。
+2. 从结构体/校验中移除旧的 ADS-B 配置字段。
+3. 添加严格的模式特定配置校验。
 
-### Phase B - Source Providers + Startup Probing
+### 阶段 B - 数据源 Provider + 启动探测
 
-1. Introduce provider abstraction.
-2. Implement 4 source providers.
-3. Add fail-fast startup probe for selected mode.
+1. 引入 provider 抽象。
+2. 实现 4 个数据源 provider。
+3. 为所选模式添加快速失败启动探测。
 
-### Phase C - Source Metadata API
+### 阶段 C - 数据源元数据 API
 
-1. Capture receiver/stats for tar1090/readsb_file.
-2. Add ADS-B service accessor.
-3. Add `/api/v1/adsb/source` route/handler.
+1. 为 tar1090/readsb_file 捕获 receiver/stats。
+2. 添加 ADS-B 服务访问器。
+3. 添加 `/api/v1/adsb/source` 路由/处理器。
 
-### Phase D - Frontend Settings Panel
+### 阶段 D - 前端 Settings 面板
 
-1. Add ADS-B Source section above Debug.
-2. Bind UI to new endpoint data.
-3. Handle no-metadata modes cleanly.
+1. 在 Debug 上方添加 ADS-B Source 区块。
+2. 将 UI 绑定到新端点数据。
+3. 干净地处理无元数据模式。
 
-### Phase E - Docs + Manual Validation
+### 阶段 E - 文档 + 手动校验
 
-1. Update config example and API docs.
-2. Build with `./build_windows.ps1`.
-3. Manual verification across all 4 modes.
-
----
-
-## Manual Test Matrix
-
-1. `external_api` valid config -> app starts; source endpoint shows aircraft available, receiver/stats unavailable.
-2. `external_api` invalid key/url -> startup fails.
-3. `tar1090` all files present -> app starts; source endpoint returns receiver/stats payloads.
-4. `tar1090` missing one file/404 -> startup fails.
-5. `readsb_api` valid URL -> app starts; aircraft available only.
-6. `readsb_api` 404/invalid JSON -> startup fails.
-7. `readsb_file` with `/run/readsb` present -> auto-detect works, metadata available.
-8. `readsb_file` no candidate directories -> startup fails.
+1. 更新配置示例和 API 文档。
+2. 使用 `./build_windows.ps1` 构建。
+3. 跨所有 4 种模式手动验证。
 
 ---
 
-## Risks / Notes
+## 手动测试矩阵
 
-- `stats.json` and `receiver.json` schema variations across deployments: store and expose raw JSON initially.
-- Windows development environment may not host `/run/readsb`; `readsb_file` validation remains Linux-targeted by design.
+1. `external_api` 配置有效 -> 应用启动；source 端点显示飞行器可用，receiver/stats 不可用。
+2. `external_api` 无效的 key/url -> 启动失败。
+3. `tar1090` 所有文件存在 -> 应用启动；source 端点返回 receiver/stats 载荷。
+4. `tar1090` 缺少一个文件/404 -> 启动失败。
+5. `readsb_api` URL 有效 -> 应用启动；仅飞行器可用。
+6. `readsb_api` 404/无效 JSON -> 启动失败。
+7. `readsb_file` 存在 `/run/readsb` -> 自动检测工作，元数据可用。
+8. `readsb_file` 没有候选目录 -> 启动失败。
 
 ---
 
-## Approval Gate
+## 风险 / 备注
 
-After your review/approval of this plan, implementation will proceed in this exact phase order with minimal unrelated changes.
+- 不同部署中 `stats.json` 和 `receiver.json` 的模式差异：最初存储并暴露原始 JSON。
+- Windows 开发环境可能没有 `/run/readsb`；按设计 `readsb_file` 校验仍以 Linux 为目标。
+
+---
+
+## 审批关卡
+
+在您审阅/批准此计划后，实施将按上述阶段顺序进行，最少不相关的变更。

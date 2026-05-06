@@ -12,7 +12,7 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// TranscriptionManager manages transcription processors for frequencies
+// TranscriptionManager 管理频率的转写处理器
 type TranscriptionManager struct {
 	processors           map[string]ProcessorInterface
 	mu                   sync.RWMutex
@@ -26,11 +26,11 @@ type TranscriptionManager struct {
 	postProcessor        *PostProcessor
 	postProcessingConfig PostProcessingConfig
 	templateRenderer     TemplateRenderer
-	frequencyNames       map[string]string // Map of frequency IDs to names
-	fileLogger           *FileLogger       // Optional file logger for transcriptions
+	frequencyNames       map[string]string // 频率 ID 到名称的映射
+	fileLogger           *FileLogger       // 转写的可选文件日志记录器
 }
 
-// NewTranscriptionManager creates a new transcription manager
+// NewTranscriptionManager 创建一个新的转写管理器
 func NewTranscriptionManager(
 	wsServer *websocket.Server,
 	transcriptionStorage *sqlite.TranscriptionStorage,
@@ -43,22 +43,22 @@ func NewTranscriptionManager(
 	templateRenderer TemplateRenderer,
 	frequencyConfigs []FrequencyConfig,
 ) *TranscriptionManager {
-	// Create map of frequency IDs to names
+	// 创建频率 ID 到名称的映射
 	frequencyNames := make(map[string]string)
 	for _, freq := range frequencyConfigs {
 		frequencyNames[freq.ID] = freq.Name
 	}
 
-	// Create file logger if log_dir is configured
+	// 如果配置了 log_dir,则创建文件日志记录器
 	var fileLogger *FileLogger
 	if transcriptionConfig.LogDir != "" {
 		var err error
 		fileLogger, err = NewFileLogger(transcriptionConfig.LogDir, logger)
 		if err != nil {
-			logger.Error("Failed to create transcription file logger",
+			logger.Error("创建转写文件日志记录器失败",
 				String("log_dir", transcriptionConfig.LogDir),
 				Error(err))
-			// Continue without file logging
+			// 不带文件日志继续运行
 			fileLogger = nil
 		}
 	}
@@ -79,13 +79,13 @@ func NewTranscriptionManager(
 	}
 }
 
-// FrequencyConfig represents a frequency configuration
+// FrequencyConfig 表示频率配置
 type FrequencyConfig struct {
 	ID   string
 	Name string
 }
 
-// StartTranscription starts transcription for a frequency
+// StartTranscription 启动频率的转写
 func (m *TranscriptionManager) StartTranscription(
 	ctx context.Context,
 	frequencyID string,
@@ -93,9 +93,9 @@ func (m *TranscriptionManager) StartTranscription(
 	audioURL string,
 	transcribeAudio bool,
 ) error {
-	// Skip if transcription is not enabled for this frequency
+	// 如果该频率未启用转写,则跳过
 	if !transcribeAudio {
-		m.logger.Info("Transcription not enabled for frequency",
+		m.logger.Info("该频率未启用转写",
 			logger.String("id", frequencyID),
 			logger.String("name", frequencyName))
 		return nil
@@ -104,28 +104,28 @@ func (m *TranscriptionManager) StartTranscription(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Check if processor already exists
+	// 检查处理器是否已存在
 	if _, exists := m.processors[frequencyID]; exists {
-		m.logger.Info("Transcription already started for frequency",
+		m.logger.Info("该频率的转写已经启动",
 			logger.String("id", frequencyID),
 			logger.String("name", frequencyName))
 		return nil
 	}
 
-	m.logger.Info("Starting transcription for frequency",
+	m.logger.Info("正在启动频率的转写",
 		logger.String("id", frequencyID),
 		logger.String("name", frequencyName),
 		logger.String("url", audioURL))
 
-	// Create a CentralAudioProcessor for this frequency
+	// 为该频率创建一个 CentralAudioProcessor
 	audioConfig := audio.CentralProcessorConfig{
 		FFmpegPath:               m.transcriptionConfig.FFmpegPath,
 		SampleRate:               m.transcriptionConfig.FFmpegSampleRate,
 		Channels:                 m.transcriptionConfig.FFmpegChannels,
 		Format:                   m.transcriptionConfig.FFmpegFormat,
 		ReconnectDelay:           time.Duration(m.transcriptionConfig.ReconnectIntervalSec) * time.Second,
-		FFmpegTimeoutSecs:        0, // Default no timeout for transcription
-		FFmpegReconnectDelaySecs: 2, // Default reconnect delay for transcription
+		FFmpegTimeoutSecs:        0, // 转写默认无超时
+		FFmpegReconnectDelaySecs: 2, // 转写默认重连延迟
 	}
 
 	audioProcessor, err := audio.NewCentralAudioProcessor(
@@ -136,22 +136,22 @@ func (m *TranscriptionManager) StartTranscription(
 		m.logger.Named("audio"),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create audio processor: %w", err)
+		return fmt.Errorf("创建音频处理器失败: %w", err)
 	}
 
-	// Start the audio processor
+	// 启动音频处理器
 	if err := audioProcessor.Start(); err != nil {
-		return fmt.Errorf("failed to start audio processor: %w", err)
+		return fmt.Errorf("启动音频处理器失败: %w", err)
 	}
 
-	// Create a raw PCM reader (no WAV header) for transcription
+	// 为转写创建原始 PCM 读取器(无 WAV 头)
 	reader, err := audioProcessor.CreateRawReader(fmt.Sprintf("transcription-%s", frequencyID))
 	if err != nil {
 		audioProcessor.Stop()
-		return fmt.Errorf("failed to create audio reader: %w", err)
+		return fmt.Errorf("创建音频读取器失败: %w", err)
 	}
 
-	// Create a processor that uses the reader
+	// 创建使用该读取器的处理器
 	processor, err := NewProcessor(
 		ctx,
 		frequencyID,
@@ -166,18 +166,18 @@ func (m *TranscriptionManager) StartTranscription(
 		return err
 	}
 
-	// Start processor
+	// 启动处理器
 	if err := processor.Start(); err != nil {
 		return err
 	}
 
-	// Store processor
+	// 存储处理器
 	m.processors[frequencyID] = processor
 
 	return nil
 }
 
-// StartTranscriptionWithExternalAudio starts transcription for a frequency using an external audio processor
+// StartTranscriptionWithExternalAudio 使用外部音频处理器启动频率的转写
 func (m *TranscriptionManager) StartTranscriptionWithExternalAudio(
 	ctx context.Context,
 	frequencyID string,
@@ -185,17 +185,17 @@ func (m *TranscriptionManager) StartTranscriptionWithExternalAudio(
 	transcribeAudio bool,
 	audioProcessor interface{},
 ) error {
-	// Skip if transcription is not enabled for this frequency
+	// 如果该频率未启用转写,则跳过
 	if !transcribeAudio {
-		m.logger.Info("Transcription not enabled for frequency",
+		m.logger.Info("该频率未启用转写",
 			logger.String("id", frequencyID),
 			logger.String("name", frequencyName))
 		return nil
 	}
 
-	// Skip if no OpenAI API key is provided
+	// 如果没有提供 OpenAI API 密钥,则跳过
 	if m.openAIAPIKey == "" {
-		m.logger.Info("Transcription disabled - no OpenAI API key provided",
+		m.logger.Info("转写已禁用 - 未提供 OpenAI API 密钥",
 			logger.String("id", frequencyID),
 			logger.String("name", frequencyName))
 		return nil
@@ -204,35 +204,35 @@ func (m *TranscriptionManager) StartTranscriptionWithExternalAudio(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Check if processor already exists
+	// 检查处理器是否已存在
 	if _, exists := m.processors[frequencyID]; exists {
-		m.logger.Info("Transcription already started for frequency",
+		m.logger.Info("该频率的转写已经启动",
 			logger.String("id", frequencyID),
 			logger.String("name", frequencyName))
 		return nil
 	}
 
-	m.logger.Info("Starting transcription with external audio for frequency",
+	m.logger.Info("正在使用外部音频启动频率的转写",
 		logger.String("id", frequencyID),
 		logger.String("name", frequencyName))
 
-	// Create external processor based on the type of audio processor
+	// 根据音频处理器类型创建外部处理器
 	var processor ProcessorInterface
 	var err error
 
-	// We only support CentralAudioProcessor now
+	// 我们现在仅支持 CentralAudioProcessor
 	ap, ok := audioProcessor.(*audio.CentralAudioProcessor)
 	if !ok {
-		return fmt.Errorf("unsupported audio processor type: %T, only CentralAudioProcessor is supported", audioProcessor)
+		return fmt.Errorf("不支持的音频处理器类型: %T,仅支持 CentralAudioProcessor", audioProcessor)
 	}
 
-	// Create a raw PCM reader (no WAV header) for transcription
+	// 为转写创建原始 PCM 读取器(无 WAV 头)
 	reader, readerErr := ap.CreateRawReader(fmt.Sprintf("transcription-%s", frequencyID))
 	if readerErr != nil {
-		return fmt.Errorf("failed to create reader from central processor: %w", readerErr)
+		return fmt.Errorf("从中央处理器创建读取器失败: %w", readerErr)
 	}
 
-	// Create a processor that uses the reader
+	// 创建使用该读取器的处理器
 	processor, err = NewProcessor(
 		ctx,
 		frequencyID,
@@ -244,92 +244,92 @@ func (m *TranscriptionManager) StartTranscriptionWithExternalAudio(
 		m.fileLogger,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create external processor: %w", err)
+		return fmt.Errorf("创建外部处理器失败: %w", err)
 	}
 
-	// Start processor
+	// 启动处理器
 	if err := processor.Start(); err != nil {
-		return fmt.Errorf("failed to start external processor: %w", err)
+		return fmt.Errorf("启动外部处理器失败: %w", err)
 	}
 
-	// Store processor
+	// 存储处理器
 	m.processors[frequencyID] = processor
 
 	return nil
 }
 
-// StopTranscription stops transcription for a frequency
+// StopTranscription 停止频率的转写
 func (m *TranscriptionManager) StopTranscription(frequencyID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Check if processor exists
+	// 检查处理器是否存在
 	processor, exists := m.processors[frequencyID]
 	if !exists {
-		m.logger.Info("No transcription processor found for frequency", logger.String("id", frequencyID))
+		m.logger.Info("未找到该频率的转写处理器", logger.String("id", frequencyID))
 		return
 	}
 
-	m.logger.Info("Stopping transcription for frequency", logger.String("id", frequencyID))
+	m.logger.Info("正在停止频率的转写", logger.String("id", frequencyID))
 
-	// Stop processor
+	// 停止处理器
 	if err := processor.Stop(); err != nil {
-		m.logger.Error("Error stopping transcription processor",
+		m.logger.Error("停止转写处理器时出错",
 			logger.String("id", frequencyID),
 			logger.Error(err))
 	}
 
-	// Remove processor
+	// 移除处理器
 	delete(m.processors, frequencyID)
 }
 
-// StopAllTranscriptions stops all transcription processors and post-processing
+// StopAllTranscriptions 停止所有转写处理器和后处理
 func (m *TranscriptionManager) StopAllTranscriptions() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.logger.Info("Stopping all transcription processors", logger.Int("count", len(m.processors)))
+	m.logger.Info("正在停止所有转写处理器", logger.Int("count", len(m.processors)))
 
-	// Stop all processors
+	// 停止所有处理器
 	for id, processor := range m.processors {
 		if err := processor.Stop(); err != nil {
-			m.logger.Error("Error stopping transcription processor",
+			m.logger.Error("停止转写处理器时出错",
 				logger.String("id", id),
 				logger.Error(err))
 		}
 	}
 
-	// Clear processors
+	// 清除处理器
 	m.processors = make(map[string]ProcessorInterface)
 
-	// Stop post-processor
+	// 停止后处理器
 	m.StopPostProcessing()
 
-	// Close file logger
+	// 关闭文件日志记录器
 	if m.fileLogger != nil {
 		if err := m.fileLogger.Close(); err != nil {
-			m.logger.Error("Failed to close file logger", Error(err))
+			m.logger.Error("关闭文件日志记录器失败", Error(err))
 		}
 	}
 }
 
-// StartPostProcessing starts the post-processing of transcriptions
+// StartPostProcessing 启动转写的后处理
 func (m *TranscriptionManager) StartPostProcessing(ctx context.Context) error {
 	if m.postProcessor != nil {
-		m.logger.Info("Post-processing already started")
+		m.logger.Info("后处理已经启动")
 		return nil
 	}
 
-	// Skip if no OpenAI API key is provided
+	// 如果没有提供 OpenAI API 密钥,则跳过
 	if m.openAIAPIKey == "" {
-		m.logger.Info("Post-processing disabled - no OpenAI API key provided")
+		m.logger.Info("后处理已禁用 - 未提供 OpenAI API 密钥")
 		return nil
 	}
 
-	// Create OpenAI client for post-processing
+	// 创建用于后处理的 OpenAI 客户端
 	openaiClient := NewOpenAIClient(m.openAIAPIKey, m.postProcessingConfig.Model, m.postProcessingConfig.TimeoutSeconds, m.logger)
 
-	// Create post-processor
+	// 创建后处理器
 	var err error
 	m.postProcessor, err = NewPostProcessor(
 		ctx,
@@ -345,26 +345,26 @@ func (m *TranscriptionManager) StartPostProcessing(ctx context.Context) error {
 		m.fileLogger,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create post-processor: %w", err)
+		return fmt.Errorf("创建后处理器失败: %w", err)
 	}
 
-	// Start post-processor
+	// 启动后处理器
 	if err := m.postProcessor.Start(); err != nil {
-		return fmt.Errorf("failed to start post-processor: %w", err)
+		return fmt.Errorf("启动后处理器失败: %w", err)
 	}
 
-	m.logger.Info("Post-processing started")
+	m.logger.Info("后处理已启动")
 	return nil
 }
 
-// StopPostProcessing stops the post-processing of transcriptions
+// StopPostProcessing 停止转写的后处理
 func (m *TranscriptionManager) StopPostProcessing() {
 	if m.postProcessor == nil {
-		m.logger.Info("No post-processor to stop")
+		m.logger.Info("没有要停止的后处理器")
 		return
 	}
 
-	m.logger.Info("Stopping post-processor")
+	m.logger.Info("正在停止后处理器")
 	m.postProcessor.Stop()
 	m.postProcessor = nil
 }

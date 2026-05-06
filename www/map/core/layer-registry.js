@@ -1,18 +1,18 @@
 /**
- * Module: map/core/layer-registry
- * Why it exists:
- * - Encapsulates creation and lifecycle of non-aircraft map overlay layers.
- * - Standardizes overlay source handling (XYZ/WMS/GeoJSON/Vector) and isolation logic.
+ * 模块: map/core/layer-registry
+ * 存在原因:
+ * - 封装非飞行器地图覆盖图层的创建与生命周期管理。
+ * - 标准化覆盖层数据源处理(XYZ/WMS/GeoJSON/Vector)与隔离逻辑。
  *
- * Key responsibilities:
- * - Build OpenLayers sources/layers from config objects.
- * - Apply visibility, zoom constraints, z-index, opacity, and vector styles.
- * - Track runtime status and support degradation/retry for flaky overlay sources.
+ * 主要职责:
+ * - 根据配置对象构建 OpenLayers 数据源/图层。
+ * - 应用可见性、缩放约束、z-index、透明度以及矢量样式。
+ * - 跟踪运行时状态,并对不稳定的覆盖源支持降级/重试。
  *
- * Quirks / contracts:
- * - Designed for resilience: a repeatedly failing overlay can be auto-disabled
- *   without taking down the entire map.
- * - Expects `window.ol` to be present; this module does not lazy-load OpenLayers.
+ * 怪癖 / 契约:
+ * - 设计为具备韧性:反复失败的覆盖层会被自动禁用,
+ *   而不会拖垮整个地图。
+ * - 期望 `window.ol` 已存在;本模块不会延迟加载 OpenLayers。
  */
 (function () {
     function createOpenLayersOverlayRegistry(map, overlayConfigs) {
@@ -31,7 +31,7 @@
             const sourceType = (config.sourceType || '').toLowerCase();
 
             if (sourceType === 'xyz') {
-                if (!config.url) throw new Error(`Overlay ${config.id}: missing XYZ url`);
+                if (!config.url) throw new Error(`覆盖层 ${config.id}: 缺少 XYZ url`);
                 return new window.ol.source.XYZ({
                     url: config.url,
                     attributions: config.attribution || undefined,
@@ -40,7 +40,7 @@
             }
 
             if (sourceType === 'wms') {
-                if (!config.url) throw new Error(`Overlay ${config.id}: missing WMS url`);
+                if (!config.url) throw new Error(`覆盖层 ${config.id}: 缺少 WMS url`);
                 return new window.ol.source.TileWMS({
                     url: config.url,
                     params: config.wmsParams || {},
@@ -50,7 +50,7 @@
             }
 
             if (sourceType === 'image-wms') {
-                if (!config.url) throw new Error(`Overlay ${config.id}: missing ImageWMS url`);
+                if (!config.url) throw new Error(`覆盖层 ${config.id}: 缺少 ImageWMS url`);
                 return new window.ol.source.ImageWMS({
                     url: config.url,
                     params: config.wmsParams || {},
@@ -60,7 +60,7 @@
             }
 
             if (sourceType === 'geojson') {
-                if (!config.url) throw new Error(`Overlay ${config.id}: missing GeoJSON url`);
+                if (!config.url) throw new Error(`覆盖层 ${config.id}: 缺少 GeoJSON url`);
                 return new window.ol.source.Vector({
                     url: config.url,
                     format: new window.ol.format.GeoJSON(),
@@ -71,7 +71,7 @@
                 return new window.ol.source.Vector();
             }
 
-            throw new Error(`Overlay ${config.id}: unsupported sourceType ${config.sourceType}`);
+            throw new Error(`覆盖层 ${config.id}: 不支持的 sourceType ${config.sourceType}`);
         }
 
         function createLayer(config, source) {
@@ -147,7 +147,7 @@
 
             function markError(error) {
                 entry.status.errors += 1;
-                entry.status.lastError = (error && error.message) ? error.message : String(error || 'overlay source error');
+                entry.status.lastError = (error && error.message) ? error.message : String(error || '覆盖层数据源错误');
 
                 if (entry.status.errors >= maxErrors && isolation.disableOnError !== false) {
                     entry.status.degraded = true;
@@ -229,7 +229,7 @@
                 overlays.set(config.id, entry);
                 return entry;
             } catch (error) {
-                console.warn('[MapLayerRegistry] Overlay registration failed:', config.id, error);
+                console.warn('[MapLayerRegistry] 覆盖层注册失败:', config.id, error);
                 return null;
             }
         }

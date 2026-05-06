@@ -1,128 +1,128 @@
-# CLAUDE.md - Co-ATC Project Guide
+# CLAUDE.md - Co-ATC 项目指南
 
-## Project Overview
+## 项目概述
 
-Co-ATC is an AI-enhanced aircraft monitoring system for air traffic control operations. It provides real-time airspace monitoring, AI-powered voice assistant, transcription of ATC communications, and intelligent alert systems. **Local/network use only - not internet-facing.**
+Co-ATC 是一套面向空中交通管制(ATC)运行的 AI 增强飞行器监控系统。它提供实时空域监控、AI 语音助手、ATC 通信转写以及智能告警系统。**仅供本地/局域网使用 —— 不可暴露至公网。**
 
-## Quick Reference
+## 快速参考
 
-### Build & Run
+### 构建与运行
 
 ```powershell
-# Build (Windows - always use this, not 'go run')
+# 构建(Windows——始终使用此方式,而不是 'go run')
 .\build_windows.ps1
 
-# Run
+# 运行
 .\bin\co-atc.exe
 
-# With custom config
+# 使用自定义配置
 .\bin\co-atc.exe -config configs/config.toml
 ```
 
 ```bash
-# Build (macOS)
+# 构建(macOS)
 ./build_mac.sh
 
-# Build (Linux)
+# 构建(Linux)
 ./build_linux.sh
 
-# Run
+# 运行
 ./bin/co-atc
 ```
 
-### Key URLs (default)
+### 关键 URL(默认)
 
-- Web UI: `http://localhost:8080`
-- API: `http://localhost:8080/api/v1/`
-- WebSocket: `ws://localhost:8080/ws`
+- Web UI:`http://localhost:8080`
+- API:`http://localhost:8080/api/v1/`
+- WebSocket:`ws://localhost:8080/ws`
 
-## Tech Stack
+## 技术栈
 
-**Backend:** Go 1.23.2, chi/v5 router, SQLite (pure Go), Gorilla WebSocket, zap logging, TOML config
+**后端:**Go 1.23.2、chi/v5 路由、SQLite(纯 Go)、Gorilla WebSocket、zap 日志、TOML 配置
 
-**Frontend:** Alpine.js, Leaflet.js, Tailwind CSS, Web Audio API
+**前端:**Alpine.js、Leaflet.js、Tailwind CSS、Web Audio API
 
-**AI:** OpenAI Whisper (transcription), GPT-4 (post-processing), Realtime API (voice assistant)
+**AI:**OpenAI Whisper(转写)、GPT-4(后处理)、Realtime API(语音助手)
 
-## Project Structure
+## 项目结构
 
 ```
-cmd/server/main.go          # Entry point
+cmd/server/main.go          # 程序入口
 internal/
-  adsb/                     # Aircraft tracking (ADS-B data)
-  api/                      # HTTP routes and handlers
-  audio/                    # Audio processing (SRT, FFmpeg)
-  atcchat/                  # Voice assistant (OpenAI Realtime)
-  config/                   # TOML configuration
-  frequencies/              # Radio frequency management
-  simulation/               # Simulated aircraft
-  storage/sqlite/           # Database layer
-  templating/               # AI context aggregation
-  transcription/            # Whisper transcription
+  adsb/                     # 飞行器追踪(ADS-B 数据)
+  api/                      # HTTP 路由与处理器
+  audio/                    # 音频处理(SRT、FFmpeg)
+  atcchat/                  # 语音助手(OpenAI Realtime)
+  config/                   # TOML 配置
+  frequencies/              # 无线电频率管理
+  simulation/               # 模拟飞行器
+  storage/sqlite/           # 数据库层
+  templating/               # AI 上下文聚合
+  transcription/            # Whisper 转写
   weather/                  # METAR/TAF/NOTAM
-  websocket/                # Real-time broadcasting
-www/                        # Frontend (Alpine.js SPA)
-assets/                     # Static data (airlines, airports, runways)
-prompts/                    # AI system prompts
-configs/config.toml         # Configuration file
-data/                       # SQLite databases (auto-created)
-docs/                       # Documentation
+  websocket/                # 实时广播
+www/                        # 前端(Alpine.js SPA)
+assets/                     # 静态数据(航司、机场、跑道)
+prompts/                    # AI 系统提示词
+configs/config.toml         # 配置文件
+data/                       # SQLite 数据库(自动创建)
+docs/                       # 文档
 ```
 
-## Key Patterns
+## 关键模式
 
-### Service Architecture
-- Each domain is a self-contained service with dependency injection
-- Context-aware for graceful shutdown
-- Concurrent goroutines for real-time operations
+### 服务架构
+- 每个领域都是一个自包含的服务,采用依赖注入
+- 上下文感知,支持优雅停机
+- 实时操作使用并发 goroutine
 
-### Real-time Data Flow
-1. ADS-B Client → Service → Change Detector → WebSocket → Frontend
-2. Audio Stream → Transcription → OpenAI Whisper → SQLite → WebSocket
+### 实时数据流
+1. ADS-B 客户端 → 服务 → 变更检测 → WebSocket → 前端
+2. 音频流 → 转写 → OpenAI Whisper → SQLite → WebSocket
 
-### Flight Phases
-10-phase system: NEW, TAX, T/O, CLB, DEP, CRZ, ARR, APP, T/D, UNK
+### 飞行阶段
+10 阶段体系:NEW(新建)、TAX(滑行)、T/O(起飞)、CLB(爬升)、DEP(离场)、CRZ(巡航)、ARR(进场)、APP(进近)、T/D(着陆)、UNK(未知)
 
-### Database
-- Daily rotation: `data/co-atc-YYYY-MM-DD.db`
-- Pure Go SQLite (no CGO)
+### 数据库
+- 每日轮换:`data/co-atc-YYYY-MM-DD.db`
+- 纯 Go SQLite(无 CGO)
 
-## Development Guidelines
+## 开发指引
 
-### Backend
-- Use PowerShell terminal commands (Windows dev environment)
-- Build via `build_windows.ps1`, never `go run`
-- Update `docs/api_spec.md` when changing APIs
-- Clean up duplicate/dead code
+### 后端
+- 使用 PowerShell 终端命令(Windows 开发环境)
+- 通过 `build_windows.ps1` 构建,严禁使用 `go run`
+- 修改 API 时同步更新 `docs/api_spec.md`
+- 清理重复或失效的代码
 
-### Frontend
-- Use Tailwind CSS classes over custom CSS
-- Follow Alpine.js patterns
-- Dark theme with green highlights
-- No rebuild needed for frontend-only changes
+### 前端
+- 优先使用 Tailwind CSS 类,而非自定义 CSS
+- 遵循 Alpine.js 模式
+- 深色主题,绿色高亮
+- 仅前端改动无需重新构建
 
-### Documentation
-- Keep `docs/project_progress.md` as working memory
-- Update README.md after major features
+### 文档
+- 把 `docs/project_progress.md` 当作工作记忆持续维护
+- 重大功能更新后同步更新 README.md
 
-## Important Files
+## 重要文件
 
-- `configs/config.toml.example` - Config template with documentation
-- `docs/api_spec.md` - API endpoint documentation
-- `docs/technical_docs.md` - Architecture details
-- `.roorules` - Project conventions
-- `prompts/*.txt` - AI system prompts
+- `configs/config.toml.example` - 带文档说明的配置模板
+- `docs/api_spec.md` - API 端点文档
+- `docs/technical_docs.md` - 架构详情
+- `.roorules` - 项目规范
+- `prompts/*.txt` - AI 系统提示词
 
-## Testing
+## 测试
 
-No automated test suite. Test manually:
-- API: curl/Postman for endpoints
-- Frontend: Browser testing
-- Config validation runs on startup
+无自动化测试套件。需手动测试:
+- API:使用 curl/Postman 调用接口
+- 前端:浏览器测试
+- 启动时会自动校验配置
 
-## Notes
+## 备注
 
-- **No authentication** - development/hobby project
-- AI features require OpenAI API key in config
-- Frontend served from `www/` directory
-- WebSocket change detection reduces bandwidth ~95%
+- **无认证机制** - 开发/兴趣项目
+- AI 功能需要在配置中提供 OpenAI API 密钥
+- 前端从 `www/` 目录提供
+- WebSocket 变更检测可减少约 95% 的带宽

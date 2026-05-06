@@ -8,13 +8,13 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Import logger functions
+// 导入 logger 函数
 var (
 	String = logger.String
 	Error  = logger.Error
 )
 
-// TranscriptionRecord represents a transcription record in the database
+// TranscriptionRecord 表示数据库中的转写记录
 type TranscriptionRecord struct {
 	ID               int64     `json:"id"`
 	FrequencyID      string    `json:"frequency_id"`
@@ -23,34 +23,34 @@ type TranscriptionRecord struct {
 	IsComplete       bool      `json:"is_complete"`
 	IsProcessed      bool      `json:"is_processed"`
 	ContentProcessed string    `json:"content_processed"`
-	SpeakerType      string    `json:"speaker_type,omitempty"` // "ATC" or "PILOT"
-	Callsign         string    `json:"callsign,omitempty"`     // Aircraft callsign if speaker is a pilot
+	SpeakerType      string    `json:"speaker_type,omitempty"` // "ATC" 或 "PILOT"
+	Callsign         string    `json:"callsign,omitempty"`     // 如果说话者是飞行员则为飞行器呼号
 }
 
-// TranscriptionStorage handles storage of transcription records
+// TranscriptionStorage 处理转写记录的存储
 type TranscriptionStorage struct {
 	db     *sql.DB
 	logger *logger.Logger
 }
 
-// NewTranscriptionStorage creates a new SQLite transcription storage
+// NewTranscriptionStorage 创建一个新的 SQLite 转写存储
 func NewTranscriptionStorage(db *sql.DB, logger *logger.Logger) *TranscriptionStorage {
 	storage := &TranscriptionStorage{
 		db:     db,
 		logger: logger.Named("sqlite-tx"),
 	}
 
-	// Initialize database
+	// 初始化数据库
 	if err := storage.initDB(); err != nil {
-		logger.Error("Failed to initialize transcription storage", Error(err))
+		logger.Error("初始化转写存储失败", Error(err))
 	}
 
 	return storage
 }
 
-// initDB initializes the database tables
+// initDB 初始化数据库表
 func (s *TranscriptionStorage) initDB() error {
-	// Create transcriptions table
+	// 创建 transcriptions 表
 	_, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS transcriptions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,42 +65,42 @@ func (s *TranscriptionStorage) initDB() error {
 		)
 	`)
 	if err != nil {
-		return fmt.Errorf("failed to create transcriptions table: %w", err)
+		return fmt.Errorf("创建 transcriptions 表失败: %w", err)
 	}
 
-	// Create indexes
+	// 创建索引
 	_, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_frequency_id ON transcriptions(frequency_id)`)
 	if err != nil {
-		return fmt.Errorf("failed to create frequency_id index: %w", err)
+		return fmt.Errorf("创建 frequency_id 索引失败: %w", err)
 	}
 
 	_, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_created_at ON transcriptions(created_at)`)
 	if err != nil {
-		return fmt.Errorf("failed to create created_at index: %w", err)
+		return fmt.Errorf("创建 created_at 索引失败: %w", err)
 	}
 
 	_, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_speaker_type ON transcriptions(speaker_type)`)
 	if err != nil {
-		return fmt.Errorf("failed to create speaker_type index: %w", err)
+		return fmt.Errorf("创建 speaker_type 索引失败: %w", err)
 	}
 
 	_, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_callsign ON transcriptions(callsign)`)
 	if err != nil {
-		return fmt.Errorf("failed to create callsign index: %w", err)
+		return fmt.Errorf("创建 callsign 索引失败: %w", err)
 	}
 
 	return nil
 }
 
-// StoreTranscription stores a transcription record
+// StoreTranscription 存储一条转写记录
 func (s *TranscriptionStorage) StoreTranscription(record *TranscriptionRecord) (int64, error) {
 	lockSQLiteWrite()
 	defer unlockSQLiteWrite()
 
-	// Insert record
+	// 插入记录
 	result, err := s.db.Exec(
-		`INSERT INTO transcriptions 
-		(frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign) 
+		`INSERT INTO transcriptions
+		(frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		record.FrequencyID,
 		record.CreatedAt.Format(time.RFC3339),
@@ -112,34 +112,34 @@ func (s *TranscriptionStorage) StoreTranscription(record *TranscriptionRecord) (
 		record.Callsign,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to insert transcription: %w", err)
+		return 0, fmt.Errorf("插入转写失败: %w", err)
 	}
 
-	// Get ID
+	// 获取 ID
 	id, err := result.LastInsertId()
 	if err != nil {
-		return 0, fmt.Errorf("failed to get last insert ID: %w", err)
+		return 0, fmt.Errorf("获取最后插入 ID 失败: %w", err)
 	}
 
 	return id, nil
 }
 
-// GetTranscriptions returns all transcriptions with pagination
+// GetTranscriptions 返回所有转写并支持分页
 func (s *TranscriptionStorage) GetTranscriptions(limit, offset int) ([]*TranscriptionRecord, error) {
-	// Query records
+	// 查询记录
 	rows, err := s.db.Query(
-		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign 
-		FROM transcriptions 
-		ORDER BY created_at DESC 
+		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign
+		FROM transcriptions
+		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?`,
 		limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query transcriptions: %w", err)
+		return nil, fmt.Errorf("查询转写失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Parse records
+	// 解析记录
 	var records []*TranscriptionRecord
 	for rows.Next() {
 		var record TranscriptionRecord
@@ -158,16 +158,16 @@ func (s *TranscriptionStorage) GetTranscriptions(limit, offset int) ([]*Transcri
 			&speakerType,
 			&callsign,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan transcription: %w", err)
+			return nil, fmt.Errorf("扫描转写失败: %w", err)
 		}
 
-		// Parse created_at
+		// 解析 created_at
 		record.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse created_at: %w", err)
+			return nil, fmt.Errorf("解析 created_at 失败: %w", err)
 		}
 
-		// Handle nullable fields
+		// 处理可空字段
 		if contentProcessed.Valid {
 			record.ContentProcessed = contentProcessed.String
 		}
@@ -184,23 +184,23 @@ func (s *TranscriptionStorage) GetTranscriptions(limit, offset int) ([]*Transcri
 	return records, nil
 }
 
-// GetTranscriptionsByFrequency returns transcriptions for a specific frequency
+// GetTranscriptionsByFrequency 返回特定频率的转写
 func (s *TranscriptionStorage) GetTranscriptionsByFrequency(frequencyID string, limit, offset int) ([]*TranscriptionRecord, error) {
-	// Query records
+	// 查询记录
 	rows, err := s.db.Query(
-		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign 
-		FROM transcriptions 
-		WHERE frequency_id = ? 
-		ORDER BY created_at DESC 
+		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign
+		FROM transcriptions
+		WHERE frequency_id = ?
+		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?`,
 		frequencyID, limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query transcriptions by frequency: %w", err)
+		return nil, fmt.Errorf("按频率查询转写失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Parse records
+	// 解析记录
 	var records []*TranscriptionRecord
 	for rows.Next() {
 		var record TranscriptionRecord
@@ -219,16 +219,16 @@ func (s *TranscriptionStorage) GetTranscriptionsByFrequency(frequencyID string, 
 			&speakerType,
 			&callsign,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan transcription: %w", err)
+			return nil, fmt.Errorf("扫描转写失败: %w", err)
 		}
 
-		// Parse created_at
+		// 解析 created_at
 		record.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse created_at: %w", err)
+			return nil, fmt.Errorf("解析 created_at 失败: %w", err)
 		}
 
-		// Handle nullable fields
+		// 处理可空字段
 		if contentProcessed.Valid {
 			record.ContentProcessed = contentProcessed.String
 		}
@@ -245,23 +245,23 @@ func (s *TranscriptionStorage) GetTranscriptionsByFrequency(frequencyID string, 
 	return records, nil
 }
 
-// GetTranscriptionsByTimeRange returns transcriptions within a time range
+// GetTranscriptionsByTimeRange 返回时间范围内的转写
 func (s *TranscriptionStorage) GetTranscriptionsByTimeRange(startTime, endTime time.Time, limit, offset int) ([]*TranscriptionRecord, error) {
-	// Query records
+	// 查询记录
 	rows, err := s.db.Query(
-		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign 
-		FROM transcriptions 
-		WHERE created_at BETWEEN ? AND ? 
-		ORDER BY created_at DESC 
+		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign
+		FROM transcriptions
+		WHERE created_at BETWEEN ? AND ?
+		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?`,
 		startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query transcriptions by time range: %w", err)
+		return nil, fmt.Errorf("按时间范围查询转写失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Parse records
+	// 解析记录
 	var records []*TranscriptionRecord
 	for rows.Next() {
 		var record TranscriptionRecord
@@ -280,16 +280,16 @@ func (s *TranscriptionStorage) GetTranscriptionsByTimeRange(startTime, endTime t
 			&speakerType,
 			&callsign,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan transcription: %w", err)
+			return nil, fmt.Errorf("扫描转写失败: %w", err)
 		}
 
-		// Parse created_at
+		// 解析 created_at
 		record.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse created_at: %w", err)
+			return nil, fmt.Errorf("解析 created_at 失败: %w", err)
 		}
 
-		// Handle nullable fields
+		// 处理可空字段
 		if contentProcessed.Valid {
 			record.ContentProcessed = contentProcessed.String
 		}
@@ -306,23 +306,23 @@ func (s *TranscriptionStorage) GetTranscriptionsByTimeRange(startTime, endTime t
 	return records, nil
 }
 
-// GetTranscriptionsBySpeaker returns transcriptions by speaker type
+// GetTranscriptionsBySpeaker 按说话者类型返回转写
 func (s *TranscriptionStorage) GetTranscriptionsBySpeaker(speakerType string, limit, offset int) ([]*TranscriptionRecord, error) {
-	// Query records
+	// 查询记录
 	rows, err := s.db.Query(
-		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign 
-		FROM transcriptions 
-		WHERE speaker_type = ? 
-		ORDER BY created_at DESC 
+		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign
+		FROM transcriptions
+		WHERE speaker_type = ?
+		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?`,
 		speakerType, limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query transcriptions by speaker: %w", err)
+		return nil, fmt.Errorf("按说话者查询转写失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Parse records
+	// 解析记录
 	var records []*TranscriptionRecord
 	for rows.Next() {
 		var record TranscriptionRecord
@@ -341,16 +341,16 @@ func (s *TranscriptionStorage) GetTranscriptionsBySpeaker(speakerType string, li
 			&speakerTypeDB,
 			&callsign,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan transcription: %w", err)
+			return nil, fmt.Errorf("扫描转写失败: %w", err)
 		}
 
-		// Parse created_at
+		// 解析 created_at
 		record.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse created_at: %w", err)
+			return nil, fmt.Errorf("解析 created_at 失败: %w", err)
 		}
 
-		// Handle nullable fields
+		// 处理可空字段
 		if contentProcessed.Valid {
 			record.ContentProcessed = contentProcessed.String
 		}
@@ -367,23 +367,23 @@ func (s *TranscriptionStorage) GetTranscriptionsBySpeaker(speakerType string, li
 	return records, nil
 }
 
-// GetTranscriptionsByCallsign returns transcriptions by aircraft callsign
+// GetTranscriptionsByCallsign 按飞行器呼号返回转写
 func (s *TranscriptionStorage) GetTranscriptionsByCallsign(callsign string, limit, offset int) ([]*TranscriptionRecord, error) {
-	// Query records
+	// 查询记录
 	rows, err := s.db.Query(
-		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign 
-		FROM transcriptions 
-		WHERE callsign = ? 
-		ORDER BY created_at DESC 
+		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign
+		FROM transcriptions
+		WHERE callsign = ?
+		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?`,
 		callsign, limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query transcriptions by callsign: %w", err)
+		return nil, fmt.Errorf("按呼号查询转写失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Parse records
+	// 解析记录
 	var records []*TranscriptionRecord
 	for rows.Next() {
 		var record TranscriptionRecord
@@ -402,16 +402,16 @@ func (s *TranscriptionStorage) GetTranscriptionsByCallsign(callsign string, limi
 			&speakerType,
 			&callsignDB,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan transcription: %w", err)
+			return nil, fmt.Errorf("扫描转写失败: %w", err)
 		}
 
-		// Parse created_at
+		// 解析 created_at
 		record.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse created_at: %w", err)
+			return nil, fmt.Errorf("解析 created_at 失败: %w", err)
 		}
 
-		// Handle nullable fields
+		// 处理可空字段
 		if contentProcessed.Valid {
 			record.ContentProcessed = contentProcessed.String
 		}
@@ -428,9 +428,9 @@ func (s *TranscriptionStorage) GetTranscriptionsByCallsign(callsign string, limi
 	return records, nil
 }
 
-// GetUnprocessedTranscriptions retrieves a batch of unprocessed transcriptions
+// GetUnprocessedTranscriptions 检索一批未处理的转写
 func (s *TranscriptionStorage) GetUnprocessedTranscriptions(batchSize int) ([]*TranscriptionRecord, error) {
-	// Query records
+	// 查询记录
 	rows, err := s.db.Query(
 		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign
 		FROM transcriptions
@@ -440,11 +440,11 @@ func (s *TranscriptionStorage) GetUnprocessedTranscriptions(batchSize int) ([]*T
 		batchSize,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query unprocessed transcriptions: %w", err)
+		return nil, fmt.Errorf("查询未处理的转写失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Parse records
+	// 解析记录
 	var records []*TranscriptionRecord
 	for rows.Next() {
 		var record TranscriptionRecord
@@ -463,16 +463,16 @@ func (s *TranscriptionStorage) GetUnprocessedTranscriptions(batchSize int) ([]*T
 			&speakerType,
 			&callsign,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan transcription: %w", err)
+			return nil, fmt.Errorf("扫描转写失败: %w", err)
 		}
 
-		// Parse created_at
+		// 解析 created_at
 		record.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse created_at: %w", err)
+			return nil, fmt.Errorf("解析 created_at 失败: %w", err)
 		}
 
-		// Handle nullable fields
+		// 处理可空字段
 		if contentProcessed.Valid {
 			record.ContentProcessed = contentProcessed.String
 		}
@@ -489,12 +489,12 @@ func (s *TranscriptionStorage) GetUnprocessedTranscriptions(batchSize int) ([]*T
 	return records, nil
 }
 
-// UpdateProcessedTranscription updates a transcription with processed content
+// UpdateProcessedTranscription 用已处理内容更新转写
 func (s *TranscriptionStorage) UpdateProcessedTranscription(id int64, contentProcessed string, speakerType string, callsign string) error {
 	lockSQLiteWrite()
 	defer unlockSQLiteWrite()
 
-	// Update record
+	// 更新记录
 	_, err := s.db.Exec(
 		`UPDATE transcriptions
 		SET content_processed = ?, is_processed = 1, speaker_type = ?, callsign = ?
@@ -505,15 +505,15 @@ func (s *TranscriptionStorage) UpdateProcessedTranscription(id int64, contentPro
 		id,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to update processed transcription: %w", err)
+		return fmt.Errorf("更新已处理转写失败: %w", err)
 	}
 
 	return nil
 }
 
-// GetLastProcessedTranscriptions retrieves the last N processed transcriptions for a given frequency
+// GetLastProcessedTranscriptions 检索给定频率的最后 N 条已处理转写
 func (s *TranscriptionStorage) GetLastProcessedTranscriptions(frequencyID string, limit int) ([]*TranscriptionRecord, error) {
-	// Query records
+	// 查询记录
 	rows, err := s.db.Query(
 		`SELECT id, frequency_id, created_at, content, is_complete, is_processed, content_processed, speaker_type, callsign
 		FROM transcriptions
@@ -523,11 +523,11 @@ func (s *TranscriptionStorage) GetLastProcessedTranscriptions(frequencyID string
 		frequencyID, limit,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query last processed transcriptions: %w", err)
+		return nil, fmt.Errorf("查询最后已处理转写失败: %w", err)
 	}
 	defer rows.Close()
 
-	// Parse records
+	// 解析记录
 	var records []*TranscriptionRecord
 	for rows.Next() {
 		var record TranscriptionRecord
@@ -546,16 +546,16 @@ func (s *TranscriptionStorage) GetLastProcessedTranscriptions(frequencyID string
 			&speakerType,
 			&callsign,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan transcription: %w", err)
+			return nil, fmt.Errorf("扫描转写失败: %w", err)
 		}
 
-		// Parse created_at
+		// 解析 created_at
 		record.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse created_at: %w", err)
+			return nil, fmt.Errorf("解析 created_at 失败: %w", err)
 		}
 
-		// Handle nullable fields
+		// 处理可空字段
 		if contentProcessed.Valid {
 			record.ContentProcessed = contentProcessed.String
 		}

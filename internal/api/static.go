@@ -9,13 +9,13 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// StaticFileHandler serves static files dynamically without caching
+// StaticFileHandler 动态提供静态文件,不进行缓存
 type StaticFileHandler struct {
 	staticDir string
 	logger    *logger.Logger
 }
 
-// NewStaticFileHandler creates a new static file handler
+// NewStaticFileHandler 创建一个新的静态文件处理器
 func NewStaticFileHandler(staticDir string, logger *logger.Logger) *StaticFileHandler {
 	return &StaticFileHandler{
 		staticDir: staticDir,
@@ -23,41 +23,41 @@ func NewStaticFileHandler(staticDir string, logger *logger.Logger) *StaticFileHa
 	}
 }
 
-// ServeHTTP serves static files dynamically
+// ServeHTTP 动态提供静态文件
 func (h *StaticFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Clean the path to prevent directory traversal attacks
+	// 清理路径以防止目录遍历攻击
 	path := filepath.Clean(r.URL.Path)
 
-	// Remove leading slash
+	// 移除前导斜杠
 	if strings.HasPrefix(path, "/") {
 		path = path[1:]
 	}
 
-	// If path is empty, serve index.html
+	// 如果路径为空,提供 index.html
 	if path == "" {
 		path = "index.html"
 	}
 
-	// Construct full file path
+	// 构建完整文件路径
 	fullPath := filepath.Join(h.staticDir, path)
 
-	// Ensure the file is within the static directory (security check)
+	// 确保文件位于静态目录内(安全检查)
 	absStaticDir, err := filepath.Abs(h.staticDir)
 	if err != nil {
-		h.logger.Error("Failed to get absolute path for static directory", logger.Error(err))
+		h.logger.Error("获取静态目录的绝对路径失败", logger.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	absFullPath, err := filepath.Abs(fullPath)
 	if err != nil {
-		h.logger.Error("Failed to get absolute path for requested file", logger.Error(err))
+		h.logger.Error("获取请求文件的绝对路径失败", logger.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	if !strings.HasPrefix(absFullPath, absStaticDir) {
-		h.logger.Warn("Attempted directory traversal attack",
+		h.logger.Warn("尝试目录遍历攻击",
 			logger.String("requested_path", path),
 			logger.String("full_path", absFullPath),
 			logger.String("static_dir", absStaticDir))
@@ -65,11 +65,11 @@ func (h *StaticFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if file exists
+	// 检查文件是否存在
 	fileInfo, err := os.Stat(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// If it's a directory request without trailing slash, try index.html
+			// 如果是不带尾部斜杠的目录请求,尝试 index.html
 			if !strings.HasSuffix(path, "/") {
 				indexPath := filepath.Join(fullPath, "index.html")
 				if _, indexErr := os.Stat(indexPath); indexErr == nil {
@@ -79,37 +79,37 @@ func (h *StaticFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if err != nil {
-				h.logger.Debug("File not found", logger.String("path", fullPath))
+				h.logger.Debug("未找到文件", logger.String("path", fullPath))
 				http.NotFound(w, r)
 				return
 			}
 		} else {
-			h.logger.Error("Failed to stat file", logger.Error(err), logger.String("path", fullPath))
+			h.logger.Error("获取文件状态失败", logger.Error(err), logger.String("path", fullPath))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	// Don't serve directories directly
+	// 不直接提供目录
 	if fileInfo.IsDir() {
-		// Try to serve index.html from the directory
+		// 尝试从目录提供 index.html
 		indexPath := filepath.Join(fullPath, "index.html")
 		if _, err := os.Stat(indexPath); err == nil {
 			fullPath = indexPath
 		} else {
-			h.logger.Debug("Directory listing not allowed", logger.String("path", fullPath))
+			h.logger.Debug("不允许目录列表", logger.String("path", fullPath))
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 	}
 
-	// Set headers to prevent caching (for dynamic serving)
+	// 设置头部以阻止缓存(用于动态服务)
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
-	// Serve the file
-	h.logger.Debug("Serving static file",
+	// 提供文件
+	h.logger.Debug("提供静态文件",
 		logger.String("requested_path", r.URL.Path),
 		logger.String("file_path", fullPath))
 

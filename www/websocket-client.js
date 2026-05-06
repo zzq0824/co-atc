@@ -1,15 +1,15 @@
 /**
- * WebSocket client for Co-ATC realtime streams.
+ * Co-ATC 实时流的 WebSocket 客户端。
  *
- * Responsibilities:
- * - Maintain a single WebSocket connection.
- * - Dispatch typed message events to local listeners.
- * - Reconnect indefinitely with exponential backoff + jitter.
- * - Surface connection state and reconnect telemetry for UI.
+ * 职责：
+ * - 维护单个 WebSocket 连接。
+ * - 将类型化的消息事件分发给本地监听器。
+ * - 使用指数退避 + 抖动无限重连。
+ * - 向 UI 公开连接状态和重连遥测。
  */
 class WebSocketClient {
     /**
-     * @param {string} url WebSocket endpoint URL.
+     * @param {string} url WebSocket 端点 URL。
      */
     constructor(url) {
         this.url = url;
@@ -67,13 +67,13 @@ class WebSocketClient {
     }
 
     /**
-     * Connect (or reconnect) the socket.
+     * 连接（或重新连接）套接字。
      *
-     * Behavior:
-     * - Clears pending reconnect timers.
-     * - Prevents concurrent connect attempts.
-     * - Replaces any existing socket instance.
-     * - Starts a watchdog timeout for stuck CONNECTING states.
+     * 行为：
+     * - 清除待处理的重连计时器。
+     * - 防止并发的连接尝试。
+     * - 替换任何现有的套接字实例。
+     * - 为停滞的 CONNECTING 状态启动看门狗超时。
      */
     connect() {
         this.intentionalClose = false;
@@ -85,7 +85,7 @@ class WebSocketClient {
         this.nextReconnectDelayMs = null;
 
         if (this.isReconnecting) {
-            console.log('WebSocket: Connection attempt already in progress');
+            console.log('WebSocket: 连接尝试已在进行中');
             return;
         }
 
@@ -103,17 +103,17 @@ class WebSocketClient {
         this._clearConnectTimeout();
         this._connectTimeoutHandle = setTimeout(() => {
             if (this.connection && this.connection.readyState === WebSocket.CONNECTING) {
-                console.warn('WebSocket: connect timeout reached, forcing reconnect');
+                console.warn('WebSocket: 已达到连接超时，强制重连');
                 try {
                     this.connection.close();
                 } catch (error) {
-                    console.error('WebSocket: failed to close timed-out socket', error);
+                    console.error('WebSocket: 关闭超时套接字失败', error);
                 }
             }
         }, this.connectTimeoutMs);
 
         this._boundOpenHandler = (event) => {
-            console.log('WebSocket connection established');
+            console.log('WebSocket 连接已建立');
             this.isReconnecting = false;
             this.reconnectAttempts = 0;
             this.nextReconnectDelayMs = null;
@@ -123,7 +123,7 @@ class WebSocketClient {
         };
 
         this._boundCloseHandler = (event) => {
-            console.log('WebSocket connection closed');
+            console.log('WebSocket 连接已关闭');
             this.isReconnecting = false;
             this._clearConnectTimeout();
             this._notifyListeners('close', event);
@@ -137,7 +137,7 @@ class WebSocketClient {
                     attempt: this.reconnectAttempts,
                     delayMs: delayMs,
                 });
-                console.log(`WebSocket: Attempting reconnect #${this.reconnectAttempts} in ${delayMs}ms`);
+                console.log(`WebSocket: 尝试第 #${this.reconnectAttempts} 次重连，将在 ${delayMs}ms 后进行`);
 
                 this.reconnectTimeout = setTimeout(() => {
                     this.reconnectTimeout = null;
@@ -149,7 +149,7 @@ class WebSocketClient {
         };
 
         this._boundErrorHandler = (event) => {
-            console.error('WebSocket error:', event);
+            console.error('WebSocket 错误:', event);
             this._notifyListeners('error', event);
         };
 
@@ -191,7 +191,7 @@ class WebSocketClient {
                 }
             } catch (error) {
                 this._recordParseError();
-                console.error('Error parsing WebSocket message:', error);
+                console.error('解析 WebSocket 消息时出错:', error);
             }
         };
 
@@ -202,8 +202,8 @@ class WebSocketClient {
     }
 
     /**
-     * Compute the next reconnect delay using capped exponential backoff with jitter.
-     * @returns {number} Delay in milliseconds.
+     * 使用带抖动的有上限指数退避计算下一次重连延迟。
+     * @returns {number} 延迟（毫秒）。
      */
     _getReconnectDelayMs() {
         const exponent = Math.max(0, this.reconnectAttempts-1);
@@ -215,7 +215,7 @@ class WebSocketClient {
     }
 
     /**
-     * Update connection state and emit a `state_change` event when state changes.
+     * 更新连接状态，并在状态变化时发出 `state_change` 事件。
      * @param {'idle'|'connecting'|'connected'|'reconnecting'|'closed'} state
      */
     _setConnectionState(state) {
@@ -227,7 +227,7 @@ class WebSocketClient {
     }
 
     /**
-     * Clear the connect watchdog timer.
+     * 清除连接看门狗计时器。
      */
     _clearConnectTimeout() {
         if (this._connectTimeoutHandle) {
@@ -237,7 +237,7 @@ class WebSocketClient {
     }
 
     /**
-     * Snapshot current connection/reconnect status for UI and diagnostics.
+     * 为 UI 和诊断快照当前的连接/重连状态。
      * @returns {{state: string, reconnectAttempts: number, nextRetryDelayMs: number|null, autoReconnect: boolean}}
      */
     getConnectionStatus() {
@@ -250,7 +250,7 @@ class WebSocketClient {
     }
 
     /**
-     * Detach all event handlers from the current socket and clear handler references.
+     * 从当前套接字分离所有事件处理程序并清除处理程序引用。
      */
     _removeConnectionHandlers() {
         if (this.connection) {
@@ -277,7 +277,7 @@ class WebSocketClient {
     }
 
     /**
-     * Intentionally close the connection and disable automatic reconnect.
+     * 主动关闭连接并禁用自动重连。
      */
     disconnect() {
         this.autoReconnect = false;
@@ -301,7 +301,7 @@ class WebSocketClient {
     }
 
     /**
-     * Remove all registered listeners for every event type.
+     * 移除每种事件类型的所有已注册监听器。
      */
     clearAllListeners() {
         Object.keys(this.listeners).forEach(type => {
@@ -310,7 +310,7 @@ class WebSocketClient {
     }
 
     /**
-     * Enable automatic reconnect after non-intentional disconnects.
+     * 在非主动断开连接后启用自动重连。
      */
     enableAutoReconnect() {
         this.autoReconnect = true;
@@ -318,14 +318,14 @@ class WebSocketClient {
     }
 
     /**
-     * Disable automatic reconnect.
+     * 禁用自动重连。
      */
     disableAutoReconnect() {
         this.autoReconnect = false;
     }
 
     /**
-     * Reset reconnect telemetry counters.
+     * 重置重连遥测计数器。
      */
     resetReconnectAttempts() {
         this.reconnectAttempts = 0;
@@ -333,7 +333,7 @@ class WebSocketClient {
     }
 
     /**
-     * Register an event listener for a supported message/event type.
+     * 为受支持的消息/事件类型注册事件监听器。
      * @param {string} type
      * @param {(data: any) => void} callback
      */
@@ -344,7 +344,7 @@ class WebSocketClient {
     }
 
     /**
-     * Remove a previously registered listener callback.
+     * 移除先前注册的监听器回调。
      * @param {string} type
      * @param {(data: any) => void} callback
      */
@@ -355,8 +355,8 @@ class WebSocketClient {
     }
 
     /**
-     * Request a bulk aircraft payload from the server.
-     * @param {Object} [filters={}] Optional server-side filter object.
+     * 从服务器请求批量飞行器数据负载。
+     * @param {Object} [filters={}] 可选的服务器端过滤对象。
      */
     requestBulkAircraftData(filters = {}) {
         if (this.connection && this.connection.readyState === WebSocket.OPEN) {
@@ -366,16 +366,16 @@ class WebSocketClient {
                     filters: filters
                 }
             };
-            
-            console.log('Requesting bulk aircraft data via WebSocket...', filters);
+
+            console.log('正在通过 WebSocket 请求批量飞行器数据...', filters);
             this.connection.send(JSON.stringify(message));
         } else {
-            console.error('WebSocket not connected, cannot request bulk data');
+            console.error('WebSocket 未连接，无法请求批量数据');
         }
     }
 
     /**
-     * Emit an internal event to all subscribers.
+     * 向所有订阅者发出内部事件。
      * @param {string} type
      * @param {any} data
      */
@@ -385,7 +385,7 @@ class WebSocketClient {
                 try {
                     callback(data);
                 } catch (error) {
-                    console.error(`Error in ${type} listener:`, error);
+                    console.error(`${type} 监听器中出错:`, error);
                 }
             });
         }
@@ -442,5 +442,5 @@ class WebSocketClient {
     }
 }
 
-// Export the WebSocketClient class
+// 导出 WebSocketClient 类
 window.WebSocketClient = WebSocketClient;

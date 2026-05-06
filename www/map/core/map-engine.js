@@ -1,18 +1,18 @@
 /**
- * Module: map/core/map-engine
- * Why it exists:
- * - Owns raw OpenLayers map creation and map-level primitives used by higher layers.
- * - Centralizes basemap style mapping so UI style toggles stay deterministic.
+ * 模块: map/core/map-engine
+ * 存在原因:
+ * - 拥有原始的 OpenLayers 地图创建逻辑及上层使用的地图级原语。
+ * - 集中管理底图样式映射,使 UI 样式切换具有确定性。
  *
- * Key responsibilities:
- * - Initialize `window.ol.Map` and `window.ol.View` for the primary map target.
- * - Create and switch basemap sources (dark/light/osm/VFR/IFR variants).
- * - Manage map listeners and expose engine-level utility methods.
+ * 主要职责:
+ * - 为主地图目标初始化 `window.ol.Map` 与 `window.ol.View`。
+ * - 创建并切换底图源(dark/light/osm/VFR/IFR 等变体)。
+ * - 管理地图监听器并暴露引擎级实用方法。
  *
- * Quirks / contracts:
- * - Includes URL fallback transform support for chart tiles with endpoint naming
- *   mismatches (notably terminal chart variants).
- * - Keeps `wrapX` disabled for chart tiles to avoid mirrored-world artifacts.
+ * 怪癖 / 契约:
+ * - 包含 URL 回退转换支持,用于处理端点命名不一致的航图瓦片
+ *   (尤其是 terminal 航图变体)。
+ * - 对航图瓦片禁用 `wrapX` 以避免镜像世界伪影。
  */
 (function () {
     function createOpenLayersEngine(options) {
@@ -129,7 +129,7 @@
 
         function init() {
             if (!ensureOL()) {
-                throw new Error('OpenLayers runtime is not available on window.ol');
+                throw new Error('window.ol 上不可用 OpenLayers 运行时');
             }
 
             const interactionDefaultsFactory =
