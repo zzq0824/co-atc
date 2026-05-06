@@ -112,7 +112,7 @@ func (h *WebSocketHandler) sendToClient(client *websocket.Client, message *webso
 	//	return err
 	//}
 
-	//h.logger.Debug("Sending message to client",
+	//h.logger.Debug("正在向客户端发送消息",
 	//	logger.String("type", message.Type),
 	//	logger.Int("data_size", len(messageData)))
 
