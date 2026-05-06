@@ -1,6 +1,6 @@
 package physics
 
-// copied from @stignarnia
+// 来自 @stignarnia 的代码
 
 import "math"
 

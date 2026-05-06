@@ -10,7 +10,7 @@ const (
 	radToDeg          = 180.0 / math.Pi
 )
 
-// haversineNM calculates the distance in nautical miles between two lat/lon points.
+// haversineNM 计算两个经纬度坐标之间的距离(单位为海里)。
 func haversineNM(lat1, lon1, lat2, lon2 float64) float64 {
 	lat1Rad := lat1 * degToRad
 	lon1Rad := lon1 * degToRad
@@ -26,7 +26,7 @@ func haversineNM(lat1, lon1, lat2, lon2 float64) float64 {
 	return (earthRadiusMeters * c) / metersPerNM
 }
 
-// calculateBearing calculates the initial bearing from point 1 to point 2 in degrees.
+// calculateBearing 计算从点 1 到点 2 的初始方位角(单位为度)。
 func calculateBearing(lat1, lon1, lat2, lon2 float64) float64 {
 	lat1r := lat1 * degToRad
 	lon1r := lon1 * degToRad
@@ -40,7 +40,7 @@ func calculateBearing(lat1, lon1, lat2, lon2 float64) float64 {
 	return math.Mod(math.Mod(bearing, 360)+360, 360)
 }
 
-// calculateDestinationPoint calculates a destination point given start, bearing (degrees), and distance (NM).
+// calculateDestinationPoint 根据起点、方位角(度)和距离(海里)计算目标点。
 func calculateDestinationPoint(lat, lon, bearing, distanceNM float64) (float64, float64) {
 	latr := lat * degToRad
 	lonr := lon * degToRad

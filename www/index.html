@@ -302,19 +302,19 @@
                                             <span x-text="$store.atc.mapPerformanceStats?.avgRefreshMs"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Map Marker Ops /s</span>
+                                            <span>地图 Marker 操作/秒</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.markerOpsPerSec"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Map Visibility Passes /s</span>
+                                            <span>地图可见性遍历/秒</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.fullVisibilityPassesPerSec"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Merge Correct /s</span>
+                                            <span>合并校正/秒</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.animationCorrectedPerSec"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Predicted /s</span>
+                                            <span>预测/秒</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.animationPredictedPerSec"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
@@ -326,7 +326,7 @@
                                             <span x-text="$store.atc.mapPerformanceStats?.animationQuality"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>WebSocket Total /s</span>
+                                            <span>WebSocket 总数/秒</span>
                                             <span class="text-highlight" x-text="$store.atc.mapPerformanceStats?.wsRates?.total ?? 0"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
@@ -350,19 +350,19 @@
                                             <span x-text="$store.atc.mapPerformanceStats?.wsRates?.parse_errors ?? 0"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Tile Cache Controlled</span>
+                                            <span>瓦片缓存可控</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.tileCache?.controlled ? 'yes' : 'no'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Tile Cache Hit Rate</span>
+                                            <span>瓦片缓存命中率</span>
                                             <span x-text="($store.atc.mapPerformanceStats?.tileCache?.hitRatePct ?? 0) + '%'"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Tile Cache Hits / Misses</span>
+                                            <span>瓦片缓存命中/未命中</span>
                                             <span x-text="($store.atc.mapPerformanceStats?.tileCache?.hits ?? 0) + ' / ' + ($store.atc.mapPerformanceStats?.tileCache?.misses ?? 0)"></span>
                                         </div>
                                         <div class="flex items-center justify-between">
-                                            <span>Heap (MB)</span>
+                                            <span>堆内存(MB)</span>
                                             <span x-text="$store.atc.mapPerformanceStats?.heapUsedMB !== null ? ($store.atc.mapPerformanceStats.heapUsedMB + ' / ' + $store.atc.mapPerformanceStats.heapLimitMB + ' (' + $store.atc.mapPerformanceStats.heapUsagePct + '%) • Δ ' + (($store.atc.mapPerformanceStats.heapDeltaMB === null || $store.atc.mapPerformanceStats.heapDeltaMB === undefined) ? '-' : (($store.atc.mapPerformanceStats.heapDeltaMB > 0 ? '+' : '') + $store.atc.mapPerformanceStats.heapDeltaMB)) + ' MB') : '-'"></span>
                                         </div>
                                     </div>

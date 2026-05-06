@@ -1,42 +1,41 @@
 package adsb
 
 /*
-FLIGHT PHASE DETECTION SYSTEM
+飞行阶段检测系统
 ==============================
 
-The Co-ATC system uses a two-tier approach for flight phase detection:
+Co-ATC 系统使用两层方法进行飞行阶段检测:
 
-  PRIORITY 1 — Immediate ground state transitions (T/O and T/D)
-    Detected instantly when the OnGround state flips via IsFlying().
-    These are binary state changes that do not benefit from trajectory analysis.
+  优先级 1 — 立即地面状态切换(T/O 与 T/D)
+    通过 IsFlying() 检测 OnGround 状态翻转时立即识别。
+    这些是二元状态变化,无需借助轨迹分析。
 
-  PRIORITY 2 — All other phases via trajectory analysis
-    The TrajectoryTracker (trajectory.go, trajectory_phase.go) maintains a rolling
-    window of ~90 seconds of ADS-B observations per aircraft and uses statistical
-    analysis (OLS regression, median filtering, distance trends) to classify each
-    aircraft into one of 10 phases:
+  优先级 2 — 其他所有阶段通过轨迹分析
+    TrajectoryTracker(trajectory.go, trajectory_phase.go)为每架飞行器维护一个
+    约 90 秒滚动窗口的 ADS-B 观测数据,并使用统计分析(OLS 回归、中值滤波、距离趋势)
+    将每架飞行器分类到 10 个阶段之一:
 
-      NEW — Newly detected or parked on ground
-      TAX — Taxiing (1–50 kts ground speed)
-      T/O — Takeoff (ground→air transition, preserved for UI visibility)
-      CLB — Initial climb out (runway heading, near airport, hasRecentTakeoff)
-      DEP — Departure (climbing away, below cruise — general)
-      CRZ — Cruise (above cruise altitude)
-      ARR — Arrival (approaching station, below cruise, descending/level)
-      APP — Approach (on final, descending, runway-aligned)
-      T/D — Touchdown (air→ground transition, preserved for UI visibility)
-      UNK — Unknown (airborne but doesn't match any specific condition)
+      NEW — 新检测到或停于地面
+      TAX — 滑行中(1–50 节地速)
+      T/O — 起飞(地面→空中切换,为 UI 可见性保留)
+      CLB — 初始爬升(跑道航向、靠近机场、hasRecentTakeoff)
+      DEP — 离场(爬升远离、低于巡航 — 通用)
+      CRZ — 巡航(高于巡航高度)
+      ARR — 进场(接近站点、低于巡航、下降/平飞)
+      APP — 进近(在最后进近、下降、对齐跑道)
+      T/D — 着陆(空中→地面切换,为 UI 可见性保留)
+      UNK — 未知(在空但不匹配任何具体条件)
 
-  ARR is NOT a catch-all — it requires the aircraft to be genuinely approaching
-  the station. UNK is the honest catch-all for anything that doesn't match.
+  ARR 不是兜底类别 — 它要求飞行器确实正在接近站点。
+  UNK 是诚实的兜底类别,用于任何不匹配的情况。
 
-SPECIAL FEATURES:
-  - Trajectory-based noise resistance: decisions use windowed trends, not single readings
-  - Signal Lost Landing: auto-marks aircraft as landed when signal lost near airport,
-    enhanced by trajectory descent trend analysis
-  - Phase Preservation: T/O and T/D kept visible for configurable duration
-  - Sensor Data Validation: corrects erroneous readings before trajectory ingestion
-  - Data gap detection: handles coverage gaps without spurious phase flips
+特殊功能:
+  - 基于轨迹的抗噪声:决策基于窗口趋势,而非单次读数
+  - 失联着陆:当飞行器在机场附近失联时自动标记为已着陆,
+    通过轨迹下降趋势分析增强
+  - 阶段保留:T/O 与 T/D 在可配置时长内保持可见
+  - 传感器数据校验:在轨迹摄入前修正错误读数
+  - 数据间隔检测:处理覆盖间隔而不产生虚假阶段切换
 */
 
 import (
@@ -134,19 +133,19 @@ func normalizeRealtimeAircraft(aircraft *Aircraft) *Aircraft {
 	return &clone
 }
 
-// WebSocketServer defines the interface for a WebSocket server
+// WebSocketServer 定义 WebSocket 服务的接口
 type WebSocketServer interface {
 	Broadcast(message *websocket.Message)
 }
 
-// ReferenceService defines the interface for reference data lookups (aircraft, airlines)
+// ReferenceService 定义参考数据查询服务的接口(飞行器、航司)
 type ReferenceService interface {
 	LookupAircraft(hex string) *ReferenceAircraftInfo
 	LookupAirline(code string) string
 	LookupAirlineCountry(code string) string
 }
 
-// ReferenceAircraftInfo represents aircraft info from the reference data service
+// ReferenceAircraftInfo 表示来自参考数据服务的飞行器信息
 type ReferenceAircraftInfo struct {
 	Hex               string
 	Registration      string
@@ -156,11 +155,11 @@ type ReferenceAircraftInfo struct {
 	Owner             string
 }
 
-// Storage defines the interface for aircraft data storage
+// Storage 定义飞行器数据存储的接口
 type Storage interface {
 	GetAll() []*Aircraft
 	GetAllWithLastSeenFilter(lastSeenMinutes int) []*Aircraft
-	GetAllMinimal(lastSeenMinutes int) []*Aircraft // Minimal mode: skips phase history and date queries
+	GetAllMinimal(lastSeenMinutes int) []*Aircraft // 最小化模式:跳过阶段历史与日期查询
 	GetByHex(hex string) (*Aircraft, bool)
 	GetFiltered(
 		minAltitude, maxAltitude float64,
@@ -172,7 +171,7 @@ type Storage interface {
 	GetAllPositionHistory(hex string) ([]Position, error)
 	GetPositionHistoryWithLimit(hex string, limit int) ([]Position, error)
 
-	// Phase change methods
+	// 阶段变化方法
 	InsertPhaseChange(hex, flight, phase string, timestamp time.Time, adsbId *int) error
 	GetPhaseHistory(hex string) ([]PhaseChange, error)
 	GetCurrentPhase(hex string) (*PhaseChange, error)
@@ -180,32 +179,32 @@ type Storage interface {
 	GetLatestLandingTime(hex string) (*time.Time, error)
 	GetLatestADSBTargetID(hex string) (*int, error)
 
-	// Batch phase change methods for performance optimization
+	// 用于性能优化的批量阶段变化方法
 	GetCurrentPhasesBatch(hexCodes []string) (map[string]*PhaseChange, error)
 	GetLatestADSBTargetIDsBatch(hexCodes []string) (map[string]*int, error)
 	InsertPhaseChangesBatch(changes []PhaseChangeInsert) error
 
-	// Batch methods for fetch hot path optimization
+	// 用于获取热路径优化的批量方法
 	GetAircraftOnGroundBatch(hexCodes []string) (map[string]bool, error)
 	GetLatestADSBDataBatch(hexCodes []string) (map[string]*ADSBTarget, error)
 	GetLatestTakeoffTimesBatch(hexCodes []string) (map[string]*time.Time, error)
 	GetLatestLandingTimesBatch(hexCodes []string) (map[string]*time.Time, error)
 
-	// Targeted query for inactive aircraft status updates
+	// 针对非活跃飞行器状态更新的定向查询
 	GetStaleActiveAircraft(activeHexCodes []string, cutoff time.Time) ([]*Aircraft, error)
 }
 
-// SimulationService defines the interface for simulation service
+// SimulationService 定义模拟服务的接口
 type SimulationService interface {
 	UpdatePositions()
 	GenerateADSBData() []ADSBTarget
 	IsSimulated(hex string) bool
-	GetAllAircraft() interface{}                                           // Returns simulation aircraft data
-	GetAircraft(hex string) (interface{}, bool)                            // Returns specific simulated aircraft
-	UpdateControls(hex string, heading, speed, verticalRate float64) error // Update simulation controls
+	GetAllAircraft() interface{}                                           // 返回模拟飞行器数据
+	GetAircraft(hex string) (interface{}, bool)                            // 返回特定的模拟飞行器
+	UpdateControls(hex string, heading, speed, verticalRate float64) error // 更新模拟控制
 }
 
-// Service is the main service for ADS-B data processing
+// Service 是 ADS-B 数据处理的主服务
 type Service struct {
 	client             *Client
 	storage            Storage
@@ -216,31 +215,31 @@ type Service struct {
 	mu                 sync.RWMutex
 	stopCh             chan struct{}
 	wg                 sync.WaitGroup
-	refService         ReferenceService          // Reference data lookup service
-	stationLat         float64                   // Station latitude from config
-	stationLon         float64                   // Station longitude from config
-	stationElevFeet    float64                   // Station elevation in feet
-	overrideLat        *float64                  // Override station latitude (nil = use config)
-	overrideLon        *float64                  // Override station longitude (nil = use config)
-	overrideMutex      sync.RWMutex              // Protect override coordinates
-	wsServer           WebSocketServer           // WebSocket server for broadcasting events
-	signalLostTimeout  time.Duration             // Time after which aircraft is marked as signal_lost
-	runwayData         RunwayData                // Runway data for approach detection
-	flightPhasesConfig config.FlightPhasesConfig // Flight phases configuration
-	changeDetector     *ChangeDetector           // Tracks aircraft changes
-	broadcastChan      chan []AircraftChange     // Channel for broadcasting changes
-	simulationService  SimulationService         // Simulation service for simulated aircraft
-	trajectoryTracker  *TrajectoryTracker        // Trajectory-based phase detection
+	refService         ReferenceService          // 参考数据查询服务
+	stationLat         float64                   // 配置中的站点纬度
+	stationLon         float64                   // 配置中的站点经度
+	stationElevFeet    float64                   // 站点海拔(英尺)
+	overrideLat        *float64                  // 覆盖站点纬度(nil = 使用配置)
+	overrideLon        *float64                  // 覆盖站点经度(nil = 使用配置)
+	overrideMutex      sync.RWMutex              // 保护覆盖坐标
+	wsServer           WebSocketServer           // 用于广播事件的 WebSocket 服务
+	signalLostTimeout  time.Duration             // 飞行器被标记为 signal_lost 的超时时间
+	runwayData         RunwayData                // 用于进近检测的跑道数据
+	flightPhasesConfig config.FlightPhasesConfig // 飞行阶段配置
+	changeDetector     *ChangeDetector           // 跟踪飞行器变化
+	broadcastChan      chan []AircraftChange     // 广播变化的通道
+	simulationService  SimulationService         // 用于模拟飞行器的模拟服务
+	trajectoryTracker  *TrajectoryTracker        // 基于轨迹的阶段检测
 }
 
-// AircraftBulkResponse represents server response with bulk aircraft data
+// AircraftBulkResponse 表示包含批量飞行器数据的服务响应
 type AircraftBulkResponse struct {
 	Aircraft []*Aircraft    `json:"aircraft"`
 	Count    int            `json:"count"`
 	Counts   AircraftCounts `json:"counts"`
 }
 
-// NewService creates a new ADS-B service
+// NewService 创建新的 ADS-B 服务
 func NewService(
 	client *Client,
 	storage Storage,
@@ -252,10 +251,10 @@ func NewService(
 	wsServer WebSocketServer,
 	simulationService SimulationService,
 ) *Service {
-	// Set default signal lost timeout if not configured
+	// 如未配置则设置默认失联超时
 	signalLostTimeout := time.Duration(adsbCfg.SignalLostTimeoutSecs) * time.Second
 	if signalLostTimeout == 0 {
-		signalLostTimeout = 60 * time.Second // Default to 60 seconds
+		signalLostTimeout = 60 * time.Second // 默认 60 秒
 	}
 
 	service := &Service{
@@ -273,11 +272,11 @@ func NewService(
 		simulationService:  simulationService,
 	}
 
-	// Always enable WebSocket streaming for aircraft updates
-	logger.Info("Initializing WebSocket change detection for aircraft streaming")
+	// 始终为飞行器更新启用 WebSocket 流
+	logger.Info("初始化用于飞行器流的 WebSocket 变更检测")
 	service.changeDetector = NewChangeDetector(logger)
 
-	// Set the config for the prediction function
+	// 为预测函数设置配置
 	predictionConfig := &Config{
 		Station: struct {
 			Latitude  float64
@@ -289,13 +288,13 @@ func NewService(
 	}
 	SetConfig(predictionConfig)
 
-	// Initialize trajectory tracker for phase detection
+	// 初始化用于阶段检测的轨迹跟踪器
 	if flightPhasesConfig.Enabled {
 		fetchIntervalSec := adsbCfg.FetchIntervalSecs
 		if fetchIntervalSec < 1 {
 			fetchIntervalSec = 1
 		}
-		bufferCap := flightPhasesConfig.TrajectoryBufferDurationSec/fetchIntervalSec + 10 // +10 margin
+		bufferCap := flightPhasesConfig.TrajectoryBufferDurationSec/fetchIntervalSec + 10 // +10 余量
 		service.trajectoryTracker = NewTrajectoryTracker(
 			TrajectoryConfig{
 				BufferDurationSec:       flightPhasesConfig.TrajectoryBufferDurationSec,
@@ -322,7 +321,7 @@ func NewService(
 	return service
 }
 
-// startBroadcastWorker starts the worker that broadcasts aircraft changes via WebSocket
+// startBroadcastWorker 启动通过 WebSocket 广播飞行器变化的工作协程
 func (s *Service) startBroadcastWorker() {
 	go func() {
 		for changes := range s.broadcastChan {
@@ -333,7 +332,7 @@ func (s *Service) startBroadcastWorker() {
 	}()
 }
 
-// broadcastAircraftChange broadcasts a single aircraft change via WebSocket
+// broadcastAircraftChange 通过 WebSocket 广播单个飞行器变化
 func (s *Service) broadcastAircraftChange(change AircraftChange) {
 	var messageType string
 	switch change.Type {
@@ -356,9 +355,9 @@ func (s *Service) broadcastAircraftChange(change AircraftChange) {
 	}
 	data["observed_at"] = observedAt.Format(time.RFC3339Nano)
 
-	// For "added", send full aircraft object
-	// For "updated", send only the delta (changed fields)
-	// For "removed", just send hex
+	// 对于 "added",发送完整的飞行器对象
+	// 对于 "updated",仅发送增量(变化字段)
+	// 对于 "removed",仅发送 hex
 	if change.Aircraft != nil {
 		data["aircraft"] = normalizeRealtimeAircraft(change.Aircraft)
 	}
@@ -376,8 +375,8 @@ func (s *Service) broadcastAircraftChange(change AircraftChange) {
 	}
 }
 
-// predictionBroadcastLoop periodically publishes trajectory-based predicted states
-// so clients can animate smoothly between real ADS-B polls.
+// predictionBroadcastLoop 定期发布基于轨迹的预测状态,
+// 以便客户端能在真实 ADS-B 轮询间隔中平滑动画。
 func (s *Service) predictionBroadcastLoop(ctx context.Context) {
 	defer s.wg.Done()
 

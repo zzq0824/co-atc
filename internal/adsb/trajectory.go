@@ -766,7 +766,7 @@ func medianFloat(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) fl
 	return vals[n/2]
 }
 
-// stdDev computes the sample standard deviation of a field.
+// stdDev 计算某个字段的样本标准差。
 func stdDev(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	n := len(snaps)
 	if n < 2 {
@@ -781,9 +781,9 @@ func stdDev(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64
 	return math.Sqrt(sumSq / float64(n-1))
 }
 
-// olsSlope computes the OLS linear regression slope of a field against time.
-// Time is measured in seconds from the first snapshot. Returns the slope in
-// units-per-second (e.g., feet-per-second for altitude).
+// olsSlope 计算某个字段相对时间的 OLS 线性回归斜率。
+// 时间以从第一个快照开始的秒数计量。返回单位为"单位/秒"
+// (例如高度返回英尺/秒)。
 func olsSlope(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	n := len(snaps)
 	if n < 2 {
@@ -802,13 +802,13 @@ func olsSlope(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float
 	nf := float64(n)
 	denom := nf*sumTT - sumT*sumT
 	if math.Abs(denom) < 1e-12 {
-		return 0 // All points at same time
+		return 0 // 所有点处于同一时刻
 	}
 	return (nf*sumTY - sumT*sumY) / denom
 }
 
-// olsSlopeWithXY computes OLS slope with an explicit (x, y) extractor,
-// used for distance-to-station trend where x = time offset, y = distance.
+// olsSlopeWithXY 使用显式的 (x, y) 提取器计算 OLS 斜率,
+// 用于到台站距离的趋势,其中 x = 时间偏移,y = 距离。
 func olsSlopeWithXY(snaps []TrajectorySnapshot, extractXY func(TrajectorySnapshot) (float64, float64)) float64 {
 	n := len(snaps)
 	if n < 2 {
@@ -830,9 +830,8 @@ func olsSlopeWithXY(snaps []TrajectorySnapshot, extractXY func(TrajectorySnapsho
 	return (nf*sumXY - sumX*sumY) / denom
 }
 
-// olsR2 computes the R² (coefficient of determination) for the OLS linear
-// regression of a field against time. Returns 0 if fewer than 3 points or no
-// variance in the data. R² = 1 - SS_res/SS_tot.
+// olsR2 计算某字段相对时间的 OLS 线性回归的 R²(决定系数)。
+// 若点数少于 3 个或数据没有方差,则返回 0。R² = 1 - SS_res/SS_tot。
 func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	n := len(snaps)
 	if n < 3 {
@@ -840,7 +839,7 @@ func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64)
 	}
 	t0 := snaps[0].Timestamp
 
-	// Compute OLS coefficients (intercept + slope)
+	// 计算 OLS 系数(截距 + 斜率)
 	var sumT, sumY, sumTY, sumTT float64
 	for _, s := range snaps {
 		t := s.Timestamp.Sub(t0).Seconds()
@@ -858,7 +857,7 @@ func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64)
 	slope := (nf*sumTY - sumT*sumY) / denom
 	intercept := (sumY - slope*sumT) / nf
 
-	// Compute R² = 1 - SS_res / SS_tot
+	// 计算 R² = 1 - SS_res / SS_tot
 	meanY := sumY / nf
 	var ssRes, ssTot float64
 	for _, s := range snaps {
@@ -869,7 +868,7 @@ func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64)
 		ssTot += (y - meanY) * (y - meanY)
 	}
 	if ssTot < 1e-20 {
-		return 0 // No variance
+		return 0 // 无方差
 	}
 	r2 := 1.0 - ssRes/ssTot
 	if r2 < 0 {
@@ -878,7 +877,7 @@ func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64)
 	return r2
 }
 
-// circularMean computes the mean of angles (degrees) handling 0°/360° wraparound.
+// circularMean 计算角度(度)的均值,处理 0°/360° 环绕。
 func circularMean(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	if len(snaps) == 0 {
 		return 0
@@ -894,8 +893,8 @@ func circularMean(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) f
 	return math.Mod(deg+360, 360)
 }
 
-// circularDiff returns the signed angular difference (a - b) in degrees,
-// handling the 0°/360° wraparound. Result is in [-180, 180].
+// circularDiff 返回有符号的角度差 (a - b),单位为度,处理 0°/360°
+// 环绕。结果在 [-180, 180] 之间。
 func circularDiff(a, b float64) float64 {
 	diff := a - b
 	for diff > 180 {

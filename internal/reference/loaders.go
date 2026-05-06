@@ -10,18 +10,18 @@ import (
 	"strings"
 )
 
-// loadAircraftCSV parses aircraft.csv (semicolon-separated, no header)
-// Format: Hex;Registration;TypeCode;??;ManufacturerModel;Year;Owner;??
+// loadAircraftCSV 解析 aircraft.csv(分号分隔,无表头)
+// 格式:Hex;Registration;TypeCode;??;ManufacturerModel;Year;Owner;??
 func loadAircraftCSV(path string) (map[string]*AircraftInfo, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("open aircraft.csv: %w", err)
+		return nil, fmt.Errorf("打开 aircraft.csv: %w", err)
 	}
 	defer f.Close()
 
-	m := make(map[string]*AircraftInfo, 500000) // pre-size for ~500k aircraft
+	m := make(map[string]*AircraftInfo, 500000) // 预分配约 50 万条飞行器记录
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 512), 1024*1024) // 1MB line buffer
+	scanner.Buffer(make([]byte, 512), 1024*1024) // 1MB 行缓冲区
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "" {
@@ -44,7 +44,7 @@ func loadAircraftCSV(path string) (map[string]*AircraftInfo, error) {
 		if len(parts) > 2 {
 			info.TypeCode = strings.TrimSpace(parts[2])
 		}
-		// parts[3] is unknown field, skip
+		// parts[3] 为未知字段,跳过
 		if len(parts) > 4 {
 			info.ManufacturerModel = strings.TrimSpace(parts[4])
 		}
@@ -58,24 +58,24 @@ func loadAircraftCSV(path string) (map[string]*AircraftInfo, error) {
 		m[hex] = info
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scan aircraft.csv: %w", err)
+		return nil, fmt.Errorf("扫描 aircraft.csv: %w", err)
 	}
 	return m, nil
 }
 
-// loadAirlineDAT parses airlines.dat (comma-separated, no header)
-// Format: ID,Name,Alias,IATA,ICAO,Callsign,Country,Active
-// Returns map[ICAO/IATA code] -> AirlineInfo (name + country)
+// loadAirlineDAT 解析 airlines.dat(逗号分隔,无表头)
+// 格式:ID,Name,Alias,IATA,ICAO,Callsign,Country,Active
+// 返回 map[ICAO/IATA 代码] -> AirlineInfo(名称 + 国家)
 func loadAirlineDAT(path string) (map[string]AirlineInfo, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("open airlines.dat: %w", err)
+		return nil, fmt.Errorf("打开 airlines.dat: %w", err)
 	}
 	defer f.Close()
 
 	r := csv.NewReader(f)
 	r.LazyQuotes = true
-	r.FieldsPerRecord = -1 // variable field count
+	r.FieldsPerRecord = -1 // 字段数量可变
 
 	m := make(map[string]AirlineInfo, 7000)
 	for {
@@ -84,7 +84,7 @@ func loadAirlineDAT(path string) (map[string]AirlineInfo, error) {
 			break
 		}
 		if err != nil {
-			continue // skip malformed lines
+			continue // 跳过格式错误的行
 		}
 		if len(record) < 7 {
 			continue
@@ -110,7 +110,7 @@ func loadAirlineDAT(path string) (map[string]AirlineInfo, error) {
 	return m, nil
 }
 
-// cleanDATField handles \N (null) and trims whitespace from OpenFlights .dat fields.
+// cleanDATField 处理 \N(空值)并修剪 OpenFlights .dat 字段中的空白字符。
 func cleanDATField(s string) string {
 	s = strings.TrimSpace(s)
 	if s == `\N` || s == "" {
@@ -119,22 +119,22 @@ func cleanDATField(s string) string {
 	return s
 }
 
-// loadAirportsCSV parses airports.csv (OurAirports, with header)
-// Returns only airports within rangeNM of station, plus the slice and ident map.
+// loadAirportsCSV 解析 airports.csv(OurAirports,带表头)
+// 仅返回距离观测站 rangeNM 范围内的机场,以及该列表与 ident 映射。
 func loadAirportsCSV(path string, stationLat, stationLon, rangeNM float64) ([]*AirportInfo, map[string]*AirportInfo, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open airports.csv: %w", err)
+		return nil, nil, fmt.Errorf("打开 airports.csv: %w", err)
 	}
 	defer f.Close()
 
 	r := csv.NewReader(f)
 	r.LazyQuotes = true
 
-	// Read header
+	// 读取表头
 	header, err := r.Read()
 	if err != nil {
-		return nil, nil, fmt.Errorf("read airports.csv header: %w", err)
+		return nil, nil, fmt.Errorf("读取 airports.csv 表头: %w", err)
 	}
 	idx := buildIndex(header)
 
@@ -189,11 +189,11 @@ func loadAirportsCSV(path string, stationLat, stationLon, rangeNM float64) ([]*A
 	return airports, airportMap, nil
 }
 
-// loadFrequenciesCSV parses airport-frequencies.csv and attaches frequencies to airports in the map.
+// loadFrequenciesCSV 解析 airport-frequencies.csv,并将频率挂载到 map 中对应的机场。
 func loadFrequenciesCSV(path string, airportMap map[string]*AirportInfo) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("open airport-frequencies.csv: %w", err)
+		return fmt.Errorf("打开 airport-frequencies.csv: %w", err)
 	}
 	defer f.Close()
 
@@ -202,7 +202,7 @@ func loadFrequenciesCSV(path string, airportMap map[string]*AirportInfo) error {
 
 	header, err := r.Read()
 	if err != nil {
-		return fmt.Errorf("read airport-frequencies.csv header: %w", err)
+		return fmt.Errorf("读取 airport-frequencies.csv 表头: %w", err)
 	}
 	idx := buildIndex(header)
 
@@ -233,11 +233,11 @@ func loadFrequenciesCSV(path string, airportMap map[string]*AirportInfo) error {
 	return nil
 }
 
-// loadRunwaysCSV parses runways.csv and returns geo-filtered runways + home airport runways.
+// loadRunwaysCSV 解析 runways.csv,返回经地理过滤后的跑道及主场跑道。
 func loadRunwaysCSV(path string, airportMap map[string]*AirportInfo, homeAirportCode string) ([]*RunwayInfo, []*RunwayInfo, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open runways.csv: %w", err)
+		return nil, nil, fmt.Errorf("打开 runways.csv: %w", err)
 	}
 	defer f.Close()
 
@@ -246,7 +246,7 @@ func loadRunwaysCSV(path string, airportMap map[string]*AirportInfo, homeAirport
 
 	header, err := r.Read()
 	if err != nil {
-		return nil, nil, fmt.Errorf("read runways.csv header: %w", err)
+		return nil, nil, fmt.Errorf("读取 runways.csv 表头: %w", err)
 	}
 	idx := buildIndex(header)
 
@@ -270,7 +270,7 @@ func loadRunwaysCSV(path string, airportMap map[string]*AirportInfo, homeAirport
 			continue
 		}
 
-		// Skip closed runways
+		// 跳过已关闭的跑道
 		if getField(record, idx, "closed") == "1" {
 			continue
 		}
@@ -297,7 +297,7 @@ func loadRunwaysCSV(path string, airportMap map[string]*AirportInfo, homeAirport
 			HEDisplacedFt: parseFloat(getField(record, idx, "he_displaced_threshold_ft")),
 		}
 
-		// Only include runways that have at least one end with valid coordinates
+		// 仅保留至少一端坐标有效的跑道
 		hasCoords := (rwy.LELatitude != 0 || rwy.LELongitude != 0) ||
 			(rwy.HELatitude != 0 || rwy.HELongitude != 0)
 		if !hasCoords {
@@ -312,11 +312,11 @@ func loadRunwaysCSV(path string, airportMap map[string]*AirportInfo, homeAirport
 	return allRunways, homeRunways, nil
 }
 
-// loadNavaidsCSV parses navaids.csv and returns navaids within rangeNM of station.
+// loadNavaidsCSV 解析 navaids.csv,返回距离观测站 rangeNM 范围内的导航台。
 func loadNavaidsCSV(path string, stationLat, stationLon, rangeNM float64) ([]*NavaidInfo, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("open navaids.csv: %w", err)
+		return nil, fmt.Errorf("打开 navaids.csv: %w", err)
 	}
 	defer f.Close()
 
@@ -325,7 +325,7 @@ func loadNavaidsCSV(path string, stationLat, stationLon, rangeNM float64) ([]*Na
 
 	header, err := r.Read()
 	if err != nil {
-		return nil, fmt.Errorf("read navaids.csv header: %w", err)
+		return nil, fmt.Errorf("读取 navaids.csv 表头: %w", err)
 	}
 	idx := buildIndex(header)
 
@@ -371,9 +371,9 @@ func loadNavaidsCSV(path string, stationLat, stationLon, rangeNM float64) ([]*Na
 	return navaids, nil
 }
 
-// --- CSV parsing helpers ---
+// --- CSV 解析辅助函数 ---
 
-// buildIndex creates a column-name → index map from a CSV header row.
+// buildIndex 根据 CSV 表头行构建“列名 → 列索引”映射。
 func buildIndex(header []string) map[string]int {
 	m := make(map[string]int, len(header))
 	for i, h := range header {
@@ -382,7 +382,7 @@ func buildIndex(header []string) map[string]int {
 	return m
 }
 
-// getField safely retrieves a field from a CSV record by column name.
+// getField 按列名安全地从 CSV 记录中取出字段。
 func getField(record []string, idx map[string]int, col string) string {
 	i, ok := idx[col]
 	if !ok || i >= len(record) {
