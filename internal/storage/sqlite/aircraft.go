@@ -640,7 +640,7 @@ func (s *AircraftStorage) getRecentPhaseHistoryBatch(hexCodes []string, limit in
 
 // getPositionHistoryMinimal 返回用于地图轨迹的最简位置历史(lat、lon、alt_baro、timestamp)
 func (s *AircraftStorage) getPositionHistoryMinimal(hex string) ([]adsb.PositionMinimal, error) {
-	//s.logger.Debug("Getting minimal position history",
+	//s.logger.Debug("正在获取最简位置历史",
 	//	logger.String("hex", hex),
 	//	logger.Int("maxPositions", maxPositions))
 
@@ -1530,7 +1530,7 @@ func (s *AircraftStorage) GetPhaseHistory(hex string) ([]adsb.PhaseChange, error
 		}
 
 		// 调试日志,用于查看从数据库读取的数据
-		//s.logger.Debug("Scanned phase change from database",
+		//s.logger.Debug("从数据库扫描到的阶段变更",
 		//	logger.String("hex", hex),
 		//	logger.Int("id", phase.ID),
 		//	logger.String("phase", phase.Phase),
@@ -1658,7 +1658,7 @@ func (s *AircraftStorage) populatePhaseData(aircraft *adsb.Aircraft) error {
 	}
 
 	// 调试日志,查看 GetPhaseHistory 的返回情况
-	//s.logger.Debug("Phase history retrieved",
+	//s.logger.Debug("已获取阶段历史",
 	//	logger.String("hex", aircraft.Hex),
 	//	logger.Int("count", len(phaseHistory)))
 
@@ -1732,7 +1732,7 @@ func (s *AircraftStorage) GetCurrentPhasesBatch(hexCodes []string) (map[string]*
 		return make(map[string]*adsb.PhaseChange), nil
 	}
 
-	// Create placeholders for the IN clause (need two copies for the query)
+	// 为 IN 子句构建占位符(查询需要两份副本)
 	placeholders := make([]string, len(hexCodes))
 	args := make([]interface{}, len(hexCodes)*2)
 	for i, hex := range hexCodes {
@@ -1741,7 +1741,7 @@ func (s *AircraftStorage) GetCurrentPhasesBatch(hexCodes []string) (map[string]*
 		args[i+len(hexCodes)] = hex
 	}
 
-	// Use GROUP BY + JOIN pattern instead of ROW_NUMBER() for better performance
+	// 采用 GROUP BY + JOIN 模式,性能优于 ROW_NUMBER()
 	query := fmt.Sprintf(`
 		SELECT p.hex, p.id, p.phase, p.timestamp, p.adsb_id
 		FROM phase_changes p
@@ -1756,7 +1756,7 @@ func (s *AircraftStorage) GetCurrentPhasesBatch(hexCodes []string) (map[string]*
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query current phases batch: %w", err)
+		return nil, fmt.Errorf("批量查询当前阶段失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -1767,12 +1767,12 @@ func (s *AircraftStorage) GetCurrentPhasesBatch(hexCodes []string) (map[string]*
 		var adsbId *int
 
 		if err := rows.Scan(&hex, &id, &phase, &timestampStr, &adsbId); err != nil {
-			return nil, fmt.Errorf("failed to scan phase row: %w", err)
+			return nil, fmt.Errorf("扫描阶段行失败: %w", err)
 		}
 
 		timestamp, err := time.Parse(time.RFC3339, timestampStr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse timestamp: %w", err)
+			return nil, fmt.Errorf("解析时间戳失败: %w", err)
 		}
 
 		result[hex] = &adsb.PhaseChange{
@@ -1784,19 +1784,19 @@ func (s *AircraftStorage) GetCurrentPhasesBatch(hexCodes []string) (map[string]*
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating phase rows: %w", err)
+		return nil, fmt.Errorf("迭代阶段行时出错: %w", err)
 	}
 
 	return result, nil
 }
 
-// GetLatestADSBTargetIDsBatch returns the latest ADSB target IDs for multiple aircraft in a single query
+// GetLatestADSBTargetIDsBatch 通过单次查询返回多架飞行器最新的 ADSB 目标 ID
 func (s *AircraftStorage) GetLatestADSBTargetIDsBatch(hexCodes []string) (map[string]*int, error) {
 	if len(hexCodes) == 0 {
 		return make(map[string]*int), nil
 	}
 
-	// Create placeholders for the IN clause (need two copies for the query)
+	// 为 IN 子句构建占位符(查询需要两份副本)
 	placeholders := make([]string, len(hexCodes))
 	args := make([]interface{}, len(hexCodes)*2)
 	for i, hex := range hexCodes {
@@ -1805,7 +1805,7 @@ func (s *AircraftStorage) GetLatestADSBTargetIDsBatch(hexCodes []string) (map[st
 		args[i+len(hexCodes)] = hex
 	}
 
-	// Use GROUP BY + JOIN pattern instead of ROW_NUMBER() for better performance
+	// 采用 GROUP BY + JOIN 模式,性能优于 ROW_NUMBER()
 	query := fmt.Sprintf(`
 		SELECT a.aircraft_hex, a.id
 		FROM adsb_targets a
@@ -1820,7 +1820,7 @@ func (s *AircraftStorage) GetLatestADSBTargetIDsBatch(hexCodes []string) (map[st
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query latest ADSB target IDs batch: %w", err)
+		return nil, fmt.Errorf("批量查询最新 ADSB 目标 ID 失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -1830,20 +1830,20 @@ func (s *AircraftStorage) GetLatestADSBTargetIDsBatch(hexCodes []string) (map[st
 		var id int
 
 		if err := rows.Scan(&hex, &id); err != nil {
-			return nil, fmt.Errorf("failed to scan ADSB target ID row: %w", err)
+			return nil, fmt.Errorf("扫描 ADSB 目标 ID 行失败: %w", err)
 		}
 
 		result[hex] = &id
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating ADSB target ID rows: %w", err)
+		return nil, fmt.Errorf("迭代 ADSB 目标 ID 行时出错: %w", err)
 	}
 
 	return result, nil
 }
 
-// InsertPhaseChangesBatch inserts multiple phase changes in a single transaction
+// InsertPhaseChangesBatch 在单个事务内插入多条阶段变更
 func (s *AircraftStorage) InsertPhaseChangesBatch(changes []adsb.PhaseChangeInsert) error {
 	if len(changes) == 0 {
 		return nil
@@ -1852,24 +1852,24 @@ func (s *AircraftStorage) InsertPhaseChangesBatch(changes []adsb.PhaseChangeInse
 	lockSQLiteWrite()
 	defer unlockSQLiteWrite()
 
-	// Begin transaction
+	// 开启事务
 	tx, err := s.db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("开启事务失败: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Prepare the insert statement
+	// 准备插入语句
 	stmt, err := tx.Prepare(`
 		INSERT INTO phase_changes (hex, flight, phase, timestamp, adsb_id)
 		VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
-		return fmt.Errorf("failed to prepare phase change insert statement: %w", err)
+		return fmt.Errorf("准备阶段变更插入语句失败: %w", err)
 	}
 	defer stmt.Close()
 
-	// Insert all phase changes
+	// 插入所有阶段变更
 	for _, change := range changes {
 		_, err := stmt.Exec(
 			change.Hex,
@@ -1879,28 +1879,28 @@ func (s *AircraftStorage) InsertPhaseChangesBatch(changes []adsb.PhaseChangeInse
 			change.ADSBId,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to insert phase change for %s: %w", change.Hex, err)
+			return fmt.Errorf("插入 %s 的阶段变更失败: %w", change.Hex, err)
 		}
 	}
 
-	// Commit transaction
+	// 提交事务
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit phase changes batch: %w", err)
+		return fmt.Errorf("提交阶段变更批量插入失败: %w", err)
 	}
 
-	s.logger.Debug("Inserted phase changes batch",
+	s.logger.Debug("批量插入阶段变更完成",
 		logger.Int("count", len(changes)))
 
 	return nil
 }
 
-// GetLatestTakeoffTimesBatch returns the latest takeoff times for multiple aircraft in a single query
+// GetLatestTakeoffTimesBatch 通过单次查询返回多架飞行器最近的起飞时间
 func (s *AircraftStorage) GetLatestTakeoffTimesBatch(hexCodes []string) (map[string]*time.Time, error) {
 	if len(hexCodes) == 0 {
 		return make(map[string]*time.Time), nil
 	}
 
-	// Create placeholders for the IN clause
+	// 为 IN 子句构建占位符
 	placeholders := make([]string, len(hexCodes))
 	args := make([]interface{}, len(hexCodes))
 	for i, hex := range hexCodes {
@@ -1908,8 +1908,8 @@ func (s *AircraftStorage) GetLatestTakeoffTimesBatch(hexCodes []string) (map[str
 		args[i] = hex
 	}
 
-	// Use GROUP BY with MAX - simple and efficient for getting latest timestamp per hex
-	// Uses idx_phase_changes_hex_phase_timestamp index
+	// 使用 GROUP BY 配合 MAX——按 hex 获取最新时间戳的最简高效写法
+	// 命中 idx_phase_changes_hex_phase_timestamp 索引
 	query := fmt.Sprintf(`
 		SELECT hex, MAX(timestamp) as timestamp
 		FROM phase_changes
@@ -1919,7 +1919,7 @@ func (s *AircraftStorage) GetLatestTakeoffTimesBatch(hexCodes []string) (map[str
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query latest takeoff times batch: %w", err)
+		return nil, fmt.Errorf("批量查询最近起飞时间失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -1928,12 +1928,12 @@ func (s *AircraftStorage) GetLatestTakeoffTimesBatch(hexCodes []string) (map[str
 		var hex, timestampStr string
 
 		if err := rows.Scan(&hex, &timestampStr); err != nil {
-			return nil, fmt.Errorf("failed to scan takeoff time row: %w", err)
+			return nil, fmt.Errorf("扫描起飞时间行失败: %w", err)
 		}
 
 		timestamp, err := time.Parse(time.RFC3339, timestampStr)
 		if err != nil {
-			s.logger.Error("Failed to parse takeoff timestamp", logger.Error(err), logger.String("hex", hex))
+			s.logger.Error("解析起飞时间戳失败", logger.Error(err), logger.String("hex", hex))
 			continue
 		}
 
@@ -1941,19 +1941,19 @@ func (s *AircraftStorage) GetLatestTakeoffTimesBatch(hexCodes []string) (map[str
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating takeoff time rows: %w", err)
+		return nil, fmt.Errorf("迭代起飞时间行时出错: %w", err)
 	}
 
 	return result, nil
 }
 
-// GetLatestLandingTimesBatch returns the latest landing times for multiple aircraft in a single query
+// GetLatestLandingTimesBatch 通过单次查询返回多架飞行器最近的着陆时间
 func (s *AircraftStorage) GetLatestLandingTimesBatch(hexCodes []string) (map[string]*time.Time, error) {
 	if len(hexCodes) == 0 {
 		return make(map[string]*time.Time), nil
 	}
 
-	// Create placeholders for the IN clause
+	// 为 IN 子句构建占位符
 	placeholders := make([]string, len(hexCodes))
 	args := make([]interface{}, len(hexCodes))
 	for i, hex := range hexCodes {
@@ -1961,8 +1961,8 @@ func (s *AircraftStorage) GetLatestLandingTimesBatch(hexCodes []string) (map[str
 		args[i] = hex
 	}
 
-	// Use GROUP BY with MAX - simple and efficient for getting latest timestamp per hex
-	// Uses idx_phase_changes_hex_phase_timestamp index
+	// 使用 GROUP BY 配合 MAX——按 hex 获取最新时间戳的最简高效写法
+	// 命中 idx_phase_changes_hex_phase_timestamp 索引
 	query := fmt.Sprintf(`
 		SELECT hex, MAX(timestamp) as timestamp
 		FROM phase_changes
@@ -1972,7 +1972,7 @@ func (s *AircraftStorage) GetLatestLandingTimesBatch(hexCodes []string) (map[str
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query latest landing times batch: %w", err)
+		return nil, fmt.Errorf("批量查询最近着陆时间失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -1981,12 +1981,12 @@ func (s *AircraftStorage) GetLatestLandingTimesBatch(hexCodes []string) (map[str
 		var hex, timestampStr string
 
 		if err := rows.Scan(&hex, &timestampStr); err != nil {
-			return nil, fmt.Errorf("failed to scan landing time row: %w", err)
+			return nil, fmt.Errorf("扫描着陆时间行失败: %w", err)
 		}
 
 		timestamp, err := time.Parse(time.RFC3339, timestampStr)
 		if err != nil {
-			s.logger.Error("Failed to parse landing timestamp", logger.Error(err), logger.String("hex", hex))
+			s.logger.Error("解析着陆时间戳失败", logger.Error(err), logger.String("hex", hex))
 			continue
 		}
 
@@ -1994,17 +1994,17 @@ func (s *AircraftStorage) GetLatestLandingTimesBatch(hexCodes []string) (map[str
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating landing time rows: %w", err)
+		return nil, fmt.Errorf("迭代着陆时间行时出错: %w", err)
 	}
 
 	return result, nil
 }
 
-// GetStaleActiveAircraft returns aircraft that are no longer broadcasting and need status updates.
-// Filters to: status='active', hex NOT IN activeHexCodes, last_seen < cutoff.
-// Returns aircraft with their latest ADSB data populated.
+// GetStaleActiveAircraft 返回不再广播、需要更新状态的飞行器。
+// 过滤条件:status='active',hex NOT IN activeHexCodes,last_seen < cutoff。
+// 返回的飞行器已附带最新的 ADSB 数据。
 func (s *AircraftStorage) GetStaleActiveAircraft(activeHexCodes []string, cutoff time.Time) ([]*adsb.Aircraft, error) {
-	// Build NOT IN clause
+	// 构建 NOT IN 子句
 	args := make([]interface{}, 0, len(activeHexCodes)+1)
 	notInClause := ""
 	if len(activeHexCodes) > 0 {
@@ -2025,7 +2025,7 @@ func (s *AircraftStorage) GetStaleActiveAircraft(activeHexCodes []string, cutoff
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query stale active aircraft: %w", err)
+		return nil, fmt.Errorf("查询陈旧的活跃飞行器失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -2036,12 +2036,12 @@ func (s *AircraftStorage) GetStaleActiveAircraft(activeHexCodes []string, cutoff
 		var lastSeen string
 		var onGround int
 		if err := rows.Scan(&a.Hex, &a.Flight, &a.Airline, &a.Status, &lastSeen, &onGround); err != nil {
-			return nil, fmt.Errorf("failed to scan stale aircraft row: %w", err)
+			return nil, fmt.Errorf("扫描陈旧飞行器行失败: %w", err)
 		}
 		a.OnGround = onGround != 0
 		t, err := time.Parse(time.RFC3339, lastSeen)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse last_seen: %w", err)
+			return nil, fmt.Errorf("解析 last_seen 失败: %w", err)
 		}
 		a.LastSeen = t
 		aircraft = append(aircraft, &a)
@@ -2049,11 +2049,11 @@ func (s *AircraftStorage) GetStaleActiveAircraft(activeHexCodes []string, cutoff
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating stale aircraft rows: %w", err)
+		return nil, fmt.Errorf("迭代陈旧飞行器行时出错: %w", err)
 	}
 	rows.Close()
 
-	// Batch-fetch ADSB data after closing the rows cursor (avoids SQLite single-connection deadlock)
+	// 关闭 rows 游标后再批量获取 ADSB 数据(避免 SQLite 单连接死锁)
 	if len(hexCodes) > 0 {
 		adsbDataMap, err := s.GetLatestADSBDataBatch(hexCodes)
 		if err == nil {
@@ -2068,9 +2068,9 @@ func (s *AircraftStorage) GetStaleActiveAircraft(activeHexCodes []string, cutoff
 	return aircraft, nil
 }
 
-// GetAircraftOnGroundBatch returns the on_ground state for multiple aircraft in a single query.
-// The returned map contains hex -> on_ground for aircraft that exist in the database.
-// Missing keys indicate the aircraft does not exist yet.
+// GetAircraftOnGroundBatch 通过单次查询返回多架飞行器的 on_ground 状态。
+// 返回 map 中 hex -> on_ground 仅包含数据库中存在的飞行器。
+// map 中缺失的键表示该飞行器尚未存在。
 func (s *AircraftStorage) GetAircraftOnGroundBatch(hexCodes []string) (map[string]bool, error) {
 	if len(hexCodes) == 0 {
 		return make(map[string]bool), nil
@@ -2089,7 +2089,7 @@ func (s *AircraftStorage) GetAircraftOnGroundBatch(hexCodes []string) (map[strin
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query aircraft on_ground batch: %w", err)
+		return nil, fmt.Errorf("批量查询飞行器 on_ground 状态失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -2098,13 +2098,13 @@ func (s *AircraftStorage) GetAircraftOnGroundBatch(hexCodes []string) (map[strin
 		var hex string
 		var onGround int
 		if err := rows.Scan(&hex, &onGround); err != nil {
-			return nil, fmt.Errorf("failed to scan aircraft on_ground row: %w", err)
+			return nil, fmt.Errorf("扫描飞行器 on_ground 行失败: %w", err)
 		}
 		result[hex] = onGround != 0
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating aircraft on_ground rows: %w", err)
+		return nil, fmt.Errorf("迭代飞行器 on_ground 行时出错: %w", err)
 	}
 
 	return result, nil
