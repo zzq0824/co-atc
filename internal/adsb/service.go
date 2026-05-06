@@ -1418,12 +1418,12 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 	return immediatePhaseChanges
 }
 
-// detectSignalLostLandings checks for aircraft that lost signal near the airport
-// and marks them as landed if they meet certain criteria
+// detectSignalLostLandings 检查在机场附近失联的飞行器,
+// 并在满足特定条件时将其标记为已着陆
 func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []PhaseChangeInsert {
 	var landingPhaseChanges []PhaseChangeInsert
 
-	// Check if signal lost landing detection is enabled
+	// 检查是否启用了失联着陆检测
 	if !s.flightPhasesConfig.SignalLostLandingEnabled {
 		return landingPhaseChanges
 	}
@@ -1431,33 +1431,33 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 	now := time.Now().UTC()
 
 	for _, aircraft := range inactiveAircraft {
-		// Skip if already on ground or no ADSB data
+		// 如果已经在地面或没有 ADSB 数据则跳过
 		if aircraft.OnGround || aircraft.ADSB == nil {
 			continue
 		}
 
-		// Check if aircraft was in approach phase
+		// 检查飞行器是否处于进近阶段
 		currentPhase, err := s.storage.GetCurrentPhase(aircraft.Hex)
 		if err != nil || currentPhase == nil {
 			continue
 		}
 
-		// Check if the trajectory shows the aircraft was descending toward the station.
-		// This is a stronger signal than phase alone — if the trajectory buffer confirms
-		// a steady descent toward the airport, we can be confident this is a landing.
+		// 检查轨迹是否显示飞行器正在朝站点下降。
+		// 这是比单凭阶段更强的信号 — 如果轨迹缓冲区确认
+		// 朝机场的稳定下降,我们可以确信这是一次着陆。
 		trajectoryConfirms := false
 		if s.trajectoryTracker != nil {
 			trajectoryConfirms = s.trajectoryTracker.WasDescendingTowardStation(aircraft.Hex)
 		}
 
-		// Accept aircraft in APP phase, low altitude ARR, or trajectory-confirmed descent
+		// 接受处于 APP 阶段、低高度 ARR 或轨迹确认下降的飞行器
 		if currentPhase.Phase != "APP" &&
 			!(currentPhase.Phase == "ARR" && aircraft.ADSB.AltBaro.Float64() < 2000) &&
 			!trajectoryConfirms {
 			continue
 		}
 
-		// Check proximity to airport
+		// 检查与机场的接近度
 		lat, lon, hasPosition := aircraft.ADSB.Position()
 		if !hasPosition {
 			continue
@@ -1467,11 +1467,11 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 			s.stationLat, s.stationLon,
 		))
 
-		// If aircraft was close to airport and low altitude when signal lost
+		// 如果飞行器在失联时靠近机场且高度较低
 		if distanceFromStation <= s.flightPhasesConfig.AirportRangeNM &&
 			aircraft.ADSB.AltBaro.Float64() < s.flightPhasesConfig.SignalLostLandingMaxAltFt {
 
-			// Record for runway-in-use detection
+			// 为使用中跑道检测进行记录
 			if s.trajectoryTracker != nil {
 				runwayInfo := DetectRunwayApproach(
 					lat, lon, NumberOrZero(aircraft.ADSB.Track),
@@ -1482,11 +1482,11 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 				}
 			}
 
-			// Mark as landed
+			// 标记为已着陆
 			aircraft.OnGround = true
 			s.storage.Upsert(aircraft)
 
-			// Create T/D phase record
+			// 创建 T/D 阶段记录
 			adsbId, _ := s.storage.GetLatestADSBTargetID(aircraft.Hex)
 			landingPhaseChanges = append(landingPhaseChanges, PhaseChangeInsert{
 				Hex:       aircraft.Hex,
@@ -1497,7 +1497,7 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 				EventType: "signal_lost_landing",
 			})
 
-			s.logger.Info("Signal lost aircraft marked as landed",
+			s.logger.Info("失联飞行器已标记为着陆",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.Float64("last_altitude", aircraft.ADSB.AltBaro.Float64()),
@@ -1509,8 +1509,8 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 	return landingPhaseChanges
 }
 
-// processPhaseChangesBatch handles phase detection using pre-fetched batch data.
-// Returns any new phase changes that were inserted (for downstream enrichment).
+// processPhaseChangesBatch 使用预获取的批量数据处理阶段检测。
+// 返回所有已插入的新阶段变化(用于下游增强)。
 func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseChanges []PhaseChangeInsert,
 	currentPhases map[string]*PhaseChange, adsbTargetIDs map[string]*int, takeoffTimes map[string]*time.Time) []PhaseChangeInsert {
 	if !s.flightPhasesConfig.Enabled {
@@ -1521,16 +1521,16 @@ func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseC
 		return nil
 	}
 
-	// Create map of aircraft that just had immediate ground transitions
+	// 创建刚发生立即地面切换的飞行器的映射
 	immediateTransitions := make(map[string]string) // hex -> phase
 	for _, change := range immediatePhaseChanges {
 		immediateTransitions[change.Hex] = change.Phase
 	}
 
-	// Process each aircraft using pre-fetched batch data
+	// 使用预获取的批量数据处理每架飞行器
 	var phaseChanges []PhaseChangeInsert
 	for _, a := range aircraft {
-		// Skip aircraft that just had immediate ground transitions
+		// 跳过刚发生立即地面切换的飞行器
 		if _, hasImmediate := immediateTransitions[a.Hex]; hasImmediate {
 			continue
 		}
@@ -1538,7 +1538,7 @@ func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseC
 		currentPhase := currentPhases[a.Hex]
 		newPhase := s.trajectoryTracker.DeterminePhase(a, currentPhase, takeoffTimes[a.Hex])
 
-		// Apply phase stability rules and determine if change needed
+		// 应用阶段稳定性规则,判断是否需要变化
 		finalPhase, shouldInsert := s.evaluatePhaseChange(a, currentPhase, newPhase)
 
 		if shouldInsert {
@@ -1552,15 +1552,15 @@ func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseC
 		}
 	}
 
-	// Batch insert all phase changes
+	// 批量插入所有阶段变化
 	if len(phaseChanges) > 0 {
 		err := s.storage.InsertPhaseChangesBatch(phaseChanges)
 		if err != nil {
-			s.logger.Error("Failed to insert phase changes batch", logger.Error(err))
+			s.logger.Error("批量插入阶段变化失败", logger.Error(err))
 			return nil
 		}
 
-		// Send WebSocket alerts and log changes
+		// 发送 WebSocket 告警并记录变化
 		s.sendPhaseChangeAlerts(phaseChanges, currentPhases)
 	}
 
