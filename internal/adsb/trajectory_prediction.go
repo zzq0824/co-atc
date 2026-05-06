@@ -5,79 +5,78 @@ import (
 	"time"
 )
 
-// ─── Trajectory Prediction ──────────────────────────────────────────────────
+// ─── 轨迹预测 ──────────────────────────────────────────────────────────
 //
-// Provides hindcast (backward extrapolation) and forecast (forward extrapolation)
-// for aircraft trajectories. Both use the trajectory ring buffer and DerivedState
-// for statistically grounded predictions.
+// 为飞行器轨迹提供后报(向后外推)与预报(向前外推)。
+// 两者都使用轨迹环形缓冲区与 DerivedState 做统计意义上的预测。
 //
-// Hindcast: Extends the track backwards ~60 seconds before the first ADS-B
-// observation, answering "where was this aircraft before we saw it?" Computed
-// once when enough data has accumulated (≥5 valid points, R² ≥ 0.80), then
-// locked in. Uses OLS linear regression on position components.
+// 后报:在首次 ADS-B 观测之前,把航迹向前延伸约 60 秒,回答
+// "在我们看到之前这架飞行器在哪里?"的问题。在累积足够数据
+// (≥5 个有效点,R² ≥ 0.80)时计算一次,然后锁定。使用对位置
+// 分量的 OLS 线性回归。
 //
-// Forecast: Extends the track forward 2 minutes using a kinematic model
-// with acceleration and turn rate from DerivedState. Replaces the naive
-// constant-heading/constant-speed PredictFuturePositions().
+// 预报:基于带加速度与转弯率(取自 DerivedState)的运动学模型,
+// 把航迹向前延伸 2 分钟。取代了原来朴素的恒定航向/恒定速度的
+// PredictFuturePositions()。
 
 const (
-	// Hindcast: 6 points × 10s = 60 seconds backward
+	// 后报:6 个点 × 10s = 向后 60 秒
 	hindcastSteps     = 6
 	hindcastStepSec   = 10.0
-	hindcastMinPoints = 5    // minimum valid points before attempting hindcast
-	hindcastMaxPoints = 10   // max points to use for hindcast regression
-	hindcastMinR2     = 0.80 // minimum R² confidence for hindcast
-	hindcastLockAfter = 30.0 // lock hindcast after this many seconds of tracking
-	hindcastDecayBase = 0.95 // per-step confidence decay for hindcast points
+	hindcastMinPoints = 5    // 尝试后报所需的最少有效点数
+	hindcastMaxPoints = 10   // 用于后报回归的最大点数
+	hindcastMinR2     = 0.80 // 后报所需的最低 R² 置信度
+	hindcastLockAfter = 30.0 // 跟踪超过这么多秒后锁定后报
+	hindcastDecayBase = 0.95 // 后报点每步置信度衰减系数
 
-	// Forecast: 12 points × 5s = 1 minute forward
+	// 预报:12 个点 × 5s = 向前 1 分钟
 	forecastSteps     = 12
 	forecastStepSec   = 5.0
-	forecastDecayBase = 0.99 // per-step confidence decay for forecast points
+	forecastDecayBase = 0.99 // 预报点每步置信度衰减系数
 
-	turnPenaltyMaxRate = 3.0         // deg/sec at which turn penalty reaches 0
-	kmPerNM            = 1.852       // kilometers per nautical mile
-	degPerKmLat        = 1.0 / 111.0 // approximate degrees latitude per km
+	turnPenaltyMaxRate = 3.0         // 转弯惩罚降为 0 时的度/秒
+	kmPerNM            = 1.852       // 每海里对应的公里数
+	degPerKmLat        = 1.0 / 111.0 // 每公里纬度对应的度数(近似)
 )
 
-// PredictionPoint represents a single predicted position with confidence.
+// PredictionPoint 表示一个带置信度的预测位置。
 type PredictionPoint struct {
 	Lat        float64   `json:"lat"`
 	Lon        float64   `json:"lon"`
 	Altitude   float64   `json:"altitude"`
 	Heading    float64   `json:"heading"`
-	Speed      float64   `json:"speed"`      // ground speed (knots)
+	Speed      float64   `json:"speed"`      // 地速(节)
 	Confidence float64   `json:"confidence"` // 0.0 - 1.0
 	Timestamp  time.Time `json:"timestamp"`
 }
 
-// TrajectoryPrediction holds computed hindcast and forecast for one aircraft.
+// TrajectoryPrediction 保存某一架飞行器计算得到的后报与预报。
 type TrajectoryPrediction struct {
-	Hindcast       []PredictionPoint // Past predictions (oldest first, before first obs)
-	Forecast       []PredictionPoint // Future predictions (nearest first, after latest obs)
-	HindcastLocked bool              // Once locked, don't recompute
+	Hindcast       []PredictionPoint // 过去的预测(最旧的在前,先于首次观测)
+	Forecast       []PredictionPoint // 未来的预测(最近的在前,晚于最新观测)
+	HindcastLocked bool              // 一旦锁定就不再重算
 	ComputedAt     time.Time
 }
 
-// ─── Hindcast (backward extrapolation) ──────────────────────────────────────
+// ─── 后报(向后外推) ──────────────────────────────────────────
 
-// computeHindcast extrapolates the trajectory backward from the earliest
-// observation using OLS linear regression on position components.
+// computeHindcast 使用对位置分量的 OLS 线性回归,从最早观测开始
+// 把轨迹向后外推。
 //
-// The algorithm:
-// 1. Collect earliest valid snapshots (up to hindcastMaxPoints)
-// 2. Fit OLS regression on lat(t), lon(t), alt(t)
-// 3. Compute R² for lat and lon — must both be ≥ hindcastMinR2
-// 4. Apply turn penalty and data density factor to get composite confidence
-// 5. If confidence ≥ 0.80, extrapolate backward 6 steps of 10 seconds each
-// 6. Lock the hindcast once computed or after hindcastLockAfter seconds
+// 算法:
+// 1. 收集最早的有效快照(最多 hindcastMaxPoints 个)
+// 2. 对 lat(t)、lon(t)、alt(t) 做 OLS 回归
+// 3. 计算 lat 与 lon 的 R² —— 两者都必须 ≥ hindcastMinR2
+// 4. 应用转弯惩罚和数据密度系数,得到综合置信度
+// 5. 若置信度 ≥ 0.80,则向后外推 6 步,每步 10 秒
+// 6. 一旦计算完成或跟踪超过 hindcastLockAfter 秒,即锁定后报
 func computeHindcast(at *AircraftTrajectory, derived *DerivedState) {
 	pred := &at.Prediction
 	if pred.HindcastLocked {
 		return
 	}
 
-	// Collect valid snapshots oldest-first
+	// 按从旧到新收集有效快照
 	var validSnaps []TrajectorySnapshot
 	at.ForEachSnapshot(func(snap *TrajectorySnapshot) {
 		if snap.Valid {
@@ -89,19 +88,19 @@ func computeHindcast(at *AircraftTrajectory, derived *DerivedState) {
 		return
 	}
 
-	// Check if we should lock (too much time has passed)
+	// 检查是否应锁定(已经过了过多时间)
 	earliest := validSnaps[0]
 	latest := validSnaps[len(validSnaps)-1]
 	trackingDuration := latest.Timestamp.Sub(earliest.Timestamp).Seconds()
 
-	// Use earliest points for regression (they're closest to the extrapolation target)
+	// 使用最早的点做回归(它们距离外推目标最近)
 	n := len(validSnaps)
 	if n > hindcastMaxPoints {
 		n = hindcastMaxPoints
 	}
 	regSnaps := validSnaps[:n]
 
-	// OLS regression on lat, lon, alt vs time
+	// 对 lat、lon、alt 与时间做 OLS 回归
 	r2Lat := olsR2(regSnaps, func(s TrajectorySnapshot) float64 { return s.Lat })
 	r2Lon := olsR2(regSnaps, func(s TrajectorySnapshot) float64 { return s.Lon })
 
@@ -109,51 +108,51 @@ func computeHindcast(at *AircraftTrajectory, derived *DerivedState) {
 	slopeLon := olsSlope(regSnaps, func(s TrajectorySnapshot) float64 { return s.Lon })
 	slopeAlt := olsSlope(regSnaps, func(s TrajectorySnapshot) float64 { return s.AltBaro })
 
-	// Compute heading from regression slopes for the predicted points
+	// 用回归斜率为预测点计算航向
 	headingRad := math.Atan2(slopeLon, slopeLat)
 	heading := math.Mod(headingRad*180.0/math.Pi+360, 360)
 
-	// Speed from regression slopes (degrees/sec → knots)
-	// lat slope is in deg/sec, lon slope is in deg/sec
+	// 用回归斜率计算速度(度/秒 → 节)
+	// lat 斜率单位为 度/秒,lon 斜率单位为 度/秒
 	latKmPerSec := slopeLat * 111.0
 	lonKmPerSec := slopeLon * 111.0 * math.Cos(earliest.Lat*math.Pi/180.0)
 	speedKmPerSec := math.Sqrt(latKmPerSec*latKmPerSec + lonKmPerSec*lonKmPerSec)
 	speedKts := speedKmPerSec * 3600.0 / kmPerNM
 
-	// Composite confidence
+	// 综合置信度
 	r2Min := math.Min(r2Lat, r2Lon)
 
-	// Turn penalty: straight flight = 1.0, turning ≥3°/s = 0.0
+	// 转弯惩罚:直飞 = 1.0,转弯 ≥3°/秒 = 0.0
 	turnRate := 0.0
 	if derived != nil {
 		turnRate = math.Abs(derived.TrackRateDegPerSec)
 	}
 	turnPenalty := math.Max(0, 1.0-turnRate/turnPenaltyMaxRate)
 
-	// Data density factor: 5 points = 0.5, 10+ = 1.0
+	// 数据密度系数:5 点 = 0.5,10+ 点 = 1.0
 	dataDensity := math.Min(1.0, float64(len(regSnaps))/float64(hindcastMaxPoints))
 
 	confidence := r2Min * turnPenalty * dataDensity
 
-	// Lock after threshold time regardless of confidence
+	// 超过阈值时间后无论置信度如何都锁定
 	if trackingDuration >= hindcastLockAfter {
 		pred.HindcastLocked = true
 		if confidence < hindcastMinR2 {
-			// Not confident enough — lock with no hindcast
+			// 置信度不够 —— 不带后报地锁定
 			pred.Hindcast = nil
 			return
 		}
 	}
 
 	if confidence < hindcastMinR2 {
-		return // Not ready yet, try again next cycle
+		return // 还没准备好,下个周期再试
 	}
 
-	// Generate hindcast points going backward from earliest observation
+	// 从最早观测向后生成后报点
 	points := make([]PredictionPoint, hindcastSteps)
 	for i := 0; i < hindcastSteps; i++ {
-		stepsBack := float64(hindcastSteps - i) // 6, 5, 4, 3, 2, 1 (oldest first)
-		dt := -stepsBack * hindcastStepSec      // negative time offset from earliest
+		stepsBack := float64(hindcastSteps - i) // 6, 5, 4, 3, 2, 1(最旧的在前)
+		dt := -stepsBack * hindcastStepSec      // 相对最早观测的负时间偏移
 
 		lat := earliest.Lat + slopeLat*dt
 		lon := earliest.Lon + slopeLon*dt

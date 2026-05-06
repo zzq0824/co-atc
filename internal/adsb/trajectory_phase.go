@@ -361,11 +361,10 @@ func (tt *TrajectoryTracker) ruleArrival(d *DerivedState) string {
 	return "ARR"
 }
 
-// ─── Simplified Heuristics for Limited Data ───────────────────────────────────
+// ─── 数据有限时的简化启发式 ───────────────────────────────────
 
-// singlePointPhase provides a best-effort phase classification when only a single
-// data point is available (aircraft just appeared). Uses simple altitude/speed
-// thresholds without trajectory analysis.
+// singlePointPhase 在只有单个数据点(飞行器刚出现)时尽力做阶段
+// 分类。它使用简单的高度/速度阈值,不进行轨迹分析。
 func (tt *TrajectoryTracker) singlePointPhase(aircraft *Aircraft) string {
 	if aircraft.ADSB == nil {
 		return "NEW"
@@ -380,11 +379,11 @@ func (tt *TrajectoryTracker) singlePointPhase(aircraft *Aircraft) string {
 		return "NEW"
 	}
 
-	// Airborne with just one data point — use altitude as primary discriminator.
+	// 在空中只有单个数据点 —— 使用高度作为主要判别依据。
 	//
-	// First observations are often weak Mode S contacts with incomplete data:
-	// Track=0 (no heading), AltBaro=0 (no altitude), Lat/Lon=0 (no position).
-	// We must guard against treating these zero values as real measurements.
+	// 首次观测往往是数据不完整的弱 Mode S 接触:
+	// Track=0(无航向)、AltBaro=0(无高度)、Lat/Lon=0(无位置)。
+	// 我们必须防止把这些零值当作真实测量。
 	adsb := aircraft.ADSB
 	alt := adsb.AltBaro.Float64()
 	cfg := tt.phasesConfig
@@ -397,10 +396,10 @@ func (tt *TrajectoryTracker) singlePointPhase(aircraft *Aircraft) string {
 		return "CRZ"
 	}
 
-	// Low altitude, near airport, on runway departure heading → likely CLB.
-	// Requires real position, heading, and altitude data (not Mode S zeros).
-	// When the active runway is known, also accept aircraft on its heading
-	// even without full runway geometry match — very strong signal.
+	// 低高度、靠近机场、沿跑道离场航向 → 很可能是 CLB。
+	// 需要真实的位置、航向和高度数据(而非 Mode S 的零值)。
+	// 当已知活跃跑道时,即使不完全匹配跑道几何,只要在其航向上
+	// 也接受 —— 这是非常强的信号。
 	if hasPosition && hasTrack && hasAltitude && alt <= float64(cfg.DepartureAltitudeFt) {
 		lat, lon, _ := adsb.Position()
 		track := NumberOrZero(adsb.Track)
@@ -414,23 +413,23 @@ func (tt *TrajectoryTracker) singlePointPhase(aircraft *Aircraft) string {
 				tt.runwayData, tt.stationLat, tt.stationLon, *cfg,
 			)
 			if departureInfo != nil && departureInfo.OnDeparture {
-				// Extra confidence: matches the known active runway
+				// 额外置信度:匹配已知的活跃跑道
 				if tt.runwayTracker != nil && tt.runwayTracker.IsActiveRunway(departureInfo.RunwayID) {
 					return "CLB"
 				}
-				// No active runway data yet — still accept if geometry matches
+				// 还没有活跃跑道数据 —— 几何匹配也接受
 				return "CLB"
 			}
 		}
 	}
 
-	// Below cruise, single data point — we can't determine trend, so UNK
+	// 巡航以下,单个数据点 —— 无法确定趋势,因此 UNK
 	return "UNK"
 }
 
-// fewPointsAirbornePhase provides phase classification when we have 2-4 data points.
-// This is a transitional period — we have some trend information but not enough for
-// full trajectory analysis. We use a simplified version of the rules.
+// fewPointsAirbornePhase 在我们有 2-4 个数据点时提供阶段分类。
+// 这是过渡阶段 —— 我们已有一些趋势信息但还不足以进行完整轨迹
+// 分析。我们使用规则的简化版本。
 func (tt *TrajectoryTracker) fewPointsAirbornePhase(
 	aircraft *Aircraft,
 	d *DerivedState,
@@ -439,19 +438,20 @@ func (tt *TrajectoryTracker) fewPointsAirbornePhase(
 ) string {
 	cruiseAlt := float64(tt.phasesConfig.CruiseAltitudeFt)
 
-	// Cruise is unambiguous even with few points
+	// 即便点数较少,巡航也是无歧义的
 	if d.AltMean >= cruiseAlt {
 		return "CRZ"
 	}
 
-	// Recent takeoff from our airport and climbing = initial climb out
+	// 本机场近期起飞且在爬升 = 初始爬升
 	if tt.hasRecentTakeoff(aircraft, takeoffTime) && d.VRMean > 0 {
 		return "CLB"
 	}
 
-	// Inferred takeoff: climbing on runway heading, low altitude, near airport.
-	// With spotty ADS-B coverage, aircraft often first appear already airborne.
-	// Use MagHeading as fallback when Track is 0 (common with early Mode S contacts).
+	// 推断的起飞:沿跑道航向爬升、低高度、靠近机场。
+	// 在 ADS-B 覆盖断续的情况下,飞行器经常一出现就已经在空中。
+	// 当 Track 为 0(早期 Mode S 接触常见)时,使用 MagHeading 作为
+	// 回退。
 	if d.VRMean > 0 && d.AltMean <= float64(tt.phasesConfig.DepartureAltitudeFt) &&
 		d.DistToStationNM <= tt.phasesConfig.AirportRangeNM && aircraft.ADSB != nil {
 		lat, lon, hasPosition := aircraft.ADSB.Position()
@@ -473,12 +473,12 @@ func (tt *TrajectoryTracker) fewPointsAirbornePhase(
 		}
 	}
 
-	// Climbing and moving away from station = general departure
+	// 在爬升且远离台站 = 一般离场
 	if d.VRMean > 0 && d.DistTrendNMPerSec > 0.001 {
 		return "DEP"
 	}
 
-	// Approaching station and descending
+	// 向台站靠近且在下降
 	if d.IsApproachingStation && d.VRMean < 0 && d.AltMean < cruiseAlt {
 		return "ARR"
 	}
@@ -486,15 +486,15 @@ func (tt *TrajectoryTracker) fewPointsAirbornePhase(
 	return "UNK"
 }
 
-// hasRecentTakeoff determines if an aircraft has taken off from our airport recently.
-// Only returns true if we actually observed the takeoff (T/O phase record in DB).
-// No proximity heuristic — aircraft appearing mid-flight near the airport are NOT
-// treated as recent takeoffs.
+// hasRecentTakeoff 判断飞行器最近是否从本机场起飞。
+// 仅当我们实际观测到起飞(数据库中存在 T/O 阶段记录)时才返回 true。
+// 不使用就近启发式 —— 在机场附近半空出现的飞行器不会被视为
+// 近期起飞。
 func (tt *TrajectoryTracker) hasRecentTakeoff(aircraft *Aircraft, takeoffTime *time.Time) bool {
 	cfg := tt.phasesConfig
 	timeoutDuration := time.Duration(cfg.RecentTakeoffTimeoutMinutes) * time.Minute
 
-	// Only trust actual observed takeoff records from the database
+	// 只信任来自数据库的实际观测起飞记录
 	if takeoffTime != nil && time.Since(*takeoffTime) <= timeoutDuration {
 		return true
 	}
@@ -502,15 +502,14 @@ func (tt *TrajectoryTracker) hasRecentTakeoff(aircraft *Aircraft, takeoffTime *t
 	return false
 }
 
-// ─── Signal-Lost Landing Enhancement ──────────────────────────────────────────
+// ─── 信号丢失着陆增强 ──────────────────────────────────────────
 
-// WasDescendingTowardStation checks the trajectory history to determine if an
-// aircraft was on a descending trajectory toward the station before signal was lost.
-// Returns true with high confidence when the medium-window altitude trend shows
-// steady descent and the aircraft was closing on the station.
+// WasDescendingTowardStation 检查轨迹历史,判断信号丢失前飞行器
+// 是否处于朝向台站的下降轨迹上。当中窗口高度趋势显示稳定下降
+// 且飞行器在向台站靠近时,以高置信度返回 true。
 //
-// This is used by detectSignalLostLandings() to boost confidence in auto-landing
-// inference when an aircraft disappears near the airport.
+// 当飞行器在机场附近消失时,这被 detectSignalLostLandings() 用来
+// 提高自动着陆推断的置信度。
 func (tt *TrajectoryTracker) WasDescendingTowardStation(hex string) bool {
 	tt.mu.RLock()
 	at, ok := tt.aircraft[hex]
@@ -519,7 +518,7 @@ func (tt *TrajectoryTracker) WasDescendingTowardStation(hex string) bool {
 		return false
 	}
 
-	// Ensure derived state is fresh
+	// 确保派生状态是最新的
 	if at.DirtyDerived {
 		tt.computeDerivedState(at)
 		at.DirtyDerived = false
@@ -527,22 +526,22 @@ func (tt *TrajectoryTracker) WasDescendingTowardStation(hex string) bool {
 
 	d := &at.Derived
 
-	// Check: was descending AND approaching station
+	// 检查:在下降且向台站靠近
 	return d.IsDescending && d.IsApproachingStation && d.AltTrendFPM < -100
 
-	// Note: We use a gentler threshold (-100 fpm) than the normal descent threshold
-	// (-200 fpm) because near landing the descent rate may be quite shallow.
+	// 备注:我们使用比常规下降阈值(-200 fpm)更宽松的阈值
+	// (-100 fpm),因为接近着陆时下降率可能相当平缓。
 }
 
-// ─── Logging ──────────────────────────────────────────────────────────────────
+// ─── 日志 ──────────────────────────────────────────────────────────────────
 
-// LogDerivedState logs the key derived state fields for debugging.
+// LogDerivedState 记录关键派生状态字段以便调试。
 func (tt *TrajectoryTracker) LogDerivedState(hex string) {
 	d := tt.EnsureDerived(hex)
 	if d == nil {
 		return
 	}
-	tt.logger.Debug("Trajectory derived state",
+	tt.logger.Debug("轨迹派生状态",
 		logger.String("hex", hex),
 		logger.Int("valid_points", d.ValidPointCount),
 		logger.Float64("alt_mean", d.AltMean),

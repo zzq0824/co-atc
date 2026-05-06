@@ -12,40 +12,40 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// AircraftRecord represents an aircraft record for context
+// AircraftRecord 表示用于上下文的飞行器记录
 type AircraftRecord struct {
 	Callsign     string
 	Altitude     int
 	TrueAirspeed int
 }
 
-// AircraftStorage is a SQLite-based storage for aircraft data
+// AircraftStorage 是基于 SQLite 的飞行器数据存储
 type AircraftStorage struct {
 	db     *sql.DB
 	logger *logger.Logger
 }
 
-// NewAircraftStorage creates a new SQLite-based aircraft storage
+// NewAircraftStorage 创建一个新的基于 SQLite 的飞行器存储
 func NewAircraftStorage(dbPath string, log *logger.Logger) (*AircraftStorage, error) {
 	storageLogger := log.Named("sqlite")
 
-	storageLogger.Info("Initializing SQLite storage",
+	storageLogger.Info("正在初始化 SQLite 存储",
 		logger.String("path", dbPath))
 
-	// Open the database with pragmas in the connection string so every pooled connection gets them
+	// 在连接串中带上 pragma,以保证每个连接池中的连接都生效
 	connStr := fmt.Sprintf("%s?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=cache_size(10000)",
 		dbPath,
 	)
 	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("打开数据库失败: %w", err)
 	}
 
-	// Allow multiple concurrent readers; writes are serialized by package-level sqliteWriteMu
+	// 允许多个并发读取;写入通过包级 sqliteWriteMu 串行化
 	db.SetMaxOpenConns(4)
 	db.SetMaxIdleConns(4)
 
-	// Create tables if they don't exist
+	// 如不存在则创建表
 	if err := initDatabase(db, storageLogger); err != nil {
 		db.Close()
 		return nil, err
@@ -59,7 +59,7 @@ func NewAircraftStorage(dbPath string, log *logger.Logger) (*AircraftStorage, er
 	return storage, nil
 }
 
-// Close closes the database connection
+// Close 关闭数据库连接
 func (s *AircraftStorage) Close() error {
 	if s.db != nil {
 		return s.db.Close()
@@ -67,14 +67,14 @@ func (s *AircraftStorage) Close() error {
 	return nil
 }
 
-// GetDB returns the database connection
+// GetDB 返回数据库连接
 func (s *AircraftStorage) GetDB() *sql.DB {
 	return s.db
 }
 
-// initDatabase initializes the database schema
+// initDatabase 初始化数据库结构
 func initDatabase(db *sql.DB, log *logger.Logger) error {
-	log.Info("Initializing database schema")
+	log.Info("正在初始化数据库结构")
 
 	// Create aircraft table with essential fields
 	_, err := db.Exec(`
