@@ -1607,20 +1607,20 @@ func (s *AircraftStorage) GetLatestTakeoffTime(hex string) (*time.Time, error) {
 	var timestampStr string
 	if err := row.Scan(&timestampStr); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // No takeoff found
+			return nil, nil // 未找到起飞记录
 		}
-		return nil, fmt.Errorf("failed to scan takeoff time: %w", err)
+		return nil, fmt.Errorf("扫描起飞时间失败: %w", err)
 	}
 
 	timestamp, err := time.Parse(time.RFC3339, timestampStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse takeoff timestamp: %w", err)
+		return nil, fmt.Errorf("解析起飞时间戳失败: %w", err)
 	}
 
 	return &timestamp, nil
 }
 
-// GetLatestLandingTime returns the latest landing time for an aircraft from phase_changes
+// GetLatestLandingTime 从 phase_changes 中返回某架飞行器最近的着陆时间
 func (s *AircraftStorage) GetLatestLandingTime(hex string) (*time.Time, error) {
 
 	row := s.db.QueryRow(`
@@ -1634,44 +1634,44 @@ func (s *AircraftStorage) GetLatestLandingTime(hex string) (*time.Time, error) {
 	var timestampStr string
 	if err := row.Scan(&timestampStr); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // No landing found
+			return nil, nil // 未找到着陆记录
 		}
-		return nil, fmt.Errorf("failed to scan landing time: %w", err)
+		return nil, fmt.Errorf("扫描着陆时间失败: %w", err)
 	}
 
 	timestamp, err := time.Parse(time.RFC3339, timestampStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse landing timestamp: %w", err)
+		return nil, fmt.Errorf("解析着陆时间戳失败: %w", err)
 	}
 
 	return &timestamp, nil
 }
 
-// populatePhaseData populates phase data for an aircraft from the phase_changes table
+// populatePhaseData 从 phase_changes 表为飞行器填充阶段数据
 func (s *AircraftStorage) populatePhaseData(aircraft *adsb.Aircraft) error {
 	start := time.Now()
 
-	// Get phase history for this aircraft
+	// 获取该飞行器的阶段历史
 	phaseHistory, err := s.GetPhaseHistory(aircraft.Hex)
 	if err != nil {
-		return fmt.Errorf("failed to get phase history: %w", err)
+		return fmt.Errorf("获取阶段历史失败: %w", err)
 	}
 
-	// Debug logging to see what we got from GetPhaseHistory
+	// 调试日志,查看 GetPhaseHistory 的返回情况
 	//s.logger.Debug("Phase history retrieved",
 	//	logger.String("hex", aircraft.Hex),
 	//	logger.Int("count", len(phaseHistory)))
 
-	// Create phase data structure
+	// 构建阶段数据结构
 	phaseData := &adsb.PhaseData{
 		Current: []adsb.PhaseChange{},
 		History: phaseHistory,
 	}
 
-	// Set current phase (first item in history, or empty if no history)
+	// 设置当前阶段(取历史第一项;若无历史则为空)
 	if len(phaseHistory) > 0 {
 		phaseData.Current = []adsb.PhaseChange{phaseHistory[0]}
-		s.logger.Debug("Set current phase",
+		s.logger.Debug("已设置当前阶段",
 			logger.String("hex", aircraft.Hex),
 			logger.Int("current_id", phaseHistory[0].ID),
 			logger.String("current_phase", phaseHistory[0].Phase))
@@ -1679,24 +1679,24 @@ func (s *AircraftStorage) populatePhaseData(aircraft *adsb.Aircraft) error {
 
 	aircraft.Phase = phaseData
 
-	// Get takeoff and landing times from phase_changes table
+	// 从 phase_changes 表获取起飞与着陆时间
 	takeoffTime, err := s.GetLatestTakeoffTime(aircraft.Hex)
 	if err != nil {
-		s.logger.Error("Failed to get takeoff time", logger.Error(err), logger.String("hex", aircraft.Hex))
+		s.logger.Error("获取起飞时间失败", logger.Error(err), logger.String("hex", aircraft.Hex))
 	} else {
 		aircraft.DateTookoff = takeoffTime
 	}
 
 	landingTime, err := s.GetLatestLandingTime(aircraft.Hex)
 	if err != nil {
-		s.logger.Error("Failed to get landing time", logger.Error(err), logger.String("hex", aircraft.Hex))
+		s.logger.Error("获取着陆时间失败", logger.Error(err), logger.String("hex", aircraft.Hex))
 	} else {
 		aircraft.DateLanded = landingTime
 	}
 
 	duration := time.Since(start)
 	if duration > 10*time.Millisecond {
-		s.logger.Debug("Slow phase data population",
+		s.logger.Debug("阶段数据填充较慢",
 			logger.String("hex", aircraft.Hex),
 			logger.Duration("duration", duration))
 	}
@@ -1704,7 +1704,7 @@ func (s *AircraftStorage) populatePhaseData(aircraft *adsb.Aircraft) error {
 	return nil
 }
 
-// GetLatestADSBTargetID returns the ID of the latest ADSB target record for an aircraft
+// GetLatestADSBTargetID 返回某架飞行器最新的 ADSB 目标记录 ID
 func (s *AircraftStorage) GetLatestADSBTargetID(hex string) (*int, error) {
 
 	row := s.db.QueryRow(`
@@ -1718,15 +1718,15 @@ func (s *AircraftStorage) GetLatestADSBTargetID(hex string) (*int, error) {
 	var id int
 	if err := row.Scan(&id); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // No ADSB target found
+			return nil, nil // 未找到 ADSB 目标
 		}
-		return nil, fmt.Errorf("failed to scan ADSB target ID: %w", err)
+		return nil, fmt.Errorf("扫描 ADSB 目标 ID 失败: %w", err)
 	}
 
 	return &id, nil
 }
 
-// GetCurrentPhasesBatch returns the current phases for multiple aircraft in a single query
+// GetCurrentPhasesBatch 通过单次查询返回多架飞行器的当前阶段
 func (s *AircraftStorage) GetCurrentPhasesBatch(hexCodes []string) (map[string]*adsb.PhaseChange, error) {
 	if len(hexCodes) == 0 {
 		return make(map[string]*adsb.PhaseChange), nil
