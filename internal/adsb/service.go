@@ -939,7 +939,7 @@ func (s *Service) GetFilteredAircraft(
 	return aircraft
 }
 
-// GetFilteredAircraftSimple is a simplified version for backward compatibility
+// GetFilteredAircraftSimple 是简化版本,用于向后兼容
 func (s *Service) GetFilteredAircraftSimple(minAltitude, maxAltitude float64, status ...string) []*Aircraft {
 	aircraft := s.storage.GetFiltered(minAltitude, maxAltitude, status, nil, nil, nil, nil)
 	s.updateSimulationFields(aircraft)
@@ -948,9 +948,9 @@ func (s *Service) GetFilteredAircraftSimple(minAltitude, maxAltitude float64, st
 	return aircraft
 }
 
-// HandleBulkRequest processes client requests for bulk aircraft data
+// HandleBulkRequest 处理客户端的批量飞行器数据请求
 func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBulkResponse, error) {
-	// Parse filters from the request
+	// 从请求解析过滤条件
 	minAltitude := 0.0
 	maxAltitude := 60000.0
 	var status []string
@@ -960,7 +960,7 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 	showGround := true
 	var phases []string
 
-	// Extract filters
+	// 提取过滤条件
 	if val, ok := filters["min_altitude"].(float64); ok {
 		minAltitude = val
 	}
@@ -994,7 +994,7 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 		}
 	}
 
-	// If both Air and Ground are disabled, return empty result
+	// 如果空中和地面都被禁用,则返回空结果
 	if !showAir && !showGround {
 		return &AircraftBulkResponse{
 			Aircraft: []*Aircraft{},
@@ -1008,7 +1008,7 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 		}, nil
 	}
 
-	// Get filtered aircraft using existing filtering logic
+	// 使用现有过滤逻辑获取过滤后的飞行器
 	var aircraft []*Aircraft
 	if minAltitude > 0 || maxAltitude < 60000 || len(status) > 0 {
 		aircraft = s.GetFilteredAircraft(minAltitude, maxAltitude, status, nil, nil, nil, nil)
@@ -1016,7 +1016,7 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 		aircraft = s.GetAllAircraft()
 	}
 
-	// Apply additional filters
+	// 应用其他过滤条件
 	if lastSeenMinutes > 0 {
 		aircraft = s.filterByLastSeen(aircraft, lastSeenMinutes)
 	}
@@ -1025,10 +1025,10 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 		aircraft = s.filterByAirportGrounded(aircraft)
 	}
 
-	// Apply Air/Ground and Phase filters
+	// 应用空中/地面和阶段过滤
 	aircraft = s.filterByAirGroundAndPhases(aircraft, showAir, showGround, phases)
 
-	// Calculate counts
+	// 计算计数
 	groundActive, groundTotal, airActive, airTotal := s.calculateCounts(aircraft)
 
 	return &AircraftBulkResponse{
@@ -1054,12 +1054,12 @@ func (s *Service) filterByLastSeen(aircraft []*Aircraft, minutes int) []*Aircraf
 	return filtered
 }
 
-// filterByAirGroundAndPhases filters aircraft based on Air/Ground scope and phases
+// filterByAirGroundAndPhases 基于空中/地面范围和阶段过滤飞行器
 func (s *Service) filterByAirGroundAndPhases(aircraft []*Aircraft, showAir, showGround bool, phases []string) []*Aircraft {
 	filtered := make([]*Aircraft, 0)
 
 	for _, a := range aircraft {
-		// Apply Air/Ground filter
+		// 应用空中/地面过滤
 		if a.OnGround && !showGround {
 			continue
 		}
@@ -1067,7 +1067,7 @@ func (s *Service) filterByAirGroundAndPhases(aircraft []*Aircraft, showAir, show
 			continue
 		}
 
-		// Apply phase filter if phases are specified
+		// 如果指定了阶段则应用阶段过滤
 		if len(phases) > 0 {
 			phaseMatch := false
 			if a.Phase != nil && len(a.Phase.Current) > 0 {
@@ -1092,14 +1092,14 @@ func (s *Service) filterByAirGroundAndPhases(aircraft []*Aircraft, showAir, show
 
 func (s *Service) filterByAirportGrounded(aircraft []*Aircraft) []*Aircraft {
 	filtered := make([]*Aircraft, 0)
-	airportRangeNM := 5.0 // Default range, should come from config
+	airportRangeNM := 5.0 // 默认范围,应来自配置
 
 	for _, a := range aircraft {
 		if !a.OnGround {
 			filtered = append(filtered, a)
 		} else if a.ADSB != nil && a.ADSB.HasPosition() {
 			lat, lon, _ := a.ADSB.Position()
-			// Calculate distance from station and apply filter
+			// 计算到站点的距离并应用过滤
 			distMeters := Haversine(lat, lon, s.stationLat, s.stationLon)
 			distNM := MetersToNM(distMeters)
 			if distNM <= airportRangeNM {
@@ -1130,21 +1130,21 @@ func (s *Service) calculateCounts(aircraft []*Aircraft) (int, int, int, int) {
 	return groundActive, groundTotal, airActive, airTotal
 }
 
-// GetStatus returns the service status
+// GetStatus 返回服务状态
 func (s *Service) GetStatus() (time.Time, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.lastFetchTime, s.lastFetchStatus
 }
 
-// GetSourceStatus returns ADS-B source health and metadata snapshot.
+// GetSourceStatus 返回 ADS-B 源健康状况和元数据快照。
 func (s *Service) GetSourceStatus() SourceStatus {
 	if s.client == nil {
 		return SourceStatus{
 			Status: "error",
 			Aircraft: SourceChannelStatus{
 				Available: false,
-				LastError: "ADS-B client not initialized",
+				LastError: "ADS-B 客户端未初始化",
 				Data:      nil,
 			},
 			Receiver: SourceChannelStatus{Available: false, Data: nil},
@@ -1155,21 +1155,21 @@ func (s *Service) GetSourceStatus() SourceStatus {
 	return s.client.GetSourceStatus()
 }
 
-// setLastFetchTime sets the last fetch time
+// setLastFetchTime 设置最近一次获取时间
 func (s *Service) setLastFetchTime(t time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastFetchTime = t
 }
 
-// setFetchStatus sets the fetch status
+// setFetchStatus 设置获取状态
 func (s *Service) setFetchStatus(status bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastFetchStatus = status
 }
 
-// SetStationOverride sets override coordinates for station location
+// SetStationOverride 设置站点位置的覆盖坐标
 func (s *Service) SetStationOverride(lat, lon float64) {
 	s.overrideMutex.Lock()
 	defer s.overrideMutex.Unlock()
@@ -1177,17 +1177,17 @@ func (s *Service) SetStationOverride(lat, lon float64) {
 	s.overrideLat = &lat
 	s.overrideLon = &lon
 
-	// Update the client with new coordinates
+	// 用新坐标更新客户端
 	if s.client != nil {
 		s.client.UpdateStationCoords(lat, lon)
 	}
 
-	s.logger.Info("Station override coordinates set",
+	s.logger.Info("已设置站点覆盖坐标",
 		logger.Float64("latitude", lat),
 		logger.Float64("longitude", lon))
 }
 
-// ClearStationOverride removes override coordinates, reverting to config values
+// ClearStationOverride 移除覆盖坐标,恢复使用配置值
 func (s *Service) ClearStationOverride() {
 	s.overrideMutex.Lock()
 	defer s.overrideMutex.Unlock()
@@ -1195,17 +1195,17 @@ func (s *Service) ClearStationOverride() {
 	s.overrideLat = nil
 	s.overrideLon = nil
 
-	// Restore client to original config coordinates
+	// 将客户端恢复为原始配置坐标
 	if s.client != nil {
 		s.client.UpdateStationCoords(s.stationLat, s.stationLon)
 	}
 
-	s.logger.Info("Station override coordinates cleared, using config values",
+	s.logger.Info("已清除站点覆盖坐标,使用配置值",
 		logger.Float64("config_latitude", s.stationLat),
 		logger.Float64("config_longitude", s.stationLon))
 }
 
-// GetEffectiveStationCoords returns the current effective station coordinates (override or config)
+// GetEffectiveStationCoords 返回当前生效的站点坐标(覆盖值或配置值)
 func (s *Service) GetEffectiveStationCoords() (lat, lon float64) {
 	s.overrideMutex.RLock()
 	defer s.overrideMutex.RUnlock()
@@ -1217,22 +1217,22 @@ func (s *Service) GetEffectiveStationCoords() (lat, lon float64) {
 	return s.stationLat, s.stationLon
 }
 
-// updateAircraftStatus updates the status of aircraft that are no longer active.
-// Uses a targeted query instead of GetAll() — only fetches aircraft that actually need status updates.
+// updateAircraftStatus 更新已不再活跃的飞行器的状态。
+// 使用定向查询替代 GetAll() — 只获取确实需要状态更新的飞行器。
 func (s *Service) updateAircraftStatus(activeAircraft map[string]bool) {
 	now := time.Now().UTC()
 	cutoff := now.Add(-s.signalLostTimeout)
 
-	// Build list of active hex codes for exclusion
+	// 构建用于排除的活跃 hex 代码列表
 	activeHexCodes := make([]string, 0, len(activeAircraft))
 	for hex := range activeAircraft {
 		activeHexCodes = append(activeHexCodes, hex)
 	}
 
-	// Targeted query: only aircraft that are active, not currently broadcasting, and stale
+	// 定向查询:仅查询活跃、当前未广播且已过期的飞行器
 	staleAircraft, err := s.storage.GetStaleActiveAircraft(activeHexCodes, cutoff)
 	if err != nil {
-		s.logger.Error("Failed to get stale active aircraft", logger.Error(err))
+		s.logger.Error("获取已过期活跃飞行器失败", logger.Error(err))
 		return
 	}
 
@@ -1242,14 +1242,14 @@ func (s *Service) updateAircraftStatus(activeAircraft map[string]bool) {
 		aircraft.Status = "signal_lost"
 		s.storage.Upsert(aircraft)
 
-		// Only track aircraft with position for signal-lost landing detection
+		// 仅跟踪有位置的飞行器以进行失联着陆检测
 		hasPosition := aircraft.ADSB != nil && aircraft.ADSB.HasPosition()
 		if hasPosition {
 			inactiveAircraft = append(inactiveAircraft, aircraft)
 		}
 
 		timeSinceLastSeen := now.Sub(aircraft.LastSeen)
-		s.logger.Info("Aircraft status updated",
+		s.logger.Info("飞行器状态已更新",
 			logger.String("hex", aircraft.Hex),
 			logger.String("flight", aircraft.Flight),
 			logger.String("new_status", "signal_lost"),
@@ -1257,7 +1257,7 @@ func (s *Service) updateAircraftStatus(activeAircraft map[string]bool) {
 			logger.Duration("time_since_last_seen", timeSinceLastSeen),
 		)
 
-		// Send WebSocket message (skip for grounded aircraft)
+		// 发送 WebSocket 消息(地面飞行器跳过)
 		if s.wsServer != nil && !aircraft.OnGround {
 			s.wsServer.Broadcast(&websocket.Message{
 				Type: "status_update",

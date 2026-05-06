@@ -178,17 +178,17 @@ func computeHindcast(at *AircraftTrajectory, derived *DerivedState) {
 	pred.HindcastLocked = true
 }
 
-// ─── Forecast (forward extrapolation) ───────────────────────────────────────
+// ─── 预报(向前外推) ───────────────────────────────────────────
 
-// computeForecast extrapolates the trajectory forward from the latest
-// observation using a kinematic model with acceleration and turn rate.
+// computeForecast 使用带加速度与转弯率的运动学模型,把轨迹从最新
+// 观测向前外推。
 //
-// Uses DerivedState trends for physics-based prediction:
-// - Speed changes with GSAccelKtsPerSec (clamped to reasonable bounds)
-// - Heading changes with TrackRateDegPerSec (curved paths)
-// - Altitude changes with AltTrendFPM (OLS-derived, more stable than instantaneous VR)
+// 使用 DerivedState 趋势进行基于物理的预测:
+// - 速度按 GSAccelKtsPerSec 变化(钳制在合理范围内)
+// - 航向按 TrackRateDegPerSec 变化(曲线路径)
+// - 高度按 AltTrendFPM 变化(由 OLS 得到,比瞬时 VR 更稳定)
 //
-// Confidence decays per step, faster for turning/accelerating aircraft.
+// 置信度按步衰减,转弯/加速越剧烈衰减越快。
 func computeForecast(at *AircraftTrajectory, derived *DerivedState) {
 	pred := &at.Prediction
 	latest := at.Latest()
@@ -198,24 +198,24 @@ func computeForecast(at *AircraftTrajectory, derived *DerivedState) {
 	}
 
 	if derived == nil || derived.ValidPointCount < 2 {
-		// Not enough data for trajectory-based forecast
+		// 数据不足,无法进行基于轨迹的预报
 		pred.Forecast = nil
 		return
 	}
 
-	// Starting state from DerivedState (smoothed) + latest position
+	// 起始状态来自 DerivedState(平滑后)+ 最新位置
 	curLat := latest.Lat
 	curLon := latest.Lon
 	curAlt := derived.AltMean
 	curSpeed := derived.GroundSpeedKts
 	curHeading := derived.TrackDeg
 
-	// Trends
+	// 趋势
 	gsAccel := derived.GSAccelKtsPerSec
 	trackRate := derived.TrackRateDegPerSec
-	altRate := derived.AltTrendFPM / 60.0 // convert fpm to ft/sec
+	altRate := derived.AltTrendFPM / 60.0 // 把 fpm 转换为 ft/sec
 
-	// Confidence factors
+	// 置信度系数
 	turnFactor := math.Max(0.3, 1.0-math.Abs(trackRate)*0.15)
 	accelFactor := math.Max(0.5, 1.0-math.Abs(gsAccel)*0.1)
 
@@ -224,9 +224,9 @@ func computeForecast(at *AircraftTrajectory, derived *DerivedState) {
 
 	for i := 0; i < forecastSteps; i++ {
 		step := float64(i + 1)
-		dt := step * forecastStepSec // seconds from now
+		dt := step * forecastStepSec // 距离现在的秒数
 
-		// Speed with acceleration, clamped
+		// 带加速度的速度,经过钳制
 		speed := curSpeed + gsAccel*dt
 		if speed < 0 {
 			speed = 0
@@ -239,12 +239,12 @@ func computeForecast(at *AircraftTrajectory, derived *DerivedState) {
 			speed = maxSpeed
 		}
 
-		// Heading with turn rate
+		// 带转弯率的航向
 		heading := curHeading + trackRate*dt
 		heading = math.Mod(heading+360, 360)
 
-		// Distance traveled this step (from previous position, not from start)
-		// Use average speed over this step interval (trapezoidal integration)
+		// 该步内的飞行距离(相对上一位置,而非起点)
+		// 在该步区间内使用平均速度(梯形积分)
 		prevDt := (step - 1) * forecastStepSec
 		prevSpeed := curSpeed + gsAccel*prevDt
 		if prevSpeed < 0 {
@@ -253,11 +253,11 @@ func computeForecast(at *AircraftTrajectory, derived *DerivedState) {
 		avgSpeed := (prevSpeed + speed) / 2.0
 		distKm := avgSpeed * kmPerNM / 3600.0 * forecastStepSec
 
-		// Average heading during this step interval for position integration
+		// 该步区间内用于位置积分的平均航向
 		prevHeading := curHeading + trackRate*prevDt
 		avgHeadingRad := (prevHeading + heading) / 2.0 * math.Pi / 180.0
 
-		// Position update using average heading over the step
+		// 用该步内的平均航向更新位置
 		cosLat := math.Cos(curLat * math.Pi / 180.0)
 		if cosLat < 0.01 {
 			cosLat = 0.01
@@ -265,24 +265,24 @@ func computeForecast(at *AircraftTrajectory, derived *DerivedState) {
 		latChange := distKm * math.Cos(avgHeadingRad) * degPerKmLat
 		lonChange := distKm * math.Sin(avgHeadingRad) * degPerKmLat / cosLat
 
-		// Cumulative position from start
-		// For proper integration, sum incremental changes
+		// 从起点累积的位置
+		// 为了正确积分,累加增量
 		if i == 0 {
 			curLat += latChange
 			curLon += lonChange
 		} else {
-			// Update from previous predicted position
+			// 从上一预测位置更新
 			curLat = points[i-1].Lat + latChange
 			curLon = points[i-1].Lon + lonChange
 		}
 
-		// Altitude
+		// 高度
 		alt := curAlt + altRate*dt
 		if alt < 0 {
 			alt = 0
 		}
 
-		// Confidence
+		// 置信度
 		conf := math.Pow(turnFactor, step) * math.Pow(accelFactor, step) * math.Pow(forecastDecayBase, step)
 
 		points[i] = PredictionPoint{
@@ -300,10 +300,10 @@ func computeForecast(at *AircraftTrajectory, derived *DerivedState) {
 	pred.ComputedAt = now
 }
 
-// ─── Conversion Helpers ─────────────────────────────────────────────────────
+// ─── 转换辅助函数 ─────────────────────────────────────────────────────
 
-// PredictionPointsToPositions converts prediction points to the Position type
-// used by the API. Confidence is not preserved (Position doesn't have it).
+// PredictionPointsToPositions 把预测点转换为 API 使用的 Position 类型。
+// 置信度不会被保留(Position 没有该字段)。
 func PredictionPointsToPositions(points []PredictionPoint) []Position {
 	if len(points) == 0 {
 		return nil

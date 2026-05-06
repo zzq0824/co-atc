@@ -76,7 +76,7 @@ func (s *AircraftStorage) GetDB() *sql.DB {
 func initDatabase(db *sql.DB, log *logger.Logger) error {
 	log.Info("正在初始化数据库结构")
 
-	// Create aircraft table with essential fields
+	// 创建包含核心字段的 aircraft 表
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS aircraft (
 			hex TEXT PRIMARY KEY,
@@ -90,10 +90,10 @@ func initDatabase(db *sql.DB, log *logger.Logger) error {
 		)
 	`)
 	if err != nil {
-		return fmt.Errorf("failed to create aircraft table: %w", err)
+		return fmt.Errorf("创建 aircraft 表失败: %w", err)
 	}
 
-	// Create adsb_targets table with all possible fields from both local and external APIs
+	// 创建 adsb_targets 表,包含本地和外部 API 中可能出现的所有字段
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS adsb_targets (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,8 +101,8 @@ func initDatabase(db *sql.DB, log *logger.Logger) error {
 			hex TEXT,
 			type TEXT,
 			flight TEXT,
-			registration TEXT,      -- External API specific field (r)
-			aircraft_type TEXT,     -- External API specific field (t)
+			registration TEXT,      -- 外部 API 专用字段 (r)
+			aircraft_type TEXT,     -- 外部 API 专用字段 (t)
 			alt_baro REAL,
 			alt_geom REAL,
 			gs REAL,
@@ -152,16 +152,16 @@ func initDatabase(db *sql.DB, log *logger.Logger) error {
 			rssi REAL,
 			timestamp TIMESTAMP,
 			raw_data TEXT,
-			source_type TEXT,       -- Indicates whether data came from "local" or "external" source
+			source_type TEXT,       -- 标识数据来源是 "local" 还是 "external"
 			FOREIGN KEY (aircraft_hex) REFERENCES aircraft(hex) ON DELETE CASCADE,
 			UNIQUE(aircraft_hex, lat, lon, alt_baro, gs, tas, track)
 		)
 	`)
 	if err != nil {
-		return fmt.Errorf("failed to create adsb_targets table: %w", err)
+		return fmt.Errorf("创建 adsb_targets 表失败: %w", err)
 	}
 
-	// Create phase_changes table for tracking flight phase transitions
+	// 创建 phase_changes 表,用于跟踪飞行阶段切换
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS phase_changes (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,60 +175,60 @@ func initDatabase(db *sql.DB, log *logger.Logger) error {
 		)
 	`)
 	if err != nil {
-		return fmt.Errorf("failed to create phase_changes table: %w", err)
+		return fmt.Errorf("创建 phase_changes 表失败: %w", err)
 	}
 
-	// Create indexes for efficient querying
+	// 创建索引以提升查询效率
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_adsb_targets_aircraft_hex ON adsb_targets(aircraft_hex)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on adsb_targets.aircraft_hex: %w", err)
+		return fmt.Errorf("创建 adsb_targets.aircraft_hex 索引失败: %w", err)
 	}
 
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_adsb_targets_timestamp ON adsb_targets(timestamp)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on adsb_targets.timestamp: %w", err)
+		return fmt.Errorf("创建 adsb_targets.timestamp 索引失败: %w", err)
 	}
 
-	// Critical composite index for efficient latest record queries
+	// 用于高效获取最新记录的关键复合索引
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_adsb_targets_hex_timestamp ON adsb_targets(aircraft_hex, timestamp DESC)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on adsb_targets.aircraft_hex_timestamp: %w", err)
+		return fmt.Errorf("创建 adsb_targets.aircraft_hex_timestamp 索引失败: %w", err)
 	}
 
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_aircraft_status ON aircraft(status)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on aircraft.status: %w", err)
+		return fmt.Errorf("创建 aircraft.status 索引失败: %w", err)
 	}
 
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_aircraft_last_seen ON aircraft(last_seen)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on aircraft.last_seen: %w", err)
+		return fmt.Errorf("创建 aircraft.last_seen 索引失败: %w", err)
 	}
 
-	// Create indexes for phase_changes table
+	// 创建 phase_changes 表的索引
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_phase_changes_hex_timestamp ON phase_changes(hex, timestamp)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on phase_changes.hex_timestamp: %w", err)
+		return fmt.Errorf("创建 phase_changes.hex_timestamp 索引失败: %w", err)
 	}
 
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_phase_changes_phase_timestamp ON phase_changes(phase, timestamp)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on phase_changes.phase_timestamp: %w", err)
+		return fmt.Errorf("创建 phase_changes.phase_timestamp 索引失败: %w", err)
 	}
 
-	// Index for phase + hex queries (used in takeoff/landing time lookups)
+	// phase + hex 查询的索引(用于起飞/着陆时间查找)
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_phase_changes_hex_phase_timestamp ON phase_changes(hex, phase, timestamp DESC)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on phase_changes.hex_phase_timestamp: %w", err)
+		return fmt.Errorf("创建 phase_changes.hex_phase_timestamp 索引失败: %w", err)
 	}
 
-	// Covering index for the uniqueness check query in isUniqueADSBTarget
+	// isUniqueADSBTarget 中唯一性检查所用的覆盖索引
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_adsb_targets_unique_check ON adsb_targets(aircraft_hex, lat, lon, alt_baro, gs, tas, track)`)
 	if err != nil {
-		return fmt.Errorf("failed to create index on adsb_targets unique check: %w", err)
+		return fmt.Errorf("创建 adsb_targets 唯一性检查索引失败: %w", err)
 	}
 
-	log.Info("Database schema initialized successfully")
+	log.Info("数据库结构初始化成功")
 	return nil
 }
 
