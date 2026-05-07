@@ -1,16 +1,16 @@
 /**
- * Module: map/perf/telemetry
- * Why it exists:
- * - Supplies lightweight runtime telemetry for map performance troubleshooting.
- * - Converts raw counters into operator-friendly windowed metrics.
+ * 模块: map/perf/telemetry
+ * 存在原因:
+ * - 为地图性能排查提供轻量的运行时遥测。
+ * - 将原始计数器转换为运维友好的窗口指标。
  *
- * Key responsibilities:
- * - Create and reset telemetry state.
- * - Compute rolling-window deltas and derived rates/percentages.
+ * 主要职责:
+ * - 创建并重置遥测状态。
+ * - 计算滚动窗口增量及衍生的速率/百分比。
  *
- * Quirks / contracts:
- * - Uses `performance.now()` for monotonic timing and stable short-window stats.
- * - Expects counters to be cumulative and monotonically increasing.
+ * 怪癖 / 契约:
+ * - 使用 `performance.now()` 进行单调计时及稳定的短窗口统计。
+ * - 期望计数器是累计的并且单调递增。
  */
 (function () {
     const DEFAULT_COUNTERS = {

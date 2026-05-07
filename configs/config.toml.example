@@ -1,123 +1,123 @@
 #######################################################
-# ATC Monitoring System Configuration
+# ATC 监控系统配置
 #######################################################
 
 #######################################################
-# HTTP Server Configuration
+# HTTP 服务器配置
 #######################################################
 [server]
-# Primary HTTP port for the web interface and API
+# 用于 Web 界面与 API 的主 HTTP 端口
 port = 8000
 
-# Host address to bind to (127.0.0.1 = localhost only, 0.0.0.0 = all interfaces)
+# 绑定的主机地址(127.0.0.1 = 仅本机,0.0.0.0 = 所有网络接口)
 host = "127.0.0.1"
 
-# HTTP request timeouts in seconds
-read_timeout_seconds = 0        # Maximum time to read client request
-write_timeout_seconds = 0        # Maximum time to write response (0 = no timeout, recommended for streaming)
-idle_timeout_seconds = 3600      # Maximum time to wait for the next request when keep-alives are enabled
+# HTTP 请求超时(秒)
+read_timeout_seconds = 0        # 读取客户端请求的最大耗时
+write_timeout_seconds = 0        # 写响应的最大耗时(0 = 不超时,推荐用于流式传输)
+idle_timeout_seconds = 3600      # 启用 keep-alive 时,等待下一个请求的最长时间
 
-# Additional ports to listen on (useful for multiple interfaces or port forwarding scenarios)
+# 额外监听的端口(在多接口或端口转发场景下有用)
 additional_ports = [8001, 8002, 8003, 8004]
 
 #######################################################
-# Aircraft Tracking (ADS-B) Configuration
+# 飞行器追踪(ADS-B)配置
 #######################################################
 [adsb]
-# Data source type:
-# - "external-rapidapi": external ADS-B API (aircraft only)
-# - "external-opensky": OpenSky /states/all API (public network data)
-# - "tar1090": tar1090 base URL exposing aircraft.json, receiver.json, stats.json
-# - "readsb-api": readsb net API endpoint (aircraft only, e.g. ?all)
-# - "readsb-file": local readsb files auto-detected from standard runtime dirs
+# 数据源类型:
+# - "external-rapidapi":外部 ADS-B API(仅飞行器)
+# - "external-opensky":OpenSky /states/all API(公共网络数据)
+# - "tar1090":提供 aircraft.json、receiver.json、stats.json 的 tar1090 基础 URL
+# - "readsb-api":readsb 的网络 API 端点(仅飞行器,如 ?all)
+# - "readsb-file":自动从标准运行时目录中检测到的本地 readsb 文件
 source_type = "external-opensky"
 
-# External API configuration (required when source_type = "external-rapidapi")
-# URL template with format placeholders for latitude, longitude, and distance (NM)
+# 外部 API 配置(当 source_type = "external-rapidapi" 时必填)
+# 带格式占位符的 URL 模板:经度、纬度、距离(海里)
 external_source_url = "https://adsbexchange-com1.p.rapidapi.com/v2/lat/%f/lon/%f/dist/%.0f/"
 api_host = "adsbexchange-com1.p.rapidapi.com"
-api_key = ""  # Replace with your actual API key
-# Search radius in nautical miles around the station coordinates
+api_key = ""  # 替换为你的实际 API 密钥
+# 站点坐标周围的搜索半径(海里)
 search_radius_nm = 50
 
-# OpenSky configuration (required when source_type = "external-opensky")
+# OpenSky 配置(当 source_type = "external-opensky" 时必填)
 opensky_base_url = "https://opensky-network.org/api"
 opensky_token_url = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
-# Auth mode: "anonymous" or "oauth2"
+# 认证模式:"anonymous" 或 "oauth2"
 opensky_auth_mode = "anonymous"
-# Required when opensky_auth_mode = "oauth2"
+# 当 opensky_auth_mode = "oauth2" 时必填
 opensky_oauth2_credentials_path = "configs/opensky_credentials.json"
 
-# Tar1090 configuration (required when source_type = "tar1090")
-# Base URL where aircraft.json, receiver.json, and stats.json are served
+# Tar1090 配置(当 source_type = "tar1090" 时必填)
+# 提供 aircraft.json、receiver.json、stats.json 的基础 URL
 tar1090_base_url = "http://192.168.1.166/tar1090/data/"
 
-# readsb API configuration (required when source_type = "readsb-api")
-# Example: http://192.168.1.60:30152/?all
+# readsb API 配置(当 source_type = "readsb-api" 时必填)
+# 示例:http://192.168.1.60:30152/?all
 readsb_api_url = ""
 
-# readsb file configuration (optional when source_type = "readsb-file")
-# Leave empty to auto-detect from /run/readsb, /var/run/readsb, /run/dump1090-fa, /run/dump1090-mutability
+# readsb 文件配置(当 source_type = "readsb-file" 时可选)
+# 留空则自动从 /run/readsb、/var/run/readsb、/run/dump1090-fa、/run/dump1090-mutability 检测
 readsb_data_dir = ""
 
-# Common ADS-B polling configuration
-fetch_interval_seconds = 1      # How often to fetch new aircraft data
-signal_lost_timeout_seconds = 60 # How long to wait before considering a signal lost
+# ADS-B 通用轮询配置
+fetch_interval_seconds = 1      # 拉取新飞行器数据的频率
+signal_lost_timeout_seconds = 60 # 多久未收到信号即判定信号丢失
 
 #######################################################
-# Logging Configuration
+# 日志配置
 #######################################################
 [logging]
-# Log level determines the verbosity of application logs
-# Options: "debug", "info", "warn", "error"
+# 日志等级决定日志的详细程度
+# 取值:"debug"、"info"、"warn"、"error"
 level = "info"
 
-# Log format determines how logs are structured
-# Options: "json" (machine-readable), "console" (human-readable)
+# 日志格式
+# 取值:"json"(机器可读)、"console"(便于人阅读)
 format = "console"
 
 #######################################################
-# Storage Configuration
+# 存储配置
 #######################################################
 [storage]
-# Storage backend type (currently only SQLite is supported)
+# 存储后端类型(目前仅支持 SQLite)
 type = "sqlite"
 
-# Base path for the SQLite database file
-# The actual filename will be generated as co-atc-YYYY-MM-DD.db
+# SQLite 数据库文件的基础路径
+# 实际文件名将自动生成为 co-atc-YYYY-MM-DD.db
 sqlite_base_path = "data"
 
-# Number of daily SQLite DB files to keep (older co-atc-YYYY-MM-DD.db files are deleted)
+# 保留的每日 SQLite 数据库文件数量(过期的 co-atc-YYYY-MM-DD.db 将被删除)
 db_retention_days = 7
 
 #######################################################
-# Station Location Configuration
+# 站点位置配置
 #######################################################
 [station]
-# Geographic coordinates of your monitoring station (decimal degrees)
-# Example: Toronto Pearson International Airport (CYYZ)
+# 监控站点的地理坐标(十进制度)
+# 示例:多伦多皮尔逊国际机场(CYYZ)
 latitude = 43.6777
 longitude = -79.6248
 
-# Elevation of your station above sea level (in feet)
+# 站点海拔(英尺)
 elevation_feet = 569
 
-# ICAO code of the airport (e.g., "CYYZ" for Toronto Pearson)
+# 机场 ICAO 代码(例如多伦多皮尔逊为 "CYYZ")
 airport_code = "CYYZ"
 
-# Length of runway extensions in nautical miles (default: 10.0)
+# 跑道延长线长度(海里,默认:10.0)
 runway_extension_length_nm = 10.0
 
-# Range in nautical miles to consider aircraft as being at this airport (default: 5.0)
+# 把飞行器视作"在该机场内"的距离阈值(海里,默认:5.0)
 airport_range_nm = 5.0
 
-# Range in nautical miles for displaying airports, runways, and navaids on the map (default: 100.0)
+# 在地图上显示机场、跑道、导航台的范围(海里,默认:100.0)
 display_range_nm = 100.0
 
 #######################################################
-# Reference Data Configuration
-# CSV files used for aircraft enrichment, airport/runway/navaid display.
-# Download with: .\scripts\download_assets.ps1
+# 参考数据配置
+# 用于飞行器信息增强、机场/跑道/导航台显示的 CSV 文件
+# 下载方法:.\scripts\download_assets.ps1
 #######################################################
 [reference]
 aircraft_csv_path = "assets/aircraft.csv"
@@ -128,292 +128,291 @@ runways_csv_path = "assets/runways.csv"
 navaids_csv_path = "assets/navaids.csv"
 
 #######################################################
-# Radio Frequencies Configuration
-# - You can use HTTP streams (like LiveATC) or local SRT streams (https://github.com/rtl-airband/RTLSDR-Airband/pull/523).
-# - LiveATC says not to steal these streams, so keep that in mind.
+# 无线电频率配置
+# - 可使用 HTTP 流(如 LiveATC)或本地 SRT 流(https://github.com/rtl-airband/RTLSDR-Airband/pull/523)
+# - LiveATC 不希望被"盗播",请自重
 #######################################################
 [frequencies]
-# Audio buffer size in kilobytes for frequency monitoring
+# 频率监控音频缓冲大小(KB)
 buffer_size_kb = 8
 
-# How long to wait before reconnecting after a stream failure (in seconds)
+# 流故障后的重连等待时间(秒)
 reconnect_interval_secs = 5
 
-# FFmpeg timeout configuration for audio stream connections
-# Set to 0 to disable timeout (not recommended for unreliable streams)
-ffmpeg_timeout_secs = 0                 # Connection timeout in seconds (0 = no timeout, default)
-ffmpeg_reconnect_delay_secs = 2         # Reconnection delay in seconds (default: 2)
+# 音频流连接的 FFmpeg 超时配置
+# 设为 0 关闭超时(对不稳定的流不推荐)
+ffmpeg_timeout_secs = 0                 # 连接超时(秒,0 = 不超时,默认)
+ffmpeg_reconnect_delay_secs = 2         # 重连延迟(秒,默认:2)
 
-# Monitored frequencies configuration
-# Each [[frequencies.sources]] block defines one monitored frequency
+# 监控的频率配置
+# 每个 [[frequencies.sources]] 块定义一个被监控的频率
 
 
-# Toronto Pearson Ground Control
+# 多伦多皮尔逊地面管制
 #[[frequencies.sources]]
-#id = "cyyz_grd"                  # Unique identifier
-#airport = "CYYZ"                 # Toronto Pearson
-#name = "CYYZ Ground"             # Ground Control
+#id = "cyyz_grd"                  # 唯一标识
+#airport = "CYYZ"                 # 多伦多皮尔逊
+#name = "CYYZ Ground"             # 地面管制
 #frequency_mhz = 119.100          # 119.1 MHz
 #url = "https://s1-bos.liveatc.net/cyyz5"
-#order = 2                        # Second in display order
-#transcribe_audio = false         # Not transcribing this frequency
+#order = 2                        # 显示顺序为第二
+#transcribe_audio = false         # 不对该频率进行转写
 
-# Toronto Pearson Tower
+# 多伦多皮尔逊塔台
 [[frequencies.sources]]
-id = "cyyz_twr"                  # Unique identifier
-airport = "CYYZ"                 # Toronto Pearson
-name = "CYYZ Tower"              # Tower Control
+id = "cyyz_twr"                  # 唯一标识
+airport = "CYYZ"                 # 多伦多皮尔逊
+name = "CYYZ Tower"              # 塔台
 frequency_mhz = 118.700          # 118.7 MHz
 url = "https://s1-bos.liveatc.net/cyyz7"
-order = 3                        # Third in display order
-transcribe_audio = true          # Transcribe this frequency
+order = 3                        # 显示顺序为第三
+transcribe_audio = true          # 对该频率进行转写
 
-# Toronto Pearson Arrivals
+# 多伦多皮尔逊进场
 [[frequencies.sources]]
-id = "cyyz_arr"                  # Unique identifier
-airport = "CYYZ"                 # Toronto Pearson
-name = "CYYZ Arrivals"           # Arrivals Control
+id = "cyyz_arr"                  # 唯一标识
+airport = "CYYZ"                 # 多伦多皮尔逊
+name = "CYYZ Arrivals"           # 进场管制
 frequency_mhz = 124.475          # 124.475 MHz
 url = "https://s1-fmt2.liveatc.net/cyyz6"
-order = 4                        # Fourth in display order
-transcribe_audio = false          # Transcribe this frequency
+order = 4                        # 显示顺序为第四
+transcribe_audio = false          # 是否转写该频率
 
-# Toronto Pearson Departures
+# 多伦多皮尔逊离场
 [[frequencies.sources]]
-id = "cyyz_dep"                  # Unique identifier
-airport = "CYYZ"                 # Toronto Pearson
-name = "CYYZ Departures"         # Departures Control
+id = "cyyz_dep"                  # 唯一标识
+airport = "CYYZ"                 # 多伦多皮尔逊
+name = "CYYZ Departures"         # 离场管制
 frequency_mhz = 127.575          # 127.575 MHz
 url = "https://s1-bos.liveatc.net/cyyz8"
-order = 5                        # Fifth in display order
-transcribe_audio = false         # Not transcribing this frequency
+order = 5                        # 显示顺序为第五
+transcribe_audio = false         # 不对该频率进行转写
 
-# Local VHF Stream (RTLSDR-Airband + SRT server)
+# 本地 VHF 流(RTLSDR-Airband + SRT 服务器)
 [[frequencies.sources]]
-id = "cyyz_lcl"                  
-airport = "CYYZ"                
-name = "Local"         
-frequency_mhz = 133.7         
+id = "cyyz_lcl"
+airport = "CYYZ"
+name = "Local"
+frequency_mhz = 133.7
 url = "srt://192.168.1.166:42069"
-order = 6                      
-transcribe_audio = true     
+order = 6
+transcribe_audio = true
 
 #######################################################
-# Audio Transcription Configuration
-# - This will eat up your API credits, so please be careful.
+# 音频转写配置
+# - 这会消耗你的 API 额度,请谨慎使用
 #######################################################
 [transcription]
-# OpenAI API settings
-openai_api_key = ""              # Replace with your actual API key
-model = "gpt-4o-transcribe"      # OpenAI model to use for transcription
-language = "en"                  # Primary language for transcription (e.g., "en" for English)
+# OpenAI API 设置
+openai_api_key = ""              # 替换为你的实际 API 密钥
+model = "gpt-4o-transcribe"      # 用于转写的 OpenAI 模型
+language = "en"                  # 转写主语言(例如 "en" 表示英语)
 
-# Audio processing settings
-noise_reduction = "near_field"   # Noise reduction mode: "near_field", "far_field", or "none"
-chunk_ms = 500                   # Size of audio chunks for processing in milliseconds
-buffer_size_kb = 32              # Audio buffer size in kilobytes
+# 音频处理设置
+noise_reduction = "near_field"   # 降噪模式:"near_field"、"far_field" 或 "none"
+chunk_ms = 500                   # 处理时的音频分块大小(毫秒)
+buffer_size_kb = 32              # 音频缓冲区大小(KB)
 
-# FFmpeg conversion settings (required for audio format conversion)
-ffmpeg_path = "ffmpeg"           # Path to FFmpeg executable
-ffmpeg_sample_rate = 24000       # Audio sample rate in Hz (24000 Hz required by OpenAI)
-ffmpeg_channels = 1              # Number of audio channels (1 = mono, required by OpenAI)
-ffmpeg_format = "s16le"          # Audio format (signed 16-bit little-endian PCM, raw format)
+# FFmpeg 转码设置(用于音频格式转换)
+ffmpeg_path = "ffmpeg"           # FFmpeg 可执行文件路径
+ffmpeg_sample_rate = 24000       # 音频采样率(Hz,OpenAI 要求 24000 Hz)
+ffmpeg_channels = 1              # 通道数(1 = 单声道,OpenAI 要求)
+ffmpeg_format = "s16le"          # 音频格式(有符号 16 位小端 PCM,原始格式)
 
-# Connection management settings
-reconnect_interval_sec = 5       # Seconds to wait before reconnecting after failure
-max_retries = 3                  # Maximum number of connection retry attempts
+# 连接管理设置
+reconnect_interval_sec = 5       # 故障后重连等待秒数
+max_retries = 3                  # 连接重试的最大次数
 
-# Voice activity detection (VAD) settings
-turn_detection_type = "server_vad" # Method for detecting speech turns
-prefix_padding_ms = 1000          # Milliseconds of audio to include before detected speech
-silence_duration_ms = 500        # Milliseconds of silence to consider end of speech
-vad_threshold = 0.3              # Threshold for voice activity detection (0.0-1.0)
+# 语音活动检测(VAD)设置
+turn_detection_type = "server_vad" # 检测说话回合的方法
+prefix_padding_ms = 1000          # 在检测到的语音前包含的音频(毫秒)
+silence_duration_ms = 500        # 视为语音结束的静音时长(毫秒)
+vad_threshold = 0.3              # 语音活动检测阈值(0.0-1.0)
 
-# API retry settings for handling transient errors
-retry_max_attempts = 5           # Maximum number of API call retry attempts
-retry_initial_backoff_ms = 500   # Initial backoff time in milliseconds
-retry_max_backoff_ms = 10000     # Maximum backoff time in milliseconds
+# 处理瞬时错误的 API 重试设置
+retry_max_attempts = 5           # API 调用最大重试次数
+retry_initial_backoff_ms = 500   # 初始退避时间(毫秒)
+retry_max_backoff_ms = 10000     # 最大退避时间(毫秒)
 
-# HTTP timeout for OpenAI API requests in seconds
+# OpenAI API 请求 HTTP 超时(秒)
 timeout_seconds = 60
 
-# Path to the transcription prompt file
+# 转写提示词文件路径
 prompt_path = "prompts/transcription_prompt.txt"
 
-# Optional directory for transcription log files (append-only logs)
-# If set, transcriptions will be written to log files organized by date and frequency:
-#   - raw/{date}_{frequency_id}.log       - Raw transcriptions from Whisper
-#   - processed/{date}_{frequency_id}.log - Post-processed transcriptions (if enabled)
-# Leave empty to disable file logging
+# 转写日志文件目录(可选,追加写入)
+# 若设置,将按日期与频率组织日志文件:
+#   - raw/{date}_{frequency_id}.log       - 来自 Whisper 的原始转写
+#   - processed/{date}_{frequency_id}.log - 后处理后的转写(若启用)
+# 留空则禁用文件日志
 log_dir = "data/transcriptions"
 
 #######################################################
-# Post-Processing Configuration
+# 后处理配置
 #######################################################
 [post_processing]
-# Enable or disable post-processing
+# 启用或禁用后处理
 enabled = true
 
-# OpenAI model to use for post-processing
+# 用于后处理的 OpenAI 模型
 model = "gpt-4o"
 
-# How often to run the post-processing (in seconds)
+# 运行后处理的间隔(秒)
 interval_seconds = 10
 
-# Maximum number of transcriptions to process in each batch
+# 每次批处理最多处理多少条转写
 batch_size = 20
 
-# Number of previous processed transcriptions to include for context
+# 包含多少条之前已处理的转写作为上下文
 context_transcriptions = 3
 
-# HTTP timeout for OpenAI API requests in seconds
+# OpenAI API 请求 HTTP 超时(秒)
 timeout_seconds = 120
 
-# Path to the system prompt file
+# 系统提示词文件路径
 system_prompt_path = "prompts/post_processing_prompt.txt"
 
 #######################################################
-# Flight Phase Detection Configuration
+# 飞行阶段检测配置
 #######################################################
 [flight_phases]
-# Enable enhanced flight phase detection
+# 启用增强型飞行阶段检测
 enabled = true
 
-# Altitude thresholds (in feet)
-cruise_altitude_ft = 18000       # Minimum altitude for cruise phase
-departure_altitude_ft = 1000     # Minimum altitude for departure phase
+# 高度阈值(英尺)
+cruise_altitude_ft = 18000       # 巡航阶段的最低高度
+departure_altitude_ft = 1000     # 离场阶段的最低高度
 
-# Speed thresholds (in knots)
-taxiing_min_speed_kts = 1        # Minimum ground speed for taxiing
-taxiing_max_speed_kts = 50       # Maximum ground speed for taxiing
+# 速度阈值(节)
+taxiing_min_speed_kts = 1        # 滑行的最小地速
+taxiing_max_speed_kts = 50       # 滑行的最大地速
 
-# Approach detection parameters
-approach_centerline_tolerance_nm = 0.5        # Distance from runway centerline
-approach_max_distance_nm = 10                 # Maximum distance from runway threshold
-approach_max_altitude_ft = 5000               # Maximum altitude for approach phase detection
-approach_heading_tolerance_deg = 30           # Heading alignment tolerance
+# 进近检测参数
+approach_centerline_tolerance_nm = 0.5        # 与跑道中线的距离
+approach_max_distance_nm = 10                 # 距离跑道入口的最大距离
+approach_max_altitude_ft = 5000               # 触发进近阶段的最大高度
+approach_heading_tolerance_deg = 30           # 航向对准容差
 
-# Timeout configurations - grouped together for clarity
-# These control different aspects of phase transition timing:
+# 超时配置——为清晰起见集中放在一起
+# 它们控制阶段切换的不同方面:
 
-# 1. Long-term inactive aircraft cleanup (default: 3600 seconds = 1 hour)
-# Aircraft that haven't had ANY phase change for this duration revert to NEW
-# This is the ultimate cleanup for parked/inactive aircraft
+# 1. 长期不活跃飞行器清理(默认:3600 秒 = 1 小时)
+# 在该时长内未发生任何阶段变化的飞行器将回归 NEW 状态
+# 这是停场或不活跃飞行器的最终清理机制
 phase_change_timeout_seconds = 3600
 
-# 2. Ground phase transition prevention (default: 60 seconds, but 1800 = 30 min recommended)
-# Prevents TAX→NEW and T/D→NEW transitions when aircraft briefly stops
-# Helps maintain phase stability during normal ground operations
+# 2. 防止地面阶段抖动(默认:60 秒,但建议 1800 = 30 分钟)
+# 防止飞行器短暂停下时 TAX→NEW 与 T/D→NEW 的切换
+# 有助于在常规地面运行中保持阶段稳定
 phase_transition_timeout_seconds = 1800
 
-# 3. Critical phase preservation (default: 60 seconds)
-# Keeps T/O and T/D phases visible for at least this duration
-# Ensures pilots/controllers can see these important events
+# 3. 关键阶段保留时间(默认:60 秒)
+# 让 T/O 与 T/D 至少保持可见的时长
+# 确保飞行员/管制员能看到这些重要事件
 phase_preservation_seconds = 30
 
-# 4. Recent takeoff detection window (default: 30 minutes)
-# How long after takeoff an aircraft is considered "recently departed"
-# Used for DEP phase eligibility
+# 4. 近期起飞检测窗口(默认:30 分钟)
+# 起飞后多久内仍视为"刚起飞"
+# 用于判断 DEP 阶段的资格
 recent_takeoff_timeout_minutes = 30
 
-# Other phase detection parameters
-airport_range_nm = 5                          # Distance considered "close to airport"
+# 其它阶段检测参数
+airport_range_nm = 5                          # 视作"接近机场"的距离
 
-# Ground detection thresholds
-flying_min_tas_kts = 50                       # Minimum true airspeed to be considered flying
-flying_min_alt_ft = 300                       # Minimum altitude to be considered flying
-helicopter_alt_multiplier = 2.0               # Multiplier for helicopter detection
-high_speed_threshold_kts = 200                # Speed above which aircraft is always considered flying
-high_altitude_override_ft = 5000              # Altitude above which aircraft is always considered flying (handles bad speed data)
+# 地面检测阈值
+flying_min_tas_kts = 50                       # 视作正在飞行的最小真空速
+flying_min_alt_ft = 300                       # 视作正在飞行的最小高度
+helicopter_alt_multiplier = 2.0               # 直升机检测的乘数
+high_speed_threshold_kts = 200                # 超过该速度始终视作飞行
+high_altitude_override_ft = 5000              # 超过该高度始终视作飞行(用于规避错误的速度数据)
 
-# Enhanced sensor validation thresholds
-impossible_alt_drop_threshold_ft = 10000      # Altitude above which drops to zero are always considered sensor errors (cruise altitude)
-impossible_speed_drop_threshold_kts = 100     # Speed above which drops to zero at altitude are considered sensor errors
-impossible_speed_drop_min_alt_ft = 5000       # Minimum altitude for impossible speed drop detection
+# 增强型传感器校验阈值
+impossible_alt_drop_threshold_ft = 10000      # 超过该高度时若高度跌至 0,视作传感器错误(巡航高度)
+impossible_speed_drop_threshold_kts = 100     # 在高空时,若速度从该值跌至 0,视作传感器错误
+impossible_speed_drop_min_alt_ft = 5000       # 触发"不可能速度跌零"检测的最低高度
 
-# Signal lost landing detection
-signal_lost_landing_enabled = true            # Enable automatic landing detection for signal lost aircraft
-signal_lost_landing_max_alt_ft = 1000         # Max altitude for signal lost landing detection
+# 信号丢失着陆检测
+signal_lost_landing_enabled = true            # 启用对信号丢失飞行器的自动着陆检测
+signal_lost_landing_max_alt_ft = 1000         # 信号丢失着陆检测的最大高度
 
-# Trajectory-based phase detection
-# The trajectory system maintains a rolling window of recent ADS-B observations per
-# aircraft and uses statistical analysis (OLS regression, median filtering) to make
-# noise-resistant phase decisions instead of relying on single data points.
-trajectory_buffer_duration_sec = 90           # Seconds of ADS-B history per aircraft
-trajectory_min_points = 5                     # Min valid data points before full trajectory analysis
-trajectory_stale_timeout_sec = 300            # Remove aircraft not seen for this long (seconds)
-trajectory_cleanup_interval_sec = 30          # How often to check for stale aircraft (seconds)
-trajectory_descent_threshold_fpm = -200       # Altitude trend below this = descending (feet/min)
-trajectory_climb_threshold_fpm = 200          # Altitude trend above this = climbing (feet/min)
-trajectory_level_band_ft = 200               # Altitude variation within this = level flight (feet)
-trajectory_turning_rate_deg = 1.5            # Track rate above this = turning (degrees/sec)
+# 基于轨迹的阶段检测
+# 轨迹系统为每架飞行器维护一个滚动窗口,记录最近的 ADS-B 观测值,
+# 并使用统计分析(OLS 回归、中值滤波)做出抗噪的阶段判定,
+# 而不是依赖单一数据点
+trajectory_buffer_duration_sec = 90           # 每架飞行器保留的 ADS-B 历史秒数
+trajectory_min_points = 5                     # 启动完整轨迹分析所需的最小有效点数
+trajectory_stale_timeout_sec = 300            # 多久未见即移除该飞行器(秒)
+trajectory_cleanup_interval_sec = 30          # 多久检查一次过期飞行器(秒)
+trajectory_descent_threshold_fpm = -200       # 高度趋势低于该值视为下降(英尺/分钟)
+trajectory_climb_threshold_fpm = 200          # 高度趋势高于该值视为爬升(英尺/分钟)
+trajectory_level_band_ft = 200               # 高度变化在该区间内视为平飞(英尺)
+trajectory_turning_rate_deg = 1.5            # 航迹变化率高于该值视为转弯(度/秒)
 
-# Runway-in-use detection
-# Observes aircraft approach/landing/departure patterns to determine which runway
-# ends are currently active. Suppresses false APP on perpendicular/cross runways.
-runway_in_use_window_minutes = 60            # Rolling evidence window (minutes)
-runway_in_use_approach_weight = 2.0          # Weight for APP phase events
-runway_in_use_landing_weight = 3.0           # Weight for T/D events (strongest evidence)
-runway_in_use_climb_weight = 2.0             # Weight for CLB phase events
-runway_in_use_decay_rate = 0.98              # Per-minute exponential time decay (0-1)
+# 跑道使用检测
+# 通过观察飞行器的进近/着陆/离场模式来判断当前哪些跑道方向在用
+# 用于抑制垂直/交叉跑道上的虚假 APP 判定
+runway_in_use_window_minutes = 60            # 滚动证据窗口(分钟)
+runway_in_use_approach_weight = 2.0          # APP 阶段事件的权重
+runway_in_use_landing_weight = 3.0           # T/D 事件的权重(证据最强)
+runway_in_use_climb_weight = 2.0             # CLB 阶段事件的权重
+runway_in_use_decay_rate = 0.98              # 每分钟的指数时间衰减系数(0-1)
 
 #######################################################
-# Weather Data Configuration
-#  - Windy asks: "Do not steal this API. Download your own METARs for free from https://www.aviationweather.gov/dataserver"
-#  - So, please don't use this.
+# 气象数据配置
+#  - Windy 提示:"Do not steal this API. Download your own METARs for free from https://www.aviationweather.gov/dataserver"
+#  - 因此,请勿滥用
 #######################################################
 [wx]
-# Weather data refresh interval in minutes
+# 气象数据刷新间隔(分钟)
 refresh_interval_minutes = 10
 
-# API endpoints and settings
+# API 端点与设置
 api_base_url = "https://node.windy.com/airports"
 request_timeout_seconds = 10
 max_retries = 2
 
-# Enable/disable specific weather data types
+# 启用/禁用特定气象数据类型
 fetch_metar = true
 fetch_taf = true
 fetch_notams = true
 
-# Cache settings
-cache_expiry_minutes = 60  # How long to keep cached data if refresh fails
+# 缓存设置
+cache_expiry_minutes = 60  # 刷新失败时,缓存数据保留时间
 
 #######################################################
-# ATC Chat Configuration
+# ATC Chat 配置
 #######################################################
 [atc_chat]
-# Enable/disable ATC Chat feature
+# 启用/禁用 ATC Chat 功能
 enabled = true
 
-# OpenAI API settings for realtime chat
-openai_api_key = ""              # Replace with your actual API key
+# 实时聊天的 OpenAI API 设置
+openai_api_key = ""              # 替换为你的实际 API 密钥
 realtime_model = "gpt-realtime-2025-08-28"
-voice = "ash"  # Voice options: 'alloy', 'ash',
+voice = "ash"  # 可选语音:'alloy'、'ash'
 
-# Audio settings
+# 音频设置
 input_audio_format = "pcm16"
 output_audio_format = "pcm16"
 sample_rate = 24000
 channels = 1
 
-# Session settings
+# 会话设置
 max_response_tokens = 4096
 temperature = 0.6
-# Turn detection type: "server_vad", "semantic_vad", or "none" (to disable turn detection)
+# 说话回合检测类型:"server_vad"、"semantic_vad" 或 "none"(关闭说话回合检测)
 turn_detection_type = "none"
 vad_threshold = 0.3
 silence_duration_ms = 200
 
-# Context settings
+# 上下文设置
 max_context_aircraft = 200
 transcription_history_seconds = 300
 
-# System prompt configuration
+# 系统提示词配置
 system_prompt_path = "prompts/atc_chat_prompt.txt"
 
-# Automatic system prompt refresh interval in seconds (0 = disabled)
-# This will automatically send session updates with latest airspace data
-# Set to 0 to disable timer-based updates - context will be updated on PTT press instead. Do not enable unless you like burning through your API credits.
+# 系统提示词自动刷新间隔(秒,0 = 关闭)
+# 这会自动发送会话更新,带上最新的空域数据
+# 设为 0 即关闭基于定时器的更新——上下文将在 PTT 按下时更新。除非你想烧 API 额度,否则不要启用
 refresh_system_prompt = 0
-

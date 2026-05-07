@@ -1,17 +1,17 @@
 /**
- * Module: map/features/interactions-feature
- * Why it exists:
- * - Binds primary user interactions to map state transitions.
- * - Keeps pointer/click logic separate from rendering concerns.
+ * 模块: map/features/interactions-feature
+ * 存在原因:
+ * - 将主要的用户交互绑定到地图状态变化。
+ * - 使指针/点击逻辑与渲染关注点保持分离。
  *
- * Key responsibilities:
- * - Handle aircraft selection, deselection, and hover state updates.
- * - Route clicks to reference-feature handlers when appropriate.
- * - Support station-override map click mode for quick station repositioning.
+ * 主要职责:
+ * - 处理飞行器选中、取消选中以及悬停状态更新。
+ * - 在合适的情况下将点击路由到参考要素处理器。
+ * - 支持台站覆写地图点击模式以快速重新定位台站。
  *
- * Quirks / contracts:
- * - Pointer hit-testing is throttled to reduce expensive per-frame feature queries.
- * - Hit-test errors are warned once and then suppressed per session to avoid log spam.
+ * 怪癖 / 契约:
+ * - 指针命中测试已节流以减少昂贵的逐帧要素查询。
+ * - 命中测试错误仅警告一次,然后在该会话中被抑制以避免日志泛滥。
  */
 (function () {
     function isMapClickTarget(target) {
@@ -25,7 +25,7 @@
 
     function registerOpenLayersInteractions(manager) {
         if (!manager || !manager.engine) return () => {};
-        console.info('[MapInteractionsFeature] Registering OpenLayers core interactions');
+        console.info('[MapInteractionsFeature] 正在注册 OpenLayers 核心交互');
 
         let previousHoveredHex = null;
         let warnedHitTestFailure = false;
@@ -45,7 +45,7 @@
             } catch (error) {
                 if (!warnedHitTestFailure) {
                     warnedHitTestFailure = true;
-                    console.warn('[MapInteractionsFeature] forEachFeatureAtPixel failed; suppressing this interaction frame:', error);
+                    console.warn('[MapInteractionsFeature] forEachFeatureAtPixel 失败;抑制本次交互帧:', error);
                 }
                 return null;
             }
@@ -67,7 +67,7 @@
             } catch (error) {
                 if (!warnedHitTestFailure) {
                     warnedHitTestFailure = true;
-                    console.warn('[MapInteractionsFeature] reference hit-test failed; suppressing this interaction frame:', error);
+                    console.warn('[MapInteractionsFeature] 参考要素命中测试失败;抑制本次交互帧:', error);
                 }
                 return false;
             }
@@ -210,7 +210,7 @@
             if (targetElement) {
                 targetElement.removeEventListener('dblclick', onDomDoubleClick);
             }
-            console.info('[MapInteractionsFeature] OpenLayers interactions cleaned up');
+            console.info('[MapInteractionsFeature] OpenLayers 交互已清理');
         };
     }
 

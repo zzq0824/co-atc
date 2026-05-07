@@ -9,28 +9,28 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Service provides unified access to all reference data (aircraft, airlines, airports, runways, navaids).
-// All data is loaded once at startup and geo-filtered where applicable.
+// Service 提供对所有参考数据(飞行器、航司、机场、跑道、导航台)的统一访问。
+// 所有数据在启动时一次性加载,凡涉及位置的数据均会进行地理过滤。
 type Service struct {
 	logger *logger.Logger
 
-	// Global (no geo-filter)
-	aircraftMap map[string]*AircraftInfo // key: uppercase hex
-	airlineMap  map[string]AirlineInfo   // key: ICAO or IATA code → airline info
+	// 全局数据(无地理过滤)
+	aircraftMap map[string]*AircraftInfo // key:大写 hex
+	airlineMap  map[string]AirlineInfo   // key:ICAO 或 IATA 代码 → 航司信息
 
-	// Geo-filtered within display_range_nm of station
+	// 在 display_range_nm 范围内经过地理过滤的数据
 	airports   []*AirportInfo
-	airportMap map[string]*AirportInfo // key: airport ident (ICAO)
+	airportMap map[string]*AirportInfo // key:机场 ident(ICAO)
 	runways    []*RunwayInfo
 	navaids    []*NavaidInfo
 
-	// Home airport specific
+	// 主场专属数据
 	homeRunways          []*RunwayInfo
 	homeRunwayData       adsb.RunwayData
 	homeRunwayExtensions map[string]map[string][]RunwayExtensionPoint
 }
 
-// NewService creates a new reference service, loading all CSV data at startup.
+// NewService 创建一个新的参考服务,在启动时加载所有 CSV 数据。
 func NewService(cfg ServiceConfig, log *logger.Logger) (*Service, error) {
 	s := &Service{
 		logger:      log.Named("reference"),
@@ -39,125 +39,125 @@ func NewService(cfg ServiceConfig, log *logger.Logger) (*Service, error) {
 		airportMap:  make(map[string]*AirportInfo),
 	}
 
-	// 1. Load aircraft.csv (global)
+	// 1. 加载 aircraft.csv(全局)
 	if cfg.AircraftCSVPath != "" {
 		m, err := loadAircraftCSV(cfg.AircraftCSVPath)
 		if err != nil {
-			s.logger.Warn("Failed to load aircraft.csv: " + err.Error())
+			s.logger.Warn("加载 aircraft.csv 失败: " + err.Error())
 		} else {
 			s.aircraftMap = m
-			s.logger.Info("Aircraft data loaded",
+			s.logger.Info("飞行器数据加载完成",
 				logger.Int("count", len(m)),
 				logger.String("path", cfg.AircraftCSVPath))
 		}
 	}
 
-	// 2. Load airlines.dat (global)
+	// 2. 加载 airlines.dat(全局)
 	if cfg.AirlinesDATPath != "" {
 		m, err := loadAirlineDAT(cfg.AirlinesDATPath)
 		if err != nil {
-			s.logger.Warn("Failed to load airlines.dat: " + err.Error())
+			s.logger.Warn("加载 airlines.dat 失败: " + err.Error())
 		} else {
 			s.airlineMap = m
-			s.logger.Info("Airline data loaded",
+			s.logger.Info("航司数据加载完成",
 				logger.Int("count", len(m)),
 				logger.String("path", cfg.AirlinesDATPath))
 		}
 	}
 
-	// 3. Load airports.csv (geo-filtered)
+	// 3. 加载 airports.csv(地理过滤)
 	if cfg.AirportsCSVPath != "" {
 		airports, airportMap, err := loadAirportsCSV(cfg.AirportsCSVPath, cfg.StationLat, cfg.StationLon, cfg.DisplayRangeNM)
 		if err != nil {
-			s.logger.Warn("Failed to load airports.csv: " + err.Error())
+			s.logger.Warn("加载 airports.csv 失败: " + err.Error())
 		} else {
 			s.airports = airports
 			s.airportMap = airportMap
-			s.logger.Info("Airport data loaded",
+			s.logger.Info("机场数据加载完成",
 				logger.Int("total_in_range", len(airports)),
 				logger.Float64("range_nm", cfg.DisplayRangeNM))
 		}
 	}
 
-	// 4. Load airport-frequencies.csv (attach to filtered airports)
+	// 4. 加载 airport-frequencies.csv(挂载到已过滤的机场)
 	if cfg.FrequenciesCSVPath != "" && len(s.airportMap) > 0 {
 		if err := loadFrequenciesCSV(cfg.FrequenciesCSVPath, s.airportMap); err != nil {
-			s.logger.Warn("Failed to load airport-frequencies.csv: " + err.Error())
+			s.logger.Warn("加载 airport-frequencies.csv 失败: " + err.Error())
 		} else {
 			freqCount := 0
 			for _, ap := range s.airports {
 				freqCount += len(ap.Frequencies)
 			}
-			s.logger.Info("Airport frequency data loaded",
+			s.logger.Info("机场频率数据加载完成",
 				logger.Int("count", freqCount))
 		}
 	}
 
-	// 5. Load runways.csv (geo-filtered + home airport)
+	// 5. 加载 runways.csv(地理过滤 + 主场)
 	if cfg.RunwaysCSVPath != "" {
 		all, home, err := loadRunwaysCSV(cfg.RunwaysCSVPath, s.airportMap, cfg.HomeAirportCode)
 		if err != nil {
-			s.logger.Warn("Failed to load runways.csv: " + err.Error())
+			s.logger.Warn("加载 runways.csv 失败: " + err.Error())
 		} else {
 			s.runways = all
 			s.homeRunways = home
-			s.logger.Info("Runway data loaded",
+			s.logger.Info("跑道数据加载完成",
 				logger.Int("total_in_range", len(all)),
 				logger.Int("home_airport", len(home)),
 				logger.String("home_code", cfg.HomeAirportCode))
 		}
 	}
 
-	// 6. Load navaids.csv (geo-filtered)
+	// 6. 加载 navaids.csv(地理过滤)
 	if cfg.NavaidsCSVPath != "" {
 		navs, err := loadNavaidsCSV(cfg.NavaidsCSVPath, cfg.StationLat, cfg.StationLon, cfg.DisplayRangeNM)
 		if err != nil {
-			s.logger.Warn("Failed to load navaids.csv: " + err.Error())
+			s.logger.Warn("加载 navaids.csv 失败: " + err.Error())
 		} else {
 			s.navaids = navs
-			s.logger.Info("Navaid data loaded",
+			s.logger.Info("导航台数据加载完成",
 				logger.Int("count", len(navs)),
 				logger.Float64("range_nm", cfg.DisplayRangeNM))
 		}
 	}
 
-	// 7. Build home runway data (backward-compatible format for phase detection)
+	// 7. 构建主场跑道数据(以兼容旧版的飞行阶段检测格式)
 	s.buildHomeRunwayData(cfg.HomeAirportCode)
 	s.buildHomeRunwayExtensions(cfg.ExtensionLengthNM)
 
 	return s, nil
 }
 
-// --- Aircraft enrichment ---
+// --- 飞行器信息丰富化 ---
 
-// LookupAircraft retrieves aircraft info by hex code (case-insensitive).
+// LookupAircraft 通过 hex 代码(不区分大小写)检索飞行器信息。
 func (s *Service) LookupAircraft(hex string) *AircraftInfo {
 	return s.aircraftMap[strings.ToUpper(hex)]
 }
 
-// LookupAirline retrieves an airline name by ICAO or IATA code.
+// LookupAirline 通过 ICAO 或 IATA 代码检索航司名称。
 func (s *Service) LookupAirline(code string) string {
 	return s.airlineMap[code].Name
 }
 
-// LookupAirlineCountry retrieves an airline's country by ICAO or IATA code.
+// LookupAirlineCountry 通过 ICAO 或 IATA 代码检索航司所属国家。
 func (s *Service) LookupAirlineCountry(code string) string {
 	return s.airlineMap[code].Country
 }
 
-// AircraftCount returns the number of aircraft in the database.
+// AircraftCount 返回数据库中的飞行器数量。
 func (s *Service) AircraftCount() int {
 	return len(s.aircraftMap)
 }
 
-// AirlineCount returns the number of airline code mappings.
+// AirlineCount 返回航司代码映射的数量。
 func (s *Service) AirlineCount() int {
 	return len(s.airlineMap)
 }
 
-// --- Airports ---
+// --- 机场 ---
 
-// GetAirports returns all airports within the configured display range.
+// GetAirports 返回配置显示范围内的所有机场。
 func (s *Service) GetAirports() []*AirportInfo {
 	if s.airports == nil {
 		return []*AirportInfo{}
@@ -165,7 +165,7 @@ func (s *Service) GetAirports() []*AirportInfo {
 	return s.airports
 }
 
-// GetAirportsOnly returns airports (excluding heliports) within the display range.
+// GetAirportsOnly 返回显示范围内的机场(不含直升机场)。
 func (s *Service) GetAirportsOnly() []*AirportInfo {
 	result := make([]*AirportInfo, 0)
 	for _, ap := range s.airports {
@@ -176,7 +176,7 @@ func (s *Service) GetAirportsOnly() []*AirportInfo {
 	return result
 }
 
-// GetHeliportsOnly returns only heliports within the display range.
+// GetHeliportsOnly 仅返回显示范围内的直升机场。
 func (s *Service) GetHeliportsOnly() []*AirportInfo {
 	result := make([]*AirportInfo, 0)
 	for _, ap := range s.airports {
@@ -187,14 +187,14 @@ func (s *Service) GetHeliportsOnly() []*AirportInfo {
 	return result
 }
 
-// GetAirport returns a single airport by ICAO ident, or nil if not found.
+// GetAirport 通过 ICAO ident 返回单个机场,未找到时返回 nil。
 func (s *Service) GetAirport(ident string) *AirportInfo {
 	return s.airportMap[strings.ToUpper(ident)]
 }
 
-// --- Runways ---
+// --- 跑道 ---
 
-// GetRunways returns all runways within the configured display range.
+// GetRunways 返回配置显示范围内的所有跑道。
 func (s *Service) GetRunways() []*RunwayInfo {
 	if s.runways == nil {
 		return []*RunwayInfo{}
@@ -202,24 +202,24 @@ func (s *Service) GetRunways() []*RunwayInfo {
 	return s.runways
 }
 
-// GetHomeRunways returns runways for the home airport only.
+// GetHomeRunways 仅返回主场的跑道。
 func (s *Service) GetHomeRunways() []*RunwayInfo {
 	return s.homeRunways
 }
 
-// GetHomeRunwayData returns the backward-compatible RunwayData struct for phase detection.
+// GetHomeRunwayData 返回兼容旧版的 RunwayData 结构,用于飞行阶段检测。
 func (s *Service) GetHomeRunwayData() adsb.RunwayData {
 	return s.homeRunwayData
 }
 
-// GetHomeRunwayExtensions returns the precomputed runway extension points for the home airport.
+// GetHomeRunwayExtensions 返回主场预先计算好的跑道延长点。
 func (s *Service) GetHomeRunwayExtensions() map[string]map[string][]RunwayExtensionPoint {
 	return s.homeRunwayExtensions
 }
 
-// --- Navaids ---
+// --- 导航台 ---
 
-// GetNavaids returns all navaids within the configured display range.
+// GetNavaids 返回配置显示范围内的所有导航台。
 func (s *Service) GetNavaids() []*NavaidInfo {
 	if s.navaids == nil {
 		return []*NavaidInfo{}
@@ -227,7 +227,7 @@ func (s *Service) GetNavaids() []*NavaidInfo {
 	return s.navaids
 }
 
-// GetNavaidsByIdent returns all navaids matching the given ident (there can be multiple, e.g. collocated VOR+DME).
+// GetNavaidsByIdent 返回所有匹配指定 ident 的导航台(可能存在多个,例如 VOR+DME 共址)。
 func (s *Service) GetNavaidsByIdent(ident string) []*NavaidInfo {
 	upper := strings.ToUpper(ident)
 	var result []*NavaidInfo
@@ -239,16 +239,16 @@ func (s *Service) GetNavaidsByIdent(ident string) []*NavaidInfo {
 	return result
 }
 
-// --- Internal builders ---
+// --- 内部构建函数 ---
 
-// thresholdEntry matches the anonymous struct type in adsb.RunwayData.RunwayThresholds
+// thresholdEntry 与 adsb.RunwayData.RunwayThresholds 中的匿名结构类型保持一致
 type thresholdEntry = struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
 
-// buildHomeRunwayData converts home runways into the adsb.RunwayData format
-// expected by DetectRunwayApproach/DetectRunwayDeparture.
+// buildHomeRunwayData 将主场跑道转换为 DetectRunwayApproach/DetectRunwayDeparture
+// 所要求的 adsb.RunwayData 格式。
 func (s *Service) buildHomeRunwayData(homeCode string) {
 	s.homeRunwayData = adsb.RunwayData{
 		Airport:          homeCode,
@@ -259,7 +259,7 @@ func (s *Service) buildHomeRunwayData(homeCode string) {
 		if rwy.LEIdent == "" || rwy.HEIdent == "" {
 			continue
 		}
-		// Both ends need valid coordinates for phase detection
+		// 飞行阶段检测要求两端坐标都有效
 		if (rwy.LELatitude == 0 && rwy.LELongitude == 0) || (rwy.HELatitude == 0 && rwy.HELongitude == 0) {
 			continue
 		}
@@ -276,7 +276,7 @@ func (s *Service) buildHomeRunwayData(homeCode string) {
 	}
 }
 
-// buildHomeRunwayExtensions precomputes runway extension points for the home airport.
+// buildHomeRunwayExtensions 为主场预先计算跑道延长点。
 func (s *Service) buildHomeRunwayExtensions(extensionLengthNM float64) {
 	if extensionLengthNM <= 0 {
 		extensionLengthNM = 10.0
@@ -288,7 +288,7 @@ func (s *Service) buildHomeRunwayExtensions(extensionLengthNM float64) {
 		s.homeRunwayExtensions[pairKey] = make(map[string][]RunwayExtensionPoint)
 
 		for endID, threshold := range thresholds {
-			// Find opposite end
+			// 找到对侧端
 			var opposite thresholdEntry
 			for otherID, otherThreshold := range thresholds {
 				if otherID != endID {
@@ -297,12 +297,12 @@ func (s *Service) buildHomeRunwayExtensions(extensionLengthNM float64) {
 				}
 			}
 
-			// Bearing from this end to opposite end
+			// 由当前端指向对侧端的方位角
 			bearing := calculateBearing(
 				threshold.Latitude, threshold.Longitude,
 				opposite.Latitude, opposite.Longitude,
 			)
-			// Extension goes in the opposite direction
+			// 延长方向为反向
 			oppositeBearing := math.Mod(bearing+180, 360)
 
 			points := []RunwayExtensionPoint{

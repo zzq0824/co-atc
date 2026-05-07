@@ -1,16 +1,16 @@
 /**
- * Module: map/core/visibility-rules
- * Why it exists:
- * - Consolidates aircraft visibility predicates used by map refresh/update paths.
- * - Ensures filtering semantics are identical across full passes and incremental updates.
+ * 模块: map/core/visibility-rules
+ * 存在原因:
+ * - 集中存放地图刷新/更新路径所使用的飞行器可见性判定。
+ * - 确保完整遍历与增量更新的过滤语义保持一致。
  *
- * Key responsibilities:
- * - Evaluate search, ground/air state, altitude, phase, and recency filters.
- * - Preserve selected-aircraft visibility even when it no longer matches filters.
+ * 主要职责:
+ * - 评估搜索、地面/空中状态、高度、阶段以及最近活跃过滤条件。
+ * - 即使选中飞行器不再匹配过滤条件,也保留其可见性。
  *
- * Quirks / contracts:
- * - Phase defaults to `NEW` when unavailable.
- * - Callers can bypass viewport gating via `options.isInViewport = false`.
+ * 怪癖 / 契约:
+ * - 当阶段不可用时默认为 `NEW`。
+ * - 调用者可以通过 `options.isInViewport = false` 绕过视口门控。
  */
 (function () {
     function getCurrentPhase(aircraft) {

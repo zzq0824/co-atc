@@ -1,26 +1,26 @@
-# Local STT via faster-whisper
+# 通过 faster-whisper 实现本地 STT
 
-## Overview
+## 概述
 
-Add local speech-to-text as an alternative to the cloud-based OpenAI Realtime Transcription API (`gpt-4o-transcribe`). Uses **faster-whisper** — a CTranslate2-based Whisper implementation that's 4x faster than OpenAI's open-source whisper with comparable accuracy.
+新增本地语音转文本作为基于云端的 OpenAI Realtime Transcription API（`gpt-4o-transcribe`）的替代方案。使用 **faster-whisper** —— 一个基于 CTranslate2 的 Whisper 实现，比 OpenAI 的开源 whisper 快 4 倍，且准确度相当。
 
-**This supersedes the previous Moonshine proposal.** faster-whisper provides significantly better accuracy (Whisper large-v3 level), built-in Silero VAD, and a mature ecosystem with GPU acceleration.
+**这取代了之前的 Moonshine 提案。** faster-whisper 提供了显著更好的准确度（Whisper large-v3 级别）、内置的 Silero VAD 以及一个支持 GPU 加速的成熟生态系统。
 
-### Why
+### 原因
 
-- **Cost**: OpenAI API charges ~$0.006/min of audio — local is free
-- **Latency**: Eliminates ~200-500ms network round-trip
-- **Privacy**: Audio never leaves the device
-- **Offline**: Works without internet connectivity
-- **Flexibility**: Choose model size to match your hardware
+- **成本**：OpenAI API 每分钟音频收费约 $0.006 —— 本地免费
+- **延迟**：消除约 200-500ms 的网络往返
+- **隐私**：音频永远不离开设备
+- **离线**：无需互联网连接即可工作
+- **灵活性**：选择适合您硬件的模型大小
 
 ---
 
-## Architecture
+## 架构
 
-### Approach: Python HTTP Sidecar
+### 方法：Python HTTP 边车
 
-faster-whisper is Python/CTranslate2 — it can't run natively in Go. A lightweight **FastAPI server** runs alongside co-atc and accepts PCM audio over HTTP.
+faster-whisper 是 Python/CTranslate2 实现 —— 无法在 Go 中原生运行。一个轻量级的 **FastAPI 服务器**与 co-atc 一起运行，并通过 HTTP 接收 PCM 音频。
 
 ```
 Audio Stream → CentralAudioProcessor → MultiReader → io.Reader
@@ -44,45 +44,45 @@ Audio Stream → CentralAudioProcessor → MultiReader → io.Reader
                                           Works with either backend
 ```
 
-### Key Design Decisions
+### 关键设计决策
 
-1. **FastAPI over Flask** — async support, better performance, auto OpenAPI docs
-2. **HTTP over gRPC** — project uses HTTP everywhere; gRPC adds protobuf complexity for minimal benefit at ~1 req/5s per frequency
-3. **Sidecar resamples, not Go** — keeps the Go audio pipeline unchanged (24kHz); sidecar converts to 16kHz (Whisper's native rate) internally
-4. **VAD on sidecar side** — faster-whisper has built-in Silero VAD; no need for Go-side VAD or torch dependency
-5. **Buffer-and-flush** — Go accumulates audio for N seconds, sends to sidecar, sidecar's VAD filters silence
+1. **FastAPI 而非 Flask** —— 异步支持、性能更好、自动 OpenAPI 文档
+2. **HTTP 而非 gRPC** —— 项目处处使用 HTTP；以每个频率约每 5 秒一次请求的速率，gRPC 增加 protobuf 复杂性带来的好处微不足道
+3. **由边车而非 Go 重采样** —— 保持 Go 音频管道不变（24kHz）；边车在内部转换为 16kHz（Whisper 的原生采样率）
+4. **VAD 在边车端** —— faster-whisper 内置 Silero VAD；无需 Go 端 VAD 或 torch 依赖
+5. **缓冲并刷新** —— Go 累积 N 秒的音频，发送到边车，边车的 VAD 过滤静默
 
 ---
 
-## Model Comparison
+## 模型对比
 
-| Model | Params | Disk Size | VRAM (float16) | VRAM (int8) | Speed vs Realtime | Accuracy |
+| 模型 | 参数 | 磁盘大小 | VRAM (float16) | VRAM (int8) | 速度 vs 实时 | 准确度 |
 |-------|--------|-----------|----------------|-------------|-------------------|----------|
-| `tiny` | 39M | 75 MB | ~1 GB | ~0.5 GB | ~30x | Fair |
-| `base` | 74M | 142 MB | ~1 GB | ~0.5 GB | ~20x | Good |
-| `small` | 244M | 466 MB | ~2 GB | ~1 GB | ~10x | Better |
-| `medium` | 769M | 1.5 GB | ~4 GB | ~2 GB | ~5x | Great |
-| `large-v2` | 1550M | 3.1 GB | ~6 GB | ~3 GB | ~3x | Best |
-| `large-v3` | 1550M | 3.1 GB | ~6 GB | ~3 GB | ~3x | Best |
+| `tiny` | 39M | 75 MB | ~1 GB | ~0.5 GB | ~30x | 一般 |
+| `base` | 74M | 142 MB | ~1 GB | ~0.5 GB | ~20x | 良好 |
+| `small` | 244M | 466 MB | ~2 GB | ~1 GB | ~10x | 较好 |
+| `medium` | 769M | 1.5 GB | ~4 GB | ~2 GB | ~5x | 优秀 |
+| `large-v2` | 1550M | 3.1 GB | ~6 GB | ~3 GB | ~3x | 最佳 |
+| `large-v3` | 1550M | 3.1 GB | ~6 GB | ~3 GB | ~3x | 最佳 |
 
-**Speed notes**: "vs Realtime" means how many times faster than real-time on a mid-range NVIDIA GPU (RTX 3060/4060). CPU is roughly 5-10x slower.
+**速度说明**："vs 实时"指在中端 NVIDIA GPU（RTX 3060/4060）上比实时快多少倍。CPU 大约慢 5-10 倍。
 
-### Recommendations by Hardware
+### 按硬件推荐
 
-| Hardware | Recommended Model | Compute Type | Notes |
+| 硬件 | 推荐模型 | 计算类型 | 备注 |
 |----------|------------------|--------------|-------|
-| NVIDIA GPU (6GB+ VRAM) | `medium` or `large-v3` | `float16` | Best accuracy, fast inference |
-| NVIDIA GPU (4GB VRAM) | `small` or `medium` | `int8` | Good balance |
-| NVIDIA GPU (2GB VRAM) | `base` or `small` | `int8` | Usable |
-| CPU only (modern x86) | `small` | `int8` | Acceptable latency |
-| CPU only (older/ARM) | `tiny` or `base` | `int8` | Fastest, lower accuracy |
-| Apple Silicon (M1/M2/M3) | `small` | `int8` | CTranslate2 has no MPS support — CPU only |
+| NVIDIA GPU (6GB+ VRAM) | `medium` 或 `large-v3` | `float16` | 最佳准确度，快速推理 |
+| NVIDIA GPU (4GB VRAM) | `small` 或 `medium` | `int8` | 良好平衡 |
+| NVIDIA GPU (2GB VRAM) | `base` 或 `small` | `int8` | 可用 |
+| 仅 CPU（现代 x86） | `small` | `int8` | 可接受的延迟 |
+| 仅 CPU（较老/ARM） | `tiny` 或 `base` | `int8` | 最快，准确度较低 |
+| Apple Silicon (M1/M2/M3) | `small` | `int8` | CTranslate2 不支持 MPS —— 仅 CPU |
 
 ---
 
-## Quick Start
+## 快速开始
 
-### 1. Run the setup script
+### 1. 运行安装脚本
 
 **Windows:**
 ```powershell
@@ -99,7 +99,7 @@ Audio Stream → CentralAudioProcessor → MultiReader → io.Reader
 ./scripts/setup_local_stt_linux.sh
 ```
 
-### 2. Start the whisper sidecar
+### 2. 启动 whisper 边车
 
 **Windows:**
 ```powershell
@@ -111,15 +111,15 @@ Audio Stream → CentralAudioProcessor → MultiReader → io.Reader
 ./scripts/start_whisper_server.sh
 ```
 
-Or manually:
+或手动启动：
 ```bash
 cd sidecar
 .venv/bin/python whisper_server.py --model medium --device auto --compute-type float16 --port 8178
 ```
 
-### 3. Configure co-atc
+### 3. 配置 co-atc
 
-In `configs/config.toml`, set:
+在 `configs/config.toml` 中设置：
 ```toml
 [transcription]
 backend = "local"
@@ -129,9 +129,9 @@ server_url = "http://localhost:8178"
 model_size = "medium"
 ```
 
-Then rebuild and run co-atc as normal.
+然后正常重新构建并运行 co-atc。
 
-### 4. Download different models for testing
+### 4. 下载不同模型进行测试
 
 ```bash
 python scripts/download_whisper_model.py --model tiny
@@ -141,13 +141,13 @@ python scripts/download_whisper_model.py --model medium
 python scripts/download_whisper_model.py --model large-v3
 ```
 
-Models are cached in `~/.cache/huggingface/hub/` — download once, use forever.
+模型缓存在 `~/.cache/huggingface/hub/` —— 下载一次，永久使用。
 
 ---
 
-## Python Sidecar Design
+## Python 边车设计
 
-### File Structure
+### 文件结构
 
 ```
 sidecar/
@@ -156,20 +156,20 @@ sidecar/
 └── requirements.txt       # Python dependencies
 ```
 
-### API Endpoints
+### API 端点
 
 #### `POST /transcribe`
 
-Accepts raw PCM audio, returns transcription.
+接收原始 PCM 音频，返回转写。
 
-**Request:**
-- Body: raw PCM bytes (s16le format)
+**请求:**
+- Body: 原始 PCM 字节（s16le 格式）
 - Headers:
   - `Content-Type: application/octet-stream`
-  - `X-Sample-Rate: 24000` (or 16000 — sidecar resamples internally)
+  - `X-Sample-Rate: 24000`（或 16000 —— 边车在内部重采样）
   - `X-Channels: 1`
 
-**Response:**
+**响应:**
 ```json
 {
   "text": "Air Canada 123 contact Toronto Tower 118.7",
@@ -188,7 +188,7 @@ Accepts raw PCM audio, returns transcription.
 
 #### `GET /health`
 
-**Response:**
+**响应:**
 ```json
 {
   "status": "ok",
@@ -198,7 +198,7 @@ Accepts raw PCM audio, returns transcription.
 }
 ```
 
-### Key Implementation Details
+### 关键实现细节
 
 ```python
 from faster_whisper import WhisperModel
@@ -251,7 +251,7 @@ async def transcribe(request: Request, x_sample_rate: int = Header(24000)):
     }
 ```
 
-**Dependencies** (`sidecar/requirements.txt`):
+**依赖项**（`sidecar/requirements.txt`）：
 ```
 faster-whisper>=1.1.0
 fastapi>=0.104.0
@@ -260,21 +260,21 @@ numpy>=1.24.0
 scipy>=1.11.0
 ```
 
-Note: faster-whisper bundles CTranslate2 and Silero VAD — no separate torch install needed.
+注意：faster-whisper 捆绑了 CTranslate2 和 Silero VAD —— 无需单独安装 torch。
 
 ---
 
-## Go Integration Design
+## Go 集成设计
 
-### New Config Fields
+### 新的配置字段
 
-**`internal/config/config.go`** — Add to `TranscriptionConfig`:
+**`internal/config/config.go`** —— 添加到 `TranscriptionConfig`：
 ```go
 Backend string             `toml:"backend"` // "openai" (default) or "local"
 Local   LocalWhisperConfig `toml:"local"`
 ```
 
-New struct:
+新结构体：
 ```go
 type LocalWhisperConfig struct {
     ServerURL            string  `toml:"server_url"`             // Sidecar URL (default: http://localhost:8178)
@@ -292,9 +292,9 @@ type LocalWhisperConfig struct {
 }
 ```
 
-**Mirror** these fields in `internal/transcription/models.go` (the `transcription.Config` struct).
+在 `internal/transcription/models.go`（`transcription.Config` 结构体）中**镜像**这些字段。
 
-### TOML Config Example
+### TOML 配置示例
 
 ```toml
 [transcription]
@@ -322,7 +322,7 @@ timeout_seconds = 30               # HTTP timeout for sidecar requests
 
 ### LocalProcessor (`internal/transcription/local_processor.go`)
 
-Implements `ProcessorInterface` (same as the OpenAI `Processor`).
+实现 `ProcessorInterface`（与 OpenAI 的 `Processor` 相同）。
 
 ```go
 type LocalProcessor struct {
@@ -343,27 +343,27 @@ type LocalProcessor struct {
 }
 ```
 
-**Audio strategy — fixed-window with server-side VAD:**
+**音频策略 —— 固定窗口加服务端 VAD：**
 
-1. `processAudio()` goroutine reads from `audioReader` continuously, appends to `audioBuffer`
-2. `transcriptionLoop()` goroutine runs every `buffer_seconds`:
-   - Takes a snapshot of the buffer and clears it
-   - HTTP POSTs raw PCM to `sidecar_url/transcribe`
-   - Sidecar runs Silero VAD + faster-whisper
-   - If no speech detected → empty response → silently discard
-   - If speech found → store in SQLite, broadcast via WebSocket, write to FileLogger
-3. `max_buffer_seconds` prevents unbounded accumulation if sidecar is slow/down
+1. `processAudio()` 协程持续从 `audioReader` 读取，追加到 `audioBuffer`
+2. `transcriptionLoop()` 协程每 `buffer_seconds` 运行一次：
+   - 拍下缓冲区快照并清空
+   - 通过 HTTP POST 将原始 PCM 发送到 `sidecar_url/transcribe`
+   - 边车运行 Silero VAD + faster-whisper
+   - 如果未检测到语音 → 空响应 → 静默丢弃
+   - 如果检测到语音 → 存入 SQLite，通过 WebSocket 广播，写入 FileLogger
+3. `max_buffer_seconds` 防止边车响应慢/宕机时无限制累积
 
-**Shared logic extraction:**
+**共享逻辑提取：**
 
-The DB storage + WebSocket broadcast + FileLogger logic from `Processor.processTranscriptionEvent()` should be extracted into a shared helper so both processors use the same code path. This ensures identical behavior for:
-- SQLite `StoreTranscription()` calls
-- WebSocket `transcription` event broadcasts
-- File logging (raw transcription logs)
+应将 `Processor.processTranscriptionEvent()` 中的 DB 存储 + WebSocket 广播 + FileLogger 逻辑提取到共享辅助函数中，使两种处理器使用相同的代码路径。这确保以下行为一致：
+- SQLite `StoreTranscription()` 调用
+- WebSocket `transcription` 事件广播
+- 文件日志（原始转写日志）
 
-### Manager Branching (`internal/transcription/manager.go`)
+### Manager 分支（`internal/transcription/manager.go`）
 
-Two insertion points where `NewProcessor()` is called (lines 155 and 236):
+`NewProcessor()` 被调用的两个插入点（第 155 行和第 236 行）：
 
 ```go
 var processor ProcessorInterface
@@ -375,15 +375,15 @@ if m.transcriptionConfig.Backend == "local" {
 }
 ```
 
-**API key guard update** (manager.go:197): The check `if m.openAIAPIKey == ""` must be updated to also allow `backend == "local"` without an API key.
+**API key 守卫更新**（manager.go:197）：检查 `if m.openAIAPIKey == ""` 必须更新为也允许 `backend == "local"` 在没有 API key 的情况下运行。
 
-### Config Mapping (`internal/frequencies/service.go`)
+### 配置映射（`internal/frequencies/service.go`）
 
-Map `Backend` and `Local` fields through at ~line 511 where `transcription.Config` is constructed. Update the skip guard at ~line 198 for the local backend.
+在第 511 行附近构造 `transcription.Config` 的位置映射 `Backend` 和 `Local` 字段。在第 198 行附近为本地后端更新跳过守卫。
 
 ---
 
-## Setup Scripts Design
+## 安装脚本设计
 
 ### `scripts/setup_local_stt_windows.ps1`
 
@@ -399,22 +399,22 @@ Map `Backend` and `Local` fields through at ~line 511 where `transcription.Confi
 
 ### `scripts/setup_local_stt_linux.sh`
 
-Same logic, bash. Additional: detect CUDA via `nvidia-smi`, handle apt dependencies if needed (`python3-venv`).
+相同逻辑，bash 实现。附加：通过 `nvidia-smi` 检测 CUDA，如有需要处理 apt 依赖（`python3-venv`）。
 
 ### `scripts/setup_local_stt_mac.sh`
 
-Same logic, bash. **Important notes:**
-- CTranslate2 does NOT support MPS (Apple Silicon GPU) — CPU only
-- Recommend `compute_type = "int8"` for CPU performance
-- Recommend `model_size = "small"` for reasonable CPU latency
+相同逻辑，bash 实现。**重要说明：**
+- CTranslate2 不支持 MPS（Apple Silicon GPU）—— 仅 CPU
+- 推荐使用 `compute_type = "int8"` 以获得 CPU 性能
+- 推荐使用 `model_size = "small"` 以获得合理的 CPU 延迟
 
 ### `scripts/start_whisper_server.ps1` / `scripts/start_whisper_server.sh`
 
-Activate the venv, launch `sidecar/whisper_server.py` with configured arguments. Pass through CLI args.
+激活 venv，使用配置的参数启动 `sidecar/whisper_server.py`。透传 CLI 参数。
 
 ### `scripts/download_whisper_model.py`
 
-Download a specific model to the HuggingFace cache:
+下载特定模型到 HuggingFace 缓存：
 ```
 Usage: python scripts/download_whisper_model.py --model <size>
 Sizes: tiny, base, small, medium, large-v2, large-v3
@@ -422,115 +422,115 @@ Sizes: tiny, base, small, medium, large-v2, large-v3
 
 ---
 
-## Performance Expectations
+## 性能预期
 
-| Metric | OpenAI Cloud | Local (GPU, medium) | Local (CPU, small) |
+| 指标 | OpenAI 云端 | 本地（GPU，medium） | 本地（CPU，small） |
 |--------|--------------|--------------------|--------------------|
-| Latency (5s audio) | 500-1200ms | 200-500ms | 1-3s |
-| Cost | ~$0.006/min | $0 | $0 |
-| Accuracy (WER) | ~5-8% | ~7-10% | ~10-15% |
-| Offline capable | No | Yes | Yes |
-| GPU required | No | Recommended | No |
+| 延迟（5s 音频） | 500-1200ms | 200-500ms | 1-3s |
+| 成本 | ~$0.006/min | $0 | $0 |
+| 准确率 (WER) | ~5-8% | ~7-10% | ~10-15% |
+| 离线可用 | 否 | 是 | 是 |
+| 需要 GPU | 否 | 推荐 | 否 |
 
-**Latency note**: The buffer window adds fixed latency (default 5s). Total latency = buffer_seconds + inference_time. For ATC monitoring this is acceptable. Reduce `buffer_seconds` to 3 for faster response at the cost of more sidecar calls.
+**延迟说明**：缓冲窗口增加了固定延迟（默认 5s）。总延迟 = buffer_seconds + 推理时间。对于 ATC 监控这是可接受的。将 `buffer_seconds` 减少到 3 可获得更快响应，但会增加边车调用次数。
 
 ---
 
-## Error Handling
+## 错误处理
 
-| Scenario | Behavior |
+| 场景 | 行为 |
 |----------|----------|
-| Sidecar not running at startup | `LocalProcessor.Start()` health-checks sidecar; returns error, frequency skipped |
-| Sidecar crashes mid-operation | Log error, keep accumulating audio, retry on next flush cycle |
-| Empty transcription (silence) | Sidecar returns `{"text": ""}`, silently discarded |
-| Very long buffer (sidecar slow) | `max_buffer_seconds` forces flush, old audio discarded with warning |
-| Config `backend` empty/missing | Defaults to `"openai"` — fully backwards compatible |
+| 启动时边车未运行 | `LocalProcessor.Start()` 健康检查边车；返回错误，跳过该频率 |
+| 边车在运行中崩溃 | 记录错误，继续累积音频，下次刷新周期重试 |
+| 空转写（静默） | 边车返回 `{"text": ""}`，静默丢弃 |
+| 缓冲过长（边车响应慢） | `max_buffer_seconds` 强制刷新，旧音频丢弃并发出警告 |
+| 配置 `backend` 为空/缺失 | 默认为 `"openai"` —— 完全向后兼容 |
 
 ---
 
-## Implementation Phases
+## 实施阶段
 
-### Phase 1: Python Sidecar
-Create `sidecar/` directory with `whisper_server.py`, `config.py`, `requirements.txt`. Test standalone with curl.
+### 阶段 1：Python 边车
+创建 `sidecar/` 目录，包含 `whisper_server.py`、`config.py`、`requirements.txt`。使用 curl 进行独立测试。
 
-### Phase 2: Go Config
-Add `Backend`, `LocalWhisperConfig` to config structs. Update `config.toml.example`. Map through frequencies service.
+### 阶段 2：Go 配置
+将 `Backend`、`LocalWhisperConfig` 添加到配置结构体。更新 `config.toml.example`。通过 frequencies 服务进行映射。
 
-### Phase 3: Go LocalProcessor
-Extract shared transcription event handler. Create `local_processor.go`. Add backend branching in manager.
+### 阶段 3：Go LocalProcessor
+提取共享转写事件处理器。创建 `local_processor.go`。在 manager 中添加后端分支。
 
-### Phase 4: Setup Scripts & Docs
-Write setup scripts for all 3 platforms + model download script + start scripts. Update this doc with final details.
+### 阶段 4：安装脚本与文档
+为所有 3 个平台编写安装脚本 + 模型下载脚本 + 启动脚本。用最终细节更新本文档。
 
-### Phase 5: Integration Testing
-End-to-end: SRT/HTTP stream → Go → sidecar → SQLite → WebSocket → UI. Verify post-processing still works. Test backend switching.
+### 阶段 5：集成测试
+端到端：SRT/HTTP 流 → Go → 边车 → SQLite → WebSocket → UI。验证后处理仍能正常工作。测试后端切换。
 
 ---
 
-## Files Summary
+## 文件汇总
 
-### To Create
-| File | Purpose |
+### 待创建
+| 文件 | 用途 |
 |------|---------|
-| `sidecar/whisper_server.py` | FastAPI transcription server |
-| `sidecar/config.py` | Server configuration |
-| `sidecar/requirements.txt` | Python dependencies |
-| `internal/transcription/local_processor.go` | Go local processor |
-| `scripts/setup_local_stt_windows.ps1` | Windows setup |
-| `scripts/setup_local_stt_linux.sh` | Linux setup |
-| `scripts/setup_local_stt_mac.sh` | macOS setup |
-| `scripts/start_whisper_server.ps1` | Windows start script |
-| `scripts/start_whisper_server.sh` | Unix start script |
-| `scripts/download_whisper_model.py` | Model downloader |
+| `sidecar/whisper_server.py` | FastAPI 转写服务器 |
+| `sidecar/config.py` | 服务器配置 |
+| `sidecar/requirements.txt` | Python 依赖项 |
+| `internal/transcription/local_processor.go` | Go 本地处理器 |
+| `scripts/setup_local_stt_windows.ps1` | Windows 安装 |
+| `scripts/setup_local_stt_linux.sh` | Linux 安装 |
+| `scripts/setup_local_stt_mac.sh` | macOS 安装 |
+| `scripts/start_whisper_server.ps1` | Windows 启动脚本 |
+| `scripts/start_whisper_server.sh` | Unix 启动脚本 |
+| `scripts/download_whisper_model.py` | 模型下载器 |
 
-### To Modify
-| File | Change |
+### 待修改
+| 文件 | 变更 |
 |------|--------|
-| `internal/config/config.go` | Add `Backend`, `LocalWhisperConfig` |
-| `internal/transcription/models.go` | Mirror config fields |
-| `internal/transcription/interface.go` | Add `LocalProcessor` compile check |
-| `internal/transcription/processor.go` | Extract shared store/broadcast helper |
-| `internal/transcription/manager.go` | Backend branching logic |
-| `internal/frequencies/service.go` | Config mapping + API key guard |
-| `configs/config.toml.example` | New `[transcription.local]` section |
+| `internal/config/config.go` | 添加 `Backend`、`LocalWhisperConfig` |
+| `internal/transcription/models.go` | 镜像配置字段 |
+| `internal/transcription/interface.go` | 添加 `LocalProcessor` 编译时检查 |
+| `internal/transcription/processor.go` | 提取共享存储/广播辅助函数 |
+| `internal/transcription/manager.go` | 后端分支逻辑 |
+| `internal/frequencies/service.go` | 配置映射 + API key 守卫 |
+| `configs/config.toml.example` | 新的 `[transcription.local]` 章节 |
 
 ---
 
-## References
+## 参考资料
 
-- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — CTranslate2 Whisper implementation
-- [CTranslate2](https://github.com/OpenNMT/CTranslate2) — Fast inference engine for Transformer models
-- [Silero VAD](https://github.com/snakers4/silero-vad) — Voice Activity Detection (bundled in faster-whisper)
-- [FastAPI](https://fastapi.tiangolo.com/) — Python async web framework
-- [OpenAI Whisper](https://github.com/openai/whisper) — Original model architecture
+- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) —— 基于 CTranslate2 的 Whisper 实现
+- [CTranslate2](https://github.com/OpenNMT/CTranslate2) —— Transformer 模型的快速推理引擎
+- [Silero VAD](https://github.com/snakers4/silero-vad) —— 语音活动检测（已捆绑在 faster-whisper 中）
+- [FastAPI](https://fastapi.tiangolo.com/) —— Python 异步 Web 框架
+- [OpenAI Whisper](https://github.com/openai/whisper) —— 原始模型架构
 
 ---
 
-## Troubleshooting
+## 故障排查
 
-### Sidecar won't start
-- Ensure Python 3.10+ is installed: `python --version`
-- Ensure venv is activated: `sidecar/.venv/Scripts/activate` (Windows) or `source sidecar/.venv/bin/activate`
-- Check port 8178 is available: `netstat -an | findstr 8178`
+### 边车无法启动
+- 确保安装了 Python 3.10+：`python --version`
+- 确保 venv 已激活：`sidecar/.venv/Scripts/activate`（Windows）或 `source sidecar/.venv/bin/activate`
+- 检查端口 8178 是否可用：`netstat -an | findstr 8178`
 
-### CUDA not detected
-- Verify NVIDIA drivers: `nvidia-smi`
-- Verify CUDA toolkit: `nvcc --version`
-- faster-whisper needs CTranslate2 with CUDA — reinstall: `pip install ctranslate2 --force-reinstall`
-- Fallback: set `device = "cpu"` and `compute_type = "int8"`
+### 未检测到 CUDA
+- 验证 NVIDIA 驱动：`nvidia-smi`
+- 验证 CUDA 工具包：`nvcc --version`
+- faster-whisper 需要带 CUDA 的 CTranslate2 —— 重新安装：`pip install ctranslate2 --force-reinstall`
+- 回退方案：设置 `device = "cpu"` 和 `compute_type = "int8"`
 
-### Slow transcription
-- Use a smaller model (`small` instead of `medium`)
-- Use `int8` compute type (2x faster on CPU, slightly less accurate)
-- Reduce `beam_size` from 5 to 1 (faster, slightly less accurate)
-- Ensure you're using GPU if available (`device = "auto"`)
+### 转写缓慢
+- 使用更小的模型（`small` 而非 `medium`）
+- 使用 `int8` 计算类型（CPU 上快 2 倍，准确度略降）
+- 将 `beam_size` 从 5 减到 1（更快，准确度略降）
+- 如有可用 GPU 请确保使用（`device = "auto"`）
 
-### Empty transcriptions
-- Check `vad_threshold` — lower it (e.g., 0.3) if speech is being missed
-- Check audio is reaching the sidecar — look at Go logs for HTTP POST activity
-- Test sidecar directly: `curl -X POST http://localhost:8178/transcribe -H "Content-Type: application/octet-stream" --data-binary @test.pcm`
+### 空转写
+- 检查 `vad_threshold` —— 如果遗漏了语音，请降低（例如 0.3）
+- 检查音频是否到达边车 —— 查看 Go 日志中的 HTTP POST 活动
+- 直接测试边车：`curl -X POST http://localhost:8178/transcribe -H "Content-Type: application/octet-stream" --data-binary @test.pcm`
 
-### Model download issues
-- Models are downloaded from HuggingFace — ensure internet access during setup
-- Cache location: `~/.cache/huggingface/hub/`
-- Manual download: `python -c "from faster_whisper import WhisperModel; WhisperModel('medium')"`
+### 模型下载问题
+- 模型从 HuggingFace 下载 —— 安装期间确保有互联网连接
+- 缓存位置：`~/.cache/huggingface/hub/`
+- 手动下载：`python -c "from faster_whisper import WhisperModel; WhisperModel('medium')"`

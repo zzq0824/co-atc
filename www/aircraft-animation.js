@@ -1,20 +1,20 @@
 /**
- * Module: aircraft-animation
- * Why it exists:
- * - Smooths visual aircraft movement between sparse/non-uniform realtime updates.
- * - Reduces perceptual jitter by blending prediction, heading smoothing, and correction easing.
+ * 模块: aircraft-animation
+ * 存在原因:
+ * - 在稀疏/非均匀的实时更新之间平滑飞行器的视觉运动。
+ * - 通过混合预测、航向平滑和校正缓动来减少感知抖动。
  *
- * Key responsibilities:
- * - Maintain per-aircraft animation state and lifecycle.
- * - Predict short-horizon pose and merge toward real observations.
- * - Emit pose updates to the map manager at the configured interpolation cadence.
- * - Track runtime animation telemetry for debug/performance overlays.
+ * 主要职责:
+ * - 维护每架飞行器的动画状态和生命周期。
+ * - 预测短期姿态并向真实观测合并。
+ * - 以配置的插值节奏向地图管理器发出姿态更新。
+ * - 跟踪运行时动画遥测以便调试/性能覆盖层。
  *
- * Quirks / contracts:
- * - Prediction is intentionally conservative and bounded by deadbands/thresholds to
- *   avoid oscillation from noisy deltas.
- * - Designed to coexist with map upsert logic that preserves pose while smoothing
- *   is active; bypassing that contract causes visible snap-back artifacts.
+ * 特点 / 约定:
+ * - 预测是有意保守的，并由死区/阈值限制以
+ *   避免来自噪声增量的振荡。
+ * - 设计为与地图 upsert 逻辑共存，后者在平滑活动期间保留姿态；
+ *   绕过该约定将导致可见的位置回弹伪影。
  */
 class AircraftAnimationEngine {
     constructor(mapManager, store) {

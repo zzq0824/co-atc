@@ -10,36 +10,36 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// New message types for aircraft streaming
+// 飞行器流式传输的新消息类型
 const (
 	MessageTypeAircraftAdded           = "aircraft_added"
 	MessageTypeAircraftUpdate          = "aircraft_update"
 	MessageTypeAircraftRemoved         = "aircraft_removed"
 	MessageTypeAircraftPredictedState  = "aircraft_predicted_state"
-	MessageTypeAircraftBulkRequest     = "aircraft_bulk_request"     // Client requests bulk data
-	MessageTypeAircraftBulkResponse    = "aircraft_bulk_response"    // Server sends bulk data
-	MessageTypeFilterUpdate            = "filter_update"             // Client sends filter preferences
-	MessageTypeSimulationControlUpdate = "simulation_control_update" // Client updates simulation controls
-	MessageTypeFrequencyStatus         = "frequency_status"          // Frequency connection status changes
+	MessageTypeAircraftBulkRequest     = "aircraft_bulk_request"     // 客户端请求批量数据
+	MessageTypeAircraftBulkResponse    = "aircraft_bulk_response"    // 服务器发送批量数据
+	MessageTypeFilterUpdate            = "filter_update"             // 客户端发送过滤偏好
+	MessageTypeSimulationControlUpdate = "simulation_control_update" // 客户端更新模拟控制
+	MessageTypeFrequencyStatus         = "frequency_status"          // 频率连接状态变化
 )
 
-// Message represents a WebSocket message
+// Message 表示一条 WebSocket 消息
 type Message struct {
 	Type string                 `json:"type"`
 	Data map[string]interface{} `json:"data"`
 }
 
-// AircraftBulkRequest represents client request for bulk aircraft data
+// AircraftBulkRequest 表示客户端对批量飞行器数据的请求
 type AircraftBulkRequest struct {
-	Filters map[string]interface{} `json:"filters"` // Filter parameters
+	Filters map[string]interface{} `json:"filters"` // 过滤参数
 }
 
-// MessageHandler defines the interface for handling incoming WebSocket messages
+// MessageHandler 定义处理 WebSocket 入站消息的接口
 type MessageHandler interface {
 	HandleMessage(client *Client, messageType string, data map[string]interface{}) error
 }
 
-// Client represents a WebSocket client
+// Client 表示一个 WebSocket 客户端
 type Client struct {
 	conn      *websocket.Conn
 	send      chan *Message
@@ -49,7 +49,7 @@ type Client struct {
 	closeChan chan struct{}
 }
 
-// Server represents a WebSocket server
+// Server 表示一个 WebSocket 服务器
 type Server struct {
 	clients        map[*Client]bool
 	register       chan *Client
@@ -58,35 +58,35 @@ type Server struct {
 	upgrader       websocket.Upgrader
 	logger         *logger.Logger
 	mu             sync.RWMutex
-	messageHandler MessageHandler // Handler for incoming messages
+	messageHandler MessageHandler // 入站消息的处理器
 }
 
-// NewServer creates a new WebSocket server
+// NewServer 创建一个新的 WebSocket 服务器
 func NewServer(logger *logger.Logger) *Server {
 	return &Server{
 		clients:    make(map[*Client]bool),
-		register:   make(chan *Client, 32),   // Buffered to prevent goroutine blocking
-		unregister: make(chan *Client, 32),   // Buffered to prevent goroutine blocking
-		broadcast:  make(chan *Message, 512), // Buffered for high-throughput broadcasting
+		register:   make(chan *Client, 32),   // 带缓冲以防止 goroutine 阻塞
+		unregister: make(chan *Client, 32),   // 带缓冲以防止 goroutine 阻塞
+		broadcast:  make(chan *Message, 512), // 带缓冲用于高吞吐广播
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {
-				return true // Allow all origins
+				return true // 允许所有来源
 			},
 		},
 		logger: logger.Named("web-socket"),
 	}
 }
 
-// SetMessageHandler sets the message handler for incoming WebSocket messages
+// SetMessageHandler 为入站 WebSocket 消息设置消息处理器
 func (s *Server) SetMessageHandler(handler MessageHandler) {
 	s.messageHandler = handler
 }
 
-// Run starts the WebSocket server
+// Run 启动 WebSocket 服务器
 func (s *Server) Run() {
-	s.logger.Info("Starting WebSocket server")
+	s.logger.Info("正在启动 WebSocket 服务器")
 
 	for {
 		select {
@@ -95,28 +95,28 @@ func (s *Server) Run() {
 			s.clients[client] = true
 			clientCount := len(s.clients)
 			s.mu.Unlock()
-			s.logger.Debug("Client registered", String("client_count", fmt.Sprintf("%d", clientCount)))
+			s.logger.Debug("客户端已注册", String("client_count", fmt.Sprintf("%d", clientCount)))
 
 		case client := <-s.unregister:
 			s.mu.Lock()
 			if _, ok := s.clients[client]; ok {
 				delete(s.clients, client)
-				// Mark client as closed first to prevent new messages
+				// 先将客户端标记为已关闭,以防止新消息
 				client.mu.Lock()
 				client.closed = true
 				client.mu.Unlock()
-				// Then close the channel
+				// 然后关闭通道
 				close(client.send)
 			}
 			clientCount := len(s.clients)
 			s.mu.Unlock()
-			s.logger.Debug("Client unregistered", String("client_count", fmt.Sprintf("%d", clientCount)))
+			s.logger.Debug("客户端已注销", String("client_count", fmt.Sprintf("%d", clientCount)))
 
 		case message := <-s.broadcast:
 			s.mu.RLock()
 			clientsToRemove := make([]*Client, 0)
 			for client := range s.clients {
-				// Check if client is still valid before sending
+				// 在发送前检查客户端是否仍然有效
 				client.mu.Lock()
 				if client.closed {
 					clientsToRemove = append(clientsToRemove, client)
@@ -125,18 +125,18 @@ func (s *Server) Run() {
 				}
 				client.mu.Unlock()
 
-				// Send to all clients - filtering is done client-side
+				// 向所有客户端发送 - 过滤在客户端完成
 				select {
 				case client.send <- message:
-					// Message sent successfully
+					// 消息发送成功
 				default:
-					// Channel is full, mark for removal
+					// 通道已满,标记为待移除
 					clientsToRemove = append(clientsToRemove, client)
 				}
 			}
 			s.mu.RUnlock()
 
-			// Clean up failed clients
+			// 清理失败的客户端
 			if len(clientsToRemove) > 0 {
 				s.mu.Lock()
 				for _, client := range clientsToRemove {
@@ -156,25 +156,25 @@ func (s *Server) Run() {
 	}
 }
 
-// HandleConnection handles a WebSocket connection
+// HandleConnection 处理一个 WebSocket 连接
 func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
-	s.logger.Info("Handling new WebSocket connection request",
+	s.logger.Info("正在处理新的 WebSocket 连接请求",
 		String("remote_addr", r.RemoteAddr),
 		String("user_agent", r.UserAgent()))
 
-	// Upgrade HTTP connection to WebSocket
+	// 将 HTTP 连接升级为 WebSocket
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.logger.Error("Failed to upgrade connection",
+		s.logger.Error("升级连接失败",
 			Error(err),
 			String("remote_addr", r.RemoteAddr))
 		return
 	}
 
-	s.logger.Debug("Successfully upgraded connection to WebSocket",
+	s.logger.Debug("成功将连接升级为 WebSocket",
 		String("remote_addr", r.RemoteAddr))
 
-	// Create client
+	// 创建客户端
 	client := &Client{
 		conn:      conn,
 		send:      make(chan *Message, 256),
@@ -182,21 +182,21 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		closeChan: make(chan struct{}),
 	}
 
-	// Register client
+	// 注册客户端
 	s.register <- client
 
-	// Start client goroutines
+	// 启动客户端 goroutine
 	go client.readPump()
 	go client.writePump()
 }
 
-// Broadcast sends a message to all connected clients
+// Broadcast 向所有已连接的客户端发送一条消息
 func (s *Server) Broadcast(message *Message) {
-	//s.logger.Debug("Broadcasting message to all clients",
+	//s.logger.Debug("正在向所有客户端广播消息",
 	//	String("message_type", message.Type),
 	//	String("client_count", fmt.Sprintf("%d", len(s.clients))))
 
-	// Aircraft movement updates should be dispatched immediately (no server-side queueing)
+	// 飞行器移动更新应立即分发(无服务器端排队)
 	if message.Type == MessageTypeAircraftAdded || message.Type == MessageTypeAircraftUpdate || message.Type == MessageTypeAircraftRemoved || message.Type == MessageTypeAircraftPredictedState {
 		s.broadcastImmediate(message)
 		return
@@ -205,7 +205,7 @@ func (s *Server) Broadcast(message *Message) {
 	s.broadcast <- message
 }
 
-// broadcastImmediate sends a message directly to all clients without using the broadcast queue.
+// broadcastImmediate 不通过广播队列,直接将消息发送给所有客户端。
 func (s *Server) broadcastImmediate(message *Message) {
 	s.mu.RLock()
 	clientsToRemove := make([]*Client, 0)
@@ -241,7 +241,7 @@ func (s *Server) broadcastImmediate(message *Message) {
 	}
 }
 
-// readPump pumps messages from the WebSocket connection to the hub
+// readPump 将消息从 WebSocket 连接传输到 hub
 func (c *Client) readPump() {
 	defer func() {
 		c.mu.Lock()
@@ -255,7 +255,7 @@ func (c *Client) readPump() {
 	}()
 
 	for {
-		// Check if client is closed
+		// 检查客户端是否已关闭
 		c.mu.Lock()
 		if c.closed {
 			c.mu.Unlock()
@@ -263,34 +263,34 @@ func (c *Client) readPump() {
 		}
 		c.mu.Unlock()
 
-		// Read message
+		// 读取消息
 		_, messageBytes, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
-				c.server.logger.Error("WebSocket read error", Error(err))
+				c.server.logger.Error("WebSocket 读取错误", Error(err))
 			}
 			break
 		}
 
-		// Parse incoming message
+		// 解析入站消息
 		var message struct {
 			Type string                 `json:"type"`
 			Data map[string]interface{} `json:"data"`
 		}
 
 		if err := json.Unmarshal(messageBytes, &message); err != nil {
-			c.server.logger.Error("Failed to parse WebSocket message", Error(err))
+			c.server.logger.Error("解析 WebSocket 消息失败", Error(err))
 			continue
 		}
 
-		c.server.logger.Debug("Received WebSocket message",
+		c.server.logger.Debug("已接收 WebSocket 消息",
 			String("type", message.Type),
 			String("client", c.conn.RemoteAddr().String()))
 
-		// Handle message if handler is set
+		// 如果设置了处理器,处理消息
 		if c.server.messageHandler != nil {
 			if err := c.server.messageHandler.HandleMessage(c, message.Type, message.Data); err != nil {
-				c.server.logger.Error("Failed to handle WebSocket message",
+				c.server.logger.Error("处理 WebSocket 消息失败",
 					Error(err),
 					String("type", message.Type))
 			}
@@ -298,7 +298,7 @@ func (c *Client) readPump() {
 	}
 }
 
-// writePump pumps messages from the hub to the WebSocket connection
+// writePump 将消息从 hub 传输到 WebSocket 连接
 func (c *Client) writePump() {
 	defer func() {
 		c.mu.Lock()
@@ -313,7 +313,7 @@ func (c *Client) writePump() {
 		select {
 		case message, ok := <-c.send:
 			if !ok {
-				// Channel closed
+				// 通道已关闭
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -330,22 +330,22 @@ func (c *Client) writePump() {
 				return
 			}
 
-			// Marshal message to JSON
+			// 将消息序列化为 JSON
 			data, err := json.Marshal(message)
 			if err != nil {
-				c.server.logger.Error("Failed to marshal message", Error(err))
+				c.server.logger.Error("序列化消息失败", Error(err))
 				c.mu.Unlock()
 				continue
 			}
 
-			// Write message
-			//c.server.logger.Debug("Sending message to client",
+			// 写入消息
+			//c.server.logger.Debug("正在向客户端发送消息",
 			//	String("message_type", message.Type),
 			//	String("message_length", fmt.Sprintf("%d bytes", len(data))))
 
 			w.Write(data)
 
-			// Close writer
+			// 关闭 writer
 			if err := w.Close(); err != nil {
 				c.mu.Unlock()
 				return
@@ -358,7 +358,7 @@ func (c *Client) writePump() {
 	}
 }
 
-// Close closes the client connection
+// Close 关闭客户端连接
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -372,27 +372,27 @@ func (c *Client) Close() {
 	c.conn.Close()
 }
 
-// SendMessage sends a message to this specific client
+// SendMessage 向该特定客户端发送消息
 func (c *Client) SendMessage(message *Message) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Check if client is closed
+	// 检查客户端是否已关闭
 	if c.closed {
 		return false
 	}
 
-	// Try to send message with non-blocking select
+	// 使用非阻塞 select 尝试发送消息
 	select {
 	case c.send <- message:
 		return true
 	default:
-		// Channel is full, drop message
+		// 通道已满,丢弃消息
 		return false
 	}
 }
 
-// Import logger functions
+// 导入 logger 函数
 var (
 	String = logger.String
 	Error  = logger.Error

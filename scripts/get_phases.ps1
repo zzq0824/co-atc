@@ -1,10 +1,10 @@
 param([string]$hex = "c0884e", [int]$port = 8000)
 $r = Invoke-RestMethod "http://127.0.0.1:${port}/api/v1/aircraft/${hex}/tracks?limit=1000"
 
-Write-Output "=== Phase History ==="
+Write-Output "=== 阶段历史 ==="
 $r.phase_history | Format-Table phase, timestamp -AutoSize
 
-Write-Output "`n=== Track data (first 60 + last 20) ==="
+Write-Output "`n=== 轨迹数据(前 60 条 + 后 20 条) ==="
 Write-Output "Timestamp            | Alt    | GS     | VS    | Dist  | Hdg    | OnGnd"
 Write-Output "---------------------+--------+--------+-------+-------+--------+------"
 $h = $r.history

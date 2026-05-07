@@ -1,42 +1,41 @@
 package adsb
 
 /*
-FLIGHT PHASE DETECTION SYSTEM
+飞行阶段检测系统
 ==============================
 
-The Co-ATC system uses a two-tier approach for flight phase detection:
+Co-ATC 系统使用两层方法进行飞行阶段检测:
 
-  PRIORITY 1 — Immediate ground state transitions (T/O and T/D)
-    Detected instantly when the OnGround state flips via IsFlying().
-    These are binary state changes that do not benefit from trajectory analysis.
+  优先级 1 — 立即地面状态切换(T/O 与 T/D)
+    通过 IsFlying() 检测 OnGround 状态翻转时立即识别。
+    这些是二元状态变化,无需借助轨迹分析。
 
-  PRIORITY 2 — All other phases via trajectory analysis
-    The TrajectoryTracker (trajectory.go, trajectory_phase.go) maintains a rolling
-    window of ~90 seconds of ADS-B observations per aircraft and uses statistical
-    analysis (OLS regression, median filtering, distance trends) to classify each
-    aircraft into one of 10 phases:
+  优先级 2 — 其他所有阶段通过轨迹分析
+    TrajectoryTracker(trajectory.go, trajectory_phase.go)为每架飞行器维护一个
+    约 90 秒滚动窗口的 ADS-B 观测数据,并使用统计分析(OLS 回归、中值滤波、距离趋势)
+    将每架飞行器分类到 10 个阶段之一:
 
-      NEW — Newly detected or parked on ground
-      TAX — Taxiing (1–50 kts ground speed)
-      T/O — Takeoff (ground→air transition, preserved for UI visibility)
-      CLB — Initial climb out (runway heading, near airport, hasRecentTakeoff)
-      DEP — Departure (climbing away, below cruise — general)
-      CRZ — Cruise (above cruise altitude)
-      ARR — Arrival (approaching station, below cruise, descending/level)
-      APP — Approach (on final, descending, runway-aligned)
-      T/D — Touchdown (air→ground transition, preserved for UI visibility)
-      UNK — Unknown (airborne but doesn't match any specific condition)
+      NEW — 新检测到或停于地面
+      TAX — 滑行中(1–50 节地速)
+      T/O — 起飞(地面→空中切换,为 UI 可见性保留)
+      CLB — 初始爬升(跑道航向、靠近机场、hasRecentTakeoff)
+      DEP — 离场(爬升远离、低于巡航 — 通用)
+      CRZ — 巡航(高于巡航高度)
+      ARR — 进场(接近站点、低于巡航、下降/平飞)
+      APP — 进近(在最后进近、下降、对齐跑道)
+      T/D — 着陆(空中→地面切换,为 UI 可见性保留)
+      UNK — 未知(在空但不匹配任何具体条件)
 
-  ARR is NOT a catch-all — it requires the aircraft to be genuinely approaching
-  the station. UNK is the honest catch-all for anything that doesn't match.
+  ARR 不是兜底类别 — 它要求飞行器确实正在接近站点。
+  UNK 是诚实的兜底类别,用于任何不匹配的情况。
 
-SPECIAL FEATURES:
-  - Trajectory-based noise resistance: decisions use windowed trends, not single readings
-  - Signal Lost Landing: auto-marks aircraft as landed when signal lost near airport,
-    enhanced by trajectory descent trend analysis
-  - Phase Preservation: T/O and T/D kept visible for configurable duration
-  - Sensor Data Validation: corrects erroneous readings before trajectory ingestion
-  - Data gap detection: handles coverage gaps without spurious phase flips
+特殊功能:
+  - 基于轨迹的抗噪声:决策基于窗口趋势,而非单次读数
+  - 失联着陆:当飞行器在机场附近失联时自动标记为已着陆,
+    通过轨迹下降趋势分析增强
+  - 阶段保留:T/O 与 T/D 在可配置时长内保持可见
+  - 传感器数据校验:在轨迹摄入前修正错误读数
+  - 数据间隔检测:处理覆盖间隔而不产生虚假阶段切换
 */
 
 import (
@@ -134,19 +133,19 @@ func normalizeRealtimeAircraft(aircraft *Aircraft) *Aircraft {
 	return &clone
 }
 
-// WebSocketServer defines the interface for a WebSocket server
+// WebSocketServer 定义 WebSocket 服务的接口
 type WebSocketServer interface {
 	Broadcast(message *websocket.Message)
 }
 
-// ReferenceService defines the interface for reference data lookups (aircraft, airlines)
+// ReferenceService 定义参考数据查询服务的接口(飞行器、航司)
 type ReferenceService interface {
 	LookupAircraft(hex string) *ReferenceAircraftInfo
 	LookupAirline(code string) string
 	LookupAirlineCountry(code string) string
 }
 
-// ReferenceAircraftInfo represents aircraft info from the reference data service
+// ReferenceAircraftInfo 表示来自参考数据服务的飞行器信息
 type ReferenceAircraftInfo struct {
 	Hex               string
 	Registration      string
@@ -156,11 +155,11 @@ type ReferenceAircraftInfo struct {
 	Owner             string
 }
 
-// Storage defines the interface for aircraft data storage
+// Storage 定义飞行器数据存储的接口
 type Storage interface {
 	GetAll() []*Aircraft
 	GetAllWithLastSeenFilter(lastSeenMinutes int) []*Aircraft
-	GetAllMinimal(lastSeenMinutes int) []*Aircraft // Minimal mode: skips phase history and date queries
+	GetAllMinimal(lastSeenMinutes int) []*Aircraft // 最小化模式:跳过阶段历史与日期查询
 	GetByHex(hex string) (*Aircraft, bool)
 	GetFiltered(
 		minAltitude, maxAltitude float64,
@@ -172,7 +171,7 @@ type Storage interface {
 	GetAllPositionHistory(hex string) ([]Position, error)
 	GetPositionHistoryWithLimit(hex string, limit int) ([]Position, error)
 
-	// Phase change methods
+	// 阶段变化方法
 	InsertPhaseChange(hex, flight, phase string, timestamp time.Time, adsbId *int) error
 	GetPhaseHistory(hex string) ([]PhaseChange, error)
 	GetCurrentPhase(hex string) (*PhaseChange, error)
@@ -180,32 +179,32 @@ type Storage interface {
 	GetLatestLandingTime(hex string) (*time.Time, error)
 	GetLatestADSBTargetID(hex string) (*int, error)
 
-	// Batch phase change methods for performance optimization
+	// 用于性能优化的批量阶段变化方法
 	GetCurrentPhasesBatch(hexCodes []string) (map[string]*PhaseChange, error)
 	GetLatestADSBTargetIDsBatch(hexCodes []string) (map[string]*int, error)
 	InsertPhaseChangesBatch(changes []PhaseChangeInsert) error
 
-	// Batch methods for fetch hot path optimization
+	// 用于获取热路径优化的批量方法
 	GetAircraftOnGroundBatch(hexCodes []string) (map[string]bool, error)
 	GetLatestADSBDataBatch(hexCodes []string) (map[string]*ADSBTarget, error)
 	GetLatestTakeoffTimesBatch(hexCodes []string) (map[string]*time.Time, error)
 	GetLatestLandingTimesBatch(hexCodes []string) (map[string]*time.Time, error)
 
-	// Targeted query for inactive aircraft status updates
+	// 针对非活跃飞行器状态更新的定向查询
 	GetStaleActiveAircraft(activeHexCodes []string, cutoff time.Time) ([]*Aircraft, error)
 }
 
-// SimulationService defines the interface for simulation service
+// SimulationService 定义模拟服务的接口
 type SimulationService interface {
 	UpdatePositions()
 	GenerateADSBData() []ADSBTarget
 	IsSimulated(hex string) bool
-	GetAllAircraft() interface{}                                           // Returns simulation aircraft data
-	GetAircraft(hex string) (interface{}, bool)                            // Returns specific simulated aircraft
-	UpdateControls(hex string, heading, speed, verticalRate float64) error // Update simulation controls
+	GetAllAircraft() interface{}                                           // 返回模拟飞行器数据
+	GetAircraft(hex string) (interface{}, bool)                            // 返回特定的模拟飞行器
+	UpdateControls(hex string, heading, speed, verticalRate float64) error // 更新模拟控制
 }
 
-// Service is the main service for ADS-B data processing
+// Service 是 ADS-B 数据处理的主服务
 type Service struct {
 	client             *Client
 	storage            Storage
@@ -216,31 +215,31 @@ type Service struct {
 	mu                 sync.RWMutex
 	stopCh             chan struct{}
 	wg                 sync.WaitGroup
-	refService         ReferenceService          // Reference data lookup service
-	stationLat         float64                   // Station latitude from config
-	stationLon         float64                   // Station longitude from config
-	stationElevFeet    float64                   // Station elevation in feet
-	overrideLat        *float64                  // Override station latitude (nil = use config)
-	overrideLon        *float64                  // Override station longitude (nil = use config)
-	overrideMutex      sync.RWMutex              // Protect override coordinates
-	wsServer           WebSocketServer           // WebSocket server for broadcasting events
-	signalLostTimeout  time.Duration             // Time after which aircraft is marked as signal_lost
-	runwayData         RunwayData                // Runway data for approach detection
-	flightPhasesConfig config.FlightPhasesConfig // Flight phases configuration
-	changeDetector     *ChangeDetector           // Tracks aircraft changes
-	broadcastChan      chan []AircraftChange     // Channel for broadcasting changes
-	simulationService  SimulationService         // Simulation service for simulated aircraft
-	trajectoryTracker  *TrajectoryTracker        // Trajectory-based phase detection
+	refService         ReferenceService          // 参考数据查询服务
+	stationLat         float64                   // 配置中的站点纬度
+	stationLon         float64                   // 配置中的站点经度
+	stationElevFeet    float64                   // 站点海拔(英尺)
+	overrideLat        *float64                  // 覆盖站点纬度(nil = 使用配置)
+	overrideLon        *float64                  // 覆盖站点经度(nil = 使用配置)
+	overrideMutex      sync.RWMutex              // 保护覆盖坐标
+	wsServer           WebSocketServer           // 用于广播事件的 WebSocket 服务
+	signalLostTimeout  time.Duration             // 飞行器被标记为 signal_lost 的超时时间
+	runwayData         RunwayData                // 用于进近检测的跑道数据
+	flightPhasesConfig config.FlightPhasesConfig // 飞行阶段配置
+	changeDetector     *ChangeDetector           // 跟踪飞行器变化
+	broadcastChan      chan []AircraftChange     // 广播变化的通道
+	simulationService  SimulationService         // 用于模拟飞行器的模拟服务
+	trajectoryTracker  *TrajectoryTracker        // 基于轨迹的阶段检测
 }
 
-// AircraftBulkResponse represents server response with bulk aircraft data
+// AircraftBulkResponse 表示包含批量飞行器数据的服务响应
 type AircraftBulkResponse struct {
 	Aircraft []*Aircraft    `json:"aircraft"`
 	Count    int            `json:"count"`
 	Counts   AircraftCounts `json:"counts"`
 }
 
-// NewService creates a new ADS-B service
+// NewService 创建新的 ADS-B 服务
 func NewService(
 	client *Client,
 	storage Storage,
@@ -252,10 +251,10 @@ func NewService(
 	wsServer WebSocketServer,
 	simulationService SimulationService,
 ) *Service {
-	// Set default signal lost timeout if not configured
+	// 如未配置则设置默认失联超时
 	signalLostTimeout := time.Duration(adsbCfg.SignalLostTimeoutSecs) * time.Second
 	if signalLostTimeout == 0 {
-		signalLostTimeout = 60 * time.Second // Default to 60 seconds
+		signalLostTimeout = 60 * time.Second // 默认 60 秒
 	}
 
 	service := &Service{
@@ -273,11 +272,11 @@ func NewService(
 		simulationService:  simulationService,
 	}
 
-	// Always enable WebSocket streaming for aircraft updates
-	logger.Info("Initializing WebSocket change detection for aircraft streaming")
+	// 始终为飞行器更新启用 WebSocket 流
+	logger.Info("初始化用于飞行器流的 WebSocket 变更检测")
 	service.changeDetector = NewChangeDetector(logger)
 
-	// Set the config for the prediction function
+	// 为预测函数设置配置
 	predictionConfig := &Config{
 		Station: struct {
 			Latitude  float64
@@ -289,13 +288,13 @@ func NewService(
 	}
 	SetConfig(predictionConfig)
 
-	// Initialize trajectory tracker for phase detection
+	// 初始化用于阶段检测的轨迹跟踪器
 	if flightPhasesConfig.Enabled {
 		fetchIntervalSec := adsbCfg.FetchIntervalSecs
 		if fetchIntervalSec < 1 {
 			fetchIntervalSec = 1
 		}
-		bufferCap := flightPhasesConfig.TrajectoryBufferDurationSec/fetchIntervalSec + 10 // +10 margin
+		bufferCap := flightPhasesConfig.TrajectoryBufferDurationSec/fetchIntervalSec + 10 // +10 余量
 		service.trajectoryTracker = NewTrajectoryTracker(
 			TrajectoryConfig{
 				BufferDurationSec:       flightPhasesConfig.TrajectoryBufferDurationSec,
@@ -322,7 +321,7 @@ func NewService(
 	return service
 }
 
-// startBroadcastWorker starts the worker that broadcasts aircraft changes via WebSocket
+// startBroadcastWorker 启动通过 WebSocket 广播飞行器变化的工作协程
 func (s *Service) startBroadcastWorker() {
 	go func() {
 		for changes := range s.broadcastChan {
@@ -333,7 +332,7 @@ func (s *Service) startBroadcastWorker() {
 	}()
 }
 
-// broadcastAircraftChange broadcasts a single aircraft change via WebSocket
+// broadcastAircraftChange 通过 WebSocket 广播单个飞行器变化
 func (s *Service) broadcastAircraftChange(change AircraftChange) {
 	var messageType string
 	switch change.Type {
@@ -356,9 +355,9 @@ func (s *Service) broadcastAircraftChange(change AircraftChange) {
 	}
 	data["observed_at"] = observedAt.Format(time.RFC3339Nano)
 
-	// For "added", send full aircraft object
-	// For "updated", send only the delta (changed fields)
-	// For "removed", just send hex
+	// 对于 "added",发送完整的飞行器对象
+	// 对于 "updated",仅发送增量(变化字段)
+	// 对于 "removed",仅发送 hex
 	if change.Aircraft != nil {
 		data["aircraft"] = normalizeRealtimeAircraft(change.Aircraft)
 	}
@@ -376,8 +375,8 @@ func (s *Service) broadcastAircraftChange(change AircraftChange) {
 	}
 }
 
-// predictionBroadcastLoop periodically publishes trajectory-based predicted states
-// so clients can animate smoothly between real ADS-B polls.
+// predictionBroadcastLoop 定期发布基于轨迹的预测状态,
+// 以便客户端能在真实 ADS-B 轮询间隔中平滑动画。
 func (s *Service) predictionBroadcastLoop(ctx context.Context) {
 	defer s.wg.Done()
 
@@ -428,12 +427,12 @@ func (s *Service) predictionBroadcastLoop(ctx context.Context) {
 	}
 }
 
-// sendPhaseChangeAlert sends a phase change alert via WebSocket
+// sendPhaseChangeAlert 通过 WebSocket 发送阶段变化告警
 func (s *Service) sendPhaseChangeAlert(aircraft *Aircraft, fromPhase, toPhase string, runwayInfo *RunwayApproachInfo) {
 	s.sendPhaseChangeAlertWithEvent(aircraft, fromPhase, toPhase, "phase_change", runwayInfo)
 }
 
-// sendPhaseChangeAlertWithEvent sends a phase change alert with event type via WebSocket
+// sendPhaseChangeAlertWithEvent 通过 WebSocket 发送带事件类型的阶段变化告警
 func (s *Service) sendPhaseChangeAlertWithEvent(aircraft *Aircraft, fromPhase, toPhase, eventType string, runwayInfo *RunwayApproachInfo) {
 	if s.wsServer != nil {
 		lat, lon, _ := aircraft.ADSB.Position()
@@ -464,7 +463,7 @@ func (s *Service) sendPhaseChangeAlertWithEvent(aircraft *Aircraft, fromPhase, t
 			},
 		})
 
-		s.logger.Info("Phase change alert sent",
+		s.logger.Info("已发送阶段变化告警",
 			logger.String("hex", aircraft.Hex),
 			logger.String("flight", aircraft.Flight),
 			logger.String("transition", fromPhase+" → "+toPhase),
@@ -475,25 +474,25 @@ func (s *Service) sendPhaseChangeAlertWithEvent(aircraft *Aircraft, fromPhase, t
 	}
 }
 
-// Start starts the ADS-B service
+// Start 启动 ADS-B 服务
 func (s *Service) Start(ctx context.Context) error {
-	s.logger.Info("Starting ADS-B service",
+	s.logger.Info("启动 ADS-B 服务",
 		logger.Duration("fetch_interval", s.fetchInterval),
 	)
 
-	// Initial fetch
+	// 初次获取
 	if err := s.fetchAndProcess(ctx); err != nil {
-		s.logger.Error("Failed to fetch initial ADS-B data", logger.Error(err))
+		s.logger.Error("获取初始 ADS-B 数据失败", logger.Error(err))
 		s.setFetchStatus(false)
-		return fmt.Errorf("failed initial ADS-B fetch: %w", err)
+		return fmt.Errorf("初次 ADS-B 获取失败: %w", err)
 	}
 	s.setFetchStatus(true)
 
-	// Start background fetching
+	// 启动后台获取
 	s.wg.Add(1)
 	go s.fetchLoop(ctx)
 
-	// Start background prediction streaming (between ADS-B polls)
+	// 启动后台预测流(在 ADS-B 轮询间隔之间)
 	if s.trajectoryTracker != nil && s.wsServer != nil {
 		s.wg.Add(1)
 		go s.predictionBroadcastLoop(ctx)
@@ -502,18 +501,18 @@ func (s *Service) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop stops the ADS-B service
+// Stop 停止 ADS-B 服务
 func (s *Service) Stop() {
-	s.logger.Info("Stopping ADS-B service")
+	s.logger.Info("正在停止 ADS-B 服务")
 	close(s.stopCh)
 	s.wg.Wait()
 	if s.trajectoryTracker != nil {
 		s.trajectoryTracker.Stop()
 	}
-	s.logger.Info("ADS-B service stopped")
+	s.logger.Info("ADS-B 服务已停止")
 }
 
-// fetchLoop periodically fetches and processes ADS-B data
+// fetchLoop 定期获取并处理 ADS-B 数据
 func (s *Service) fetchLoop(ctx context.Context) {
 	defer s.wg.Done()
 
@@ -524,7 +523,7 @@ func (s *Service) fetchLoop(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			if err := s.fetchAndProcess(ctx); err != nil {
-				s.logger.Error("Failed to fetch ADS-B data", logger.Error(err))
+				s.logger.Error("获取 ADS-B 数据失败", logger.Error(err))
 				s.setFetchStatus(false)
 			} else {
 				s.setFetchStatus(true)
@@ -537,42 +536,42 @@ func (s *Service) fetchLoop(ctx context.Context) {
 	}
 }
 
-// fetchAndProcess fetches and processes ADS-B data
+// fetchAndProcess 获取并处理 ADS-B 数据
 func (s *Service) fetchAndProcess(ctx context.Context) error {
-	// Fetch raw data
+	// 获取原始数据
 	rawData, err := s.client.FetchData(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Update simulated aircraft positions and inject simulated data
+	// 更新模拟飞行器位置并注入模拟数据
 	if s.simulationService != nil {
 		s.simulationService.UpdatePositions()
 		simulatedTargets := s.simulationService.GenerateADSBData()
 
-		// Append simulated aircraft to raw data
+		// 将模拟飞行器追加到原始数据
 		rawData.Aircraft = append(rawData.Aircraft, simulatedTargets...)
 
-		s.logger.Debug("Injected simulated aircraft into ADSB data",
+		s.logger.Debug("已将模拟飞行器注入 ADSB 数据",
 			logger.Int("count", len(simulatedTargets)))
 	}
 
-	// Process raw data (now includes simulated aircraft)
+	// 处理原始数据(现在包含模拟飞行器)
 	newAircraft := s.ProcessRawData(rawData)
 
-	// Create a map of active aircraft hex codes
+	// 创建活跃飞行器 hex 代码的映射
 	activeAircraft := make(map[string]bool)
 	for _, a := range newAircraft {
 		activeAircraft[a.Hex] = true
 	}
 
-	// Collect all hex codes for batch operations
+	// 收集所有 hex 代码以用于批量操作
 	hexCodes := make([]string, len(newAircraft))
 	for i, a := range newAircraft {
 		hexCodes[i] = a.Hex
 	}
 
-	// PERFORMANCE: Batch queries replace ~8000 per-aircraft queries with 6 batch queries per cycle
+	// 性能优化:批量查询将每周期 ~8000 次单飞行器查询替换为 6 次批量查询
 	existingOnGround, _ := s.storage.GetAircraftOnGroundBatch(hexCodes)
 	existingADSB, _ := s.storage.GetLatestADSBDataBatch(hexCodes)
 	takeoffTimes, _ := s.storage.GetLatestTakeoffTimesBatch(hexCodes)
@@ -580,9 +579,9 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 	currentPhases, _ := s.storage.GetCurrentPhasesBatch(hexCodes)
 	adsbTargetIDs, _ := s.storage.GetLatestADSBTargetIDsBatch(hexCodes)
 
-	// Process each aircraft for ground state determination and takeoff/landing detection
+	// 处理每架飞行器以确定地面状态及起飞/着陆检测
 	for _, a := range newAircraft {
-		// Check if aircraft exists in database using pre-fetched batch data
+		// 使用预获取的批量数据检查飞行器是否在数据库中存在
 		_, found := existingOnGround[a.Hex]
 
 		var prevTAS, prevGS, prevAlt float64
@@ -594,7 +593,7 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 			}
 		}
 
-		// Validate and correct sensor data for potential errors
+		// 校验并修正传感器数据中的潜在错误
 		currentTAS := NumberOrZero(a.ADSB.TAS)
 		currentGS := NumberOrZero(a.ADSB.GS)
 		lat, lon, _ := a.ADSB.Position()
@@ -606,11 +605,11 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 			&s.flightPhasesConfig,
 		)
 
-		// Apply corrected values back to ADSB data so the entire pipeline
-		// (phase detection, DB storage, change detector) uses consistent corrected data
+		// 将修正值应用回 ADSB 数据,使整个流水线
+		// (阶段检测、数据库存储、变更检测器)使用一致的修正数据
 		if correctedTAS != currentTAS || correctedGS != currentGS || correctedAlt != a.ADSB.AltBaro.Float64() {
 			if found {
-				s.logger.Debug("Sensor data corrected",
+				s.logger.Debug("传感器数据已修正",
 					logger.String("hex", a.Hex),
 					logger.String("flight", a.Flight),
 					logger.Float64("original_tas", currentTAS),
@@ -633,20 +632,19 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 		}
 
 		if a.ADSB.SourceType == SourceTypeExternalOpenSky && a.ADSB.OnGroundReported != nil {
-			// Prefer source-provided OpenSky on_ground when available.
+			// 在可用时优先使用源提供的 OpenSky on_ground。
 			a.OnGround = *a.ADSB.OnGroundReported
 		} else {
-			// Determine if aircraft is currently flying using corrected values and config
+			// 使用修正值与配置判断飞行器当前是否在飞行
 			currentlyFlying := IsFlying(NumberOrZero(a.ADSB.TAS), NumberOrZero(a.ADSB.GS), a.ADSB.AltBaro.Float64(), &s.flightPhasesConfig)
 
-			// Guard against false on_ground from missing data: Mode S first contacts may
-			// report zero altitude, zero speed, and no position. That's "no data available",
-			// not "on the ground". Defaulting to on_ground here would cause a false T/O
-			// when real data arrives on the next cycle.
+			// 防止因缺失数据而误判 on_ground:Mode S 首次接触时可能上报
+			// 零高度、零速度且无位置。这是"无可用数据",而不是"在地面"。
+			// 此处默认为 on_ground 会导致下一周期真实数据到达时产生假 T/O。
 			noUsableData := a.ADSB.AltBaro.Float64() == 0 && NumberOrZero(a.ADSB.GS) == 0 && NumberOrZero(a.ADSB.TAS) == 0
 			if noUsableData {
-				// No sensor data at all — preserve previous ground state if known,
-				// otherwise assume airborne (safer than triggering false T/O later)
+				// 完全没有传感器数据 — 已知则保留先前的地面状态,
+				// 否则假设在空中(比之后触发假 T/O 更安全)
 				if prevOnGround, known := existingOnGround[a.Hex]; known {
 					a.OnGround = prevOnGround
 				} else {
@@ -657,19 +655,19 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 			}
 		}
 
-		// Feed corrected data into trajectory tracker for phase analysis
+		// 将修正后的数据送入轨迹跟踪器用于阶段分析
 		if s.trajectoryTracker != nil && a.ADSB != nil {
 			snap := TrajectorySnapshotFromADSB(a.ADSB, a.OnGround, time.Now().UTC())
 			s.trajectoryTracker.Ingest(a.Hex, snap)
 		}
 
 		if found {
-			// Use pre-fetched takeoff and landing times
+			// 使用预获取的起飞与着陆时间
 			a.DateTookoff = takeoffTimes[a.Hex]
 			a.DateLanded = landingTimes[a.Hex]
 		} else {
-			// New aircraft — log and send WebSocket notification
-			s.logger.Info("New aircraft detected",
+			// 新飞行器 — 记录日志并发送 WebSocket 通知
+			s.logger.Info("检测到新飞行器",
 				logger.String("hex", a.Hex),
 				logger.String("flight", a.Flight),
 				logger.Float64("altitude", a.ADSB.AltBaro.Float64()),
@@ -691,44 +689,44 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 		}
 	}
 
-	// PRIORITY 1: Handle immediate ground state transitions (takeoff/landing)
+	// 优先级 1:处理立即地面状态切换(起飞/着陆)
 	immediatePhaseChanges := s.detectGroundStateTransitions(newAircraft, existingOnGround, currentPhases, adsbTargetIDs)
 	if len(immediatePhaseChanges) > 0 {
 		err := s.storage.InsertPhaseChangesBatch(immediatePhaseChanges)
 		if err != nil {
-			s.logger.Error("Failed to insert immediate ground transition phases", logger.Error(err))
+			s.logger.Error("插入立即地面切换阶段失败", logger.Error(err))
 		} else {
 			s.sendImmediateGroundTransitionAlerts(immediatePhaseChanges)
 		}
 	}
 
-	// Update all aircraft in the database
+	// 更新数据库中的所有飞行器
 	for _, a := range newAircraft {
 		s.storage.Upsert(a)
 	}
 
-	// Update status of existing aircraft that are no longer active
+	// 更新已不再活跃的现有飞行器的状态
 	s.updateAircraftStatus(activeAircraft)
 
-	// PRIORITY 2: Handle all other phase changes (normal phase detection)
+	// 优先级 2:处理所有其他阶段变化(常规阶段检测)
 	newPhaseChanges := s.processPhaseChangesBatch(newAircraft, immediatePhaseChanges, currentPhases, adsbTargetIDs, takeoffTimes)
 
 	s.setLastFetchTime(time.Now().UTC())
 
-	// Detect and broadcast changes using enriched newAircraft (no DB read)
+	// 使用增强的 newAircraft 检测并广播变化(无需读数据库)
 	if s.changeDetector != nil {
-		// Enrich newAircraft with phase data from batch + new changes
+		// 用批量数据 + 新变化的阶段数据增强 newAircraft
 		phaseMap := make(map[string]PhaseChange)
 		for hex, phase := range currentPhases {
 			if phase != nil {
 				phaseMap[hex] = *phase
 			}
 		}
-		// Override with immediate phase changes
+		// 用立即阶段变化覆盖
 		for _, change := range immediatePhaseChanges {
 			phaseMap[change.Hex] = PhaseChange{Phase: change.Phase, Timestamp: change.Timestamp}
 		}
-		// Override with newly detected phase changes
+		// 用新检测到的阶段变化覆盖
 		for _, change := range newPhaseChanges {
 			phaseMap[change.Hex] = PhaseChange{Phase: change.Phase, Timestamp: change.Timestamp}
 		}
@@ -738,12 +736,12 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 			}
 		}
 
-		// Enrich with BSDB and simulation data (in-memory lookups)
+		// 使用 BSDB 和模拟数据进行增强(内存查询)
 		s.enrichWithRefData(newAircraft)
 		s.updateSimulationFields(newAircraft)
 		s.enrichWithATCDerivedData(newAircraft)
 
-		// Overlay trajectory-based predictions (computed fresh after phase detection)
+		// 叠加基于轨迹的预测(在阶段检测后重新计算)
 		if s.trajectoryTracker != nil {
 			for _, a := range newAircraft {
 				if forecast := s.trajectoryTracker.GetForecast(a.Hex); len(forecast) > 0 {
@@ -757,7 +755,7 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 
 		changes := s.changeDetector.DetectChanges(newAircraft)
 		if len(changes) > 0 {
-			s.logger.Debug("Detected aircraft changes",
+			s.logger.Debug("检测到飞行器变化",
 				logger.Int("change_count", len(changes)))
 
 			for _, change := range changes {
@@ -766,7 +764,7 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 		}
 	}
 
-	s.logger.Debug("Updated aircraft data",
+	s.logger.Debug("已更新飞行器数据",
 		logger.Int("count", len(newAircraft)),
 		logger.Int("total", s.storage.Count()),
 	)
@@ -774,13 +772,13 @@ func (s *Service) fetchAndProcess(ctx context.Context) error {
 	return nil
 }
 
-// updateSimulationFields updates the IsSimulated field and simulation controls for aircraft
+// updateSimulationFields 更新飞行器的 IsSimulated 字段和模拟控制
 func (s *Service) updateSimulationFields(aircraft []*Aircraft) {
 	for _, a := range aircraft {
 		if a.ADSB != nil {
 			a.IsSimulated = (s.simulationService != nil && s.simulationService.IsSimulated(a.Hex)) || a.ADSB.Type == "sim"
 
-			// Update simulation controls if this is a simulated aircraft
+			// 如果是模拟飞行器则更新模拟控制
 			if a.IsSimulated && a.SimulationControls == nil {
 				a.SimulationControls = &SimulationControls{
 					TargetHeading:      NumberOrZero(a.ADSB.TrueHeading),
@@ -801,13 +799,13 @@ func (s *Service) enrichWithATCDerivedData(aircraft []*Aircraft) {
 	}
 }
 
-// SetReferenceService sets the reference data lookup service and updates runway data
+// SetReferenceService 设置参考数据查询服务并更新跑道数据
 func (s *Service) SetReferenceService(refService ReferenceService) {
 	s.refService = refService
 }
 
-// SetRunwayData sets the runway data for approach/departure detection
-// Called after reference service provides home runway data
+// SetRunwayData 设置用于进近/离场检测的跑道数据
+// 在参考服务提供本场跑道数据后调用
 func (s *Service) SetRunwayData(data RunwayData) {
 	s.runwayData = data
 	if s.trajectoryTracker != nil {
@@ -815,12 +813,12 @@ func (s *Service) SetRunwayData(data RunwayData) {
 	}
 }
 
-// GetRunwayData returns the current runway data
+// GetRunwayData 返回当前跑道数据
 func (s *Service) GetRunwayData() RunwayData {
 	return s.runwayData
 }
 
-// GetRunwayInUseScores returns the top N runway-in-use probability scores.
+// GetRunwayInUseScores 返回前 N 个使用中跑道的概率分数。
 func (s *Service) GetRunwayInUseScores(n int) []RunwayScore {
 	if s.trajectoryTracker != nil {
 		return s.trajectoryTracker.GetRunwayScores(n)
@@ -828,7 +826,7 @@ func (s *Service) GetRunwayInUseScores(n int) []RunwayScore {
 	return nil
 }
 
-// enrichWithRefData enriches aircraft data with reference data (aircraft.csv)
+// enrichWithRefData 用参考数据(aircraft.csv)增强飞行器数据
 func (s *Service) enrichWithRefData(aircraft []*Aircraft) {
 	if s.refService == nil {
 		return
@@ -844,22 +842,22 @@ func (s *Service) enrichWithRefData(aircraft []*Aircraft) {
 				RegisteredOwners: info.Owner,
 			}
 		}
-		// Enrich airline country from airline code (not stored in DB, derived at runtime)
+		// 从航司代码增强航司国家(不存储于数据库,在运行时派生)
 		if a.Airline != "" && a.AirlineCountry == "" && len(a.Flight) >= 3 {
 			a.AirlineCountry = s.refService.LookupAirlineCountry(strings.ToUpper(a.Flight[:3]))
 		}
 	}
 }
 
-// UpdateSimulationControls updates the control parameters for a simulated aircraft
+// UpdateSimulationControls 更新模拟飞行器的控制参数
 func (s *Service) UpdateSimulationControls(hex string, heading, speed, verticalRate float64) error {
 	if s.simulationService == nil {
-		return fmt.Errorf("simulation service not available")
+		return fmt.Errorf("模拟服务不可用")
 	}
 	return s.simulationService.UpdateControls(hex, heading, speed, verticalRate)
 }
 
-// GetAllAircraft returns all aircraft
+// GetAllAircraft 返回所有飞行器
 func (s *Service) GetAllAircraft() []*Aircraft {
 	aircraft := s.storage.GetAll()
 	s.updateSimulationFields(aircraft)
@@ -868,8 +866,8 @@ func (s *Service) GetAllAircraft() []*Aircraft {
 	return aircraft
 }
 
-// GetAllAircraftWithLastSeenFilter returns aircraft seen within the last N minutes
-// This uses database-level filtering for better performance on large databases
+// GetAllAircraftWithLastSeenFilter 返回最近 N 分钟内出现的飞行器
+// 使用数据库级过滤,以在大型数据库上获得更佳性能
 func (s *Service) GetAllAircraftWithLastSeenFilter(lastSeenMinutes int) []*Aircraft {
 	aircraft := s.storage.GetAllWithLastSeenFilter(lastSeenMinutes)
 	s.updateSimulationFields(aircraft)
@@ -878,8 +876,8 @@ func (s *Service) GetAllAircraftWithLastSeenFilter(lastSeenMinutes int) []*Aircr
 	return aircraft
 }
 
-// GetAllAircraftMinimal returns aircraft with minimal data (optimized for simple API)
-// Skips phase history and takeoff/landing time queries for better performance
+// GetAllAircraftMinimal 返回带最小数据的飞行器(为简化 API 优化)
+// 跳过阶段历史和起飞/着陆时间查询以获得更佳性能
 func (s *Service) GetAllAircraftMinimal(lastSeenMinutes int) []*Aircraft {
 	aircraft := s.storage.GetAllMinimal(lastSeenMinutes)
 	s.updateSimulationFields(aircraft)
@@ -888,7 +886,7 @@ func (s *Service) GetAllAircraftMinimal(lastSeenMinutes int) []*Aircraft {
 	return aircraft
 }
 
-// GetAircraftByHex returns an aircraft by its hex ID
+// GetAircraftByHex 通过 hex ID 返回飞行器
 func (s *Service) GetAircraftByHex(hex string) (*Aircraft, bool) {
 	aircraft, found := s.storage.GetByHex(hex)
 	if found && aircraft != nil {
@@ -896,7 +894,7 @@ func (s *Service) GetAircraftByHex(hex string) (*Aircraft, bool) {
 		s.enrichWithRefData([]*Aircraft{aircraft})
 		s.enrichWithATCDerivedData([]*Aircraft{aircraft})
 
-		// Overlay trajectory-based predictions (hindcast + forecast)
+		// 叠加基于轨迹的预测(后向预测 + 前向预测)
 		if s.trajectoryTracker != nil {
 			if forecast := s.trajectoryTracker.GetForecast(hex); len(forecast) > 0 {
 				aircraft.Future = PredictionPointsToPositions(forecast)
@@ -909,22 +907,22 @@ func (s *Service) GetAircraftByHex(hex string) (*Aircraft, bool) {
 	return aircraft, found
 }
 
-// GetAllPositionHistory returns all position history for an aircraft
+// GetAllPositionHistory 返回飞行器的所有位置历史
 func (s *Service) GetAllPositionHistory(hex string) ([]Position, error) {
 	return s.storage.GetAllPositionHistory(hex)
 }
 
-// GetPositionHistoryWithLimit returns position history for an aircraft with a specified limit
+// GetPositionHistoryWithLimit 以指定限制返回飞行器的位置历史
 func (s *Service) GetPositionHistoryWithLimit(hex string, limit int) ([]Position, error) {
 	return s.storage.GetPositionHistoryWithLimit(hex, limit)
 }
 
-// GetPhaseHistory returns the phase change history for an aircraft (newest first)
+// GetPhaseHistory 返回飞行器的阶段变化历史(最新优先)
 func (s *Service) GetPhaseHistory(hex string) ([]PhaseChange, error) {
 	return s.storage.GetPhaseHistory(hex)
 }
 
-// GetFilteredAircraft returns aircraft filtered by altitude, status, and date ranges
+// GetFilteredAircraft 返回按高度、状态和日期范围过滤的飞行器
 func (s *Service) GetFilteredAircraft(
 	minAltitude, maxAltitude float64,
 	status []string,
@@ -941,7 +939,7 @@ func (s *Service) GetFilteredAircraft(
 	return aircraft
 }
 
-// GetFilteredAircraftSimple is a simplified version for backward compatibility
+// GetFilteredAircraftSimple 是简化版本,用于向后兼容
 func (s *Service) GetFilteredAircraftSimple(minAltitude, maxAltitude float64, status ...string) []*Aircraft {
 	aircraft := s.storage.GetFiltered(minAltitude, maxAltitude, status, nil, nil, nil, nil)
 	s.updateSimulationFields(aircraft)
@@ -950,9 +948,9 @@ func (s *Service) GetFilteredAircraftSimple(minAltitude, maxAltitude float64, st
 	return aircraft
 }
 
-// HandleBulkRequest processes client requests for bulk aircraft data
+// HandleBulkRequest 处理客户端的批量飞行器数据请求
 func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBulkResponse, error) {
-	// Parse filters from the request
+	// 从请求解析过滤条件
 	minAltitude := 0.0
 	maxAltitude := 60000.0
 	var status []string
@@ -962,7 +960,7 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 	showGround := true
 	var phases []string
 
-	// Extract filters
+	// 提取过滤条件
 	if val, ok := filters["min_altitude"].(float64); ok {
 		minAltitude = val
 	}
@@ -996,7 +994,7 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 		}
 	}
 
-	// If both Air and Ground are disabled, return empty result
+	// 如果空中和地面都被禁用,则返回空结果
 	if !showAir && !showGround {
 		return &AircraftBulkResponse{
 			Aircraft: []*Aircraft{},
@@ -1010,7 +1008,7 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 		}, nil
 	}
 
-	// Get filtered aircraft using existing filtering logic
+	// 使用现有过滤逻辑获取过滤后的飞行器
 	var aircraft []*Aircraft
 	if minAltitude > 0 || maxAltitude < 60000 || len(status) > 0 {
 		aircraft = s.GetFilteredAircraft(minAltitude, maxAltitude, status, nil, nil, nil, nil)
@@ -1018,7 +1016,7 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 		aircraft = s.GetAllAircraft()
 	}
 
-	// Apply additional filters
+	// 应用其他过滤条件
 	if lastSeenMinutes > 0 {
 		aircraft = s.filterByLastSeen(aircraft, lastSeenMinutes)
 	}
@@ -1027,10 +1025,10 @@ func (s *Service) HandleBulkRequest(filters map[string]interface{}) (*AircraftBu
 		aircraft = s.filterByAirportGrounded(aircraft)
 	}
 
-	// Apply Air/Ground and Phase filters
+	// 应用空中/地面和阶段过滤
 	aircraft = s.filterByAirGroundAndPhases(aircraft, showAir, showGround, phases)
 
-	// Calculate counts
+	// 计算计数
 	groundActive, groundTotal, airActive, airTotal := s.calculateCounts(aircraft)
 
 	return &AircraftBulkResponse{
@@ -1056,12 +1054,12 @@ func (s *Service) filterByLastSeen(aircraft []*Aircraft, minutes int) []*Aircraf
 	return filtered
 }
 
-// filterByAirGroundAndPhases filters aircraft based on Air/Ground scope and phases
+// filterByAirGroundAndPhases 基于空中/地面范围和阶段过滤飞行器
 func (s *Service) filterByAirGroundAndPhases(aircraft []*Aircraft, showAir, showGround bool, phases []string) []*Aircraft {
 	filtered := make([]*Aircraft, 0)
 
 	for _, a := range aircraft {
-		// Apply Air/Ground filter
+		// 应用空中/地面过滤
 		if a.OnGround && !showGround {
 			continue
 		}
@@ -1069,7 +1067,7 @@ func (s *Service) filterByAirGroundAndPhases(aircraft []*Aircraft, showAir, show
 			continue
 		}
 
-		// Apply phase filter if phases are specified
+		// 如果指定了阶段则应用阶段过滤
 		if len(phases) > 0 {
 			phaseMatch := false
 			if a.Phase != nil && len(a.Phase.Current) > 0 {
@@ -1094,14 +1092,14 @@ func (s *Service) filterByAirGroundAndPhases(aircraft []*Aircraft, showAir, show
 
 func (s *Service) filterByAirportGrounded(aircraft []*Aircraft) []*Aircraft {
 	filtered := make([]*Aircraft, 0)
-	airportRangeNM := 5.0 // Default range, should come from config
+	airportRangeNM := 5.0 // 默认范围,应来自配置
 
 	for _, a := range aircraft {
 		if !a.OnGround {
 			filtered = append(filtered, a)
 		} else if a.ADSB != nil && a.ADSB.HasPosition() {
 			lat, lon, _ := a.ADSB.Position()
-			// Calculate distance from station and apply filter
+			// 计算到站点的距离并应用过滤
 			distMeters := Haversine(lat, lon, s.stationLat, s.stationLon)
 			distNM := MetersToNM(distMeters)
 			if distNM <= airportRangeNM {
@@ -1132,21 +1130,21 @@ func (s *Service) calculateCounts(aircraft []*Aircraft) (int, int, int, int) {
 	return groundActive, groundTotal, airActive, airTotal
 }
 
-// GetStatus returns the service status
+// GetStatus 返回服务状态
 func (s *Service) GetStatus() (time.Time, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.lastFetchTime, s.lastFetchStatus
 }
 
-// GetSourceStatus returns ADS-B source health and metadata snapshot.
+// GetSourceStatus 返回 ADS-B 源健康状况和元数据快照。
 func (s *Service) GetSourceStatus() SourceStatus {
 	if s.client == nil {
 		return SourceStatus{
 			Status: "error",
 			Aircraft: SourceChannelStatus{
 				Available: false,
-				LastError: "ADS-B client not initialized",
+				LastError: "ADS-B 客户端未初始化",
 				Data:      nil,
 			},
 			Receiver: SourceChannelStatus{Available: false, Data: nil},
@@ -1157,21 +1155,21 @@ func (s *Service) GetSourceStatus() SourceStatus {
 	return s.client.GetSourceStatus()
 }
 
-// setLastFetchTime sets the last fetch time
+// setLastFetchTime 设置最近一次获取时间
 func (s *Service) setLastFetchTime(t time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastFetchTime = t
 }
 
-// setFetchStatus sets the fetch status
+// setFetchStatus 设置获取状态
 func (s *Service) setFetchStatus(status bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastFetchStatus = status
 }
 
-// SetStationOverride sets override coordinates for station location
+// SetStationOverride 设置站点位置的覆盖坐标
 func (s *Service) SetStationOverride(lat, lon float64) {
 	s.overrideMutex.Lock()
 	defer s.overrideMutex.Unlock()
@@ -1179,17 +1177,17 @@ func (s *Service) SetStationOverride(lat, lon float64) {
 	s.overrideLat = &lat
 	s.overrideLon = &lon
 
-	// Update the client with new coordinates
+	// 用新坐标更新客户端
 	if s.client != nil {
 		s.client.UpdateStationCoords(lat, lon)
 	}
 
-	s.logger.Info("Station override coordinates set",
+	s.logger.Info("已设置站点覆盖坐标",
 		logger.Float64("latitude", lat),
 		logger.Float64("longitude", lon))
 }
 
-// ClearStationOverride removes override coordinates, reverting to config values
+// ClearStationOverride 移除覆盖坐标,恢复使用配置值
 func (s *Service) ClearStationOverride() {
 	s.overrideMutex.Lock()
 	defer s.overrideMutex.Unlock()
@@ -1197,17 +1195,17 @@ func (s *Service) ClearStationOverride() {
 	s.overrideLat = nil
 	s.overrideLon = nil
 
-	// Restore client to original config coordinates
+	// 将客户端恢复为原始配置坐标
 	if s.client != nil {
 		s.client.UpdateStationCoords(s.stationLat, s.stationLon)
 	}
 
-	s.logger.Info("Station override coordinates cleared, using config values",
+	s.logger.Info("已清除站点覆盖坐标,使用配置值",
 		logger.Float64("config_latitude", s.stationLat),
 		logger.Float64("config_longitude", s.stationLon))
 }
 
-// GetEffectiveStationCoords returns the current effective station coordinates (override or config)
+// GetEffectiveStationCoords 返回当前生效的站点坐标(覆盖值或配置值)
 func (s *Service) GetEffectiveStationCoords() (lat, lon float64) {
 	s.overrideMutex.RLock()
 	defer s.overrideMutex.RUnlock()
@@ -1219,22 +1217,22 @@ func (s *Service) GetEffectiveStationCoords() (lat, lon float64) {
 	return s.stationLat, s.stationLon
 }
 
-// updateAircraftStatus updates the status of aircraft that are no longer active.
-// Uses a targeted query instead of GetAll() — only fetches aircraft that actually need status updates.
+// updateAircraftStatus 更新已不再活跃的飞行器的状态。
+// 使用定向查询替代 GetAll() — 只获取确实需要状态更新的飞行器。
 func (s *Service) updateAircraftStatus(activeAircraft map[string]bool) {
 	now := time.Now().UTC()
 	cutoff := now.Add(-s.signalLostTimeout)
 
-	// Build list of active hex codes for exclusion
+	// 构建用于排除的活跃 hex 代码列表
 	activeHexCodes := make([]string, 0, len(activeAircraft))
 	for hex := range activeAircraft {
 		activeHexCodes = append(activeHexCodes, hex)
 	}
 
-	// Targeted query: only aircraft that are active, not currently broadcasting, and stale
+	// 定向查询:仅查询活跃、当前未广播且已过期的飞行器
 	staleAircraft, err := s.storage.GetStaleActiveAircraft(activeHexCodes, cutoff)
 	if err != nil {
-		s.logger.Error("Failed to get stale active aircraft", logger.Error(err))
+		s.logger.Error("获取已过期活跃飞行器失败", logger.Error(err))
 		return
 	}
 
@@ -1244,14 +1242,14 @@ func (s *Service) updateAircraftStatus(activeAircraft map[string]bool) {
 		aircraft.Status = "signal_lost"
 		s.storage.Upsert(aircraft)
 
-		// Only track aircraft with position for signal-lost landing detection
+		// 仅跟踪有位置的飞行器以进行失联着陆检测
 		hasPosition := aircraft.ADSB != nil && aircraft.ADSB.HasPosition()
 		if hasPosition {
 			inactiveAircraft = append(inactiveAircraft, aircraft)
 		}
 
 		timeSinceLastSeen := now.Sub(aircraft.LastSeen)
-		s.logger.Info("Aircraft status updated",
+		s.logger.Info("飞行器状态已更新",
 			logger.String("hex", aircraft.Hex),
 			logger.String("flight", aircraft.Flight),
 			logger.String("new_status", "signal_lost"),
@@ -1259,7 +1257,7 @@ func (s *Service) updateAircraftStatus(activeAircraft map[string]bool) {
 			logger.Duration("time_since_last_seen", timeSinceLastSeen),
 		)
 
-		// Send WebSocket message (skip for grounded aircraft)
+		// 发送 WebSocket 消息(地面飞行器跳过)
 		if s.wsServer != nil && !aircraft.OnGround {
 			s.wsServer.Broadcast(&websocket.Message{
 				Type: "status_update",
@@ -1275,62 +1273,62 @@ func (s *Service) updateAircraftStatus(activeAircraft map[string]bool) {
 		}
 	}
 
-	// Check for signal lost landings
+	// 检查失联着陆
 	landingPhaseChanges := s.detectSignalLostLandings(inactiveAircraft)
 	if len(landingPhaseChanges) > 0 {
 		err := s.storage.InsertPhaseChangesBatch(landingPhaseChanges)
 		if err != nil {
-			s.logger.Error("Failed to insert signal lost landing phases", logger.Error(err))
+			s.logger.Error("插入失联着陆阶段失败", logger.Error(err))
 		} else {
 			s.sendImmediateGroundTransitionAlerts(landingPhaseChanges)
 		}
 	}
 }
 
-// detectGroundStateTransitions detects immediate takeoff/landing events.
-// Uses pre-fetched batch data to avoid per-aircraft database queries.
+// detectGroundStateTransitions 检测立即起飞/着陆事件。
+// 使用预获取的批量数据,避免单飞行器数据库查询。
 func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnGround map[string]bool, currentPhases map[string]*PhaseChange, adsbTargetIDs map[string]*int) []PhaseChangeInsert {
 	var immediatePhaseChanges []PhaseChangeInsert
 	now := time.Now().UTC()
 
 	for _, a := range aircraft {
-		// Check if aircraft exists using pre-fetched batch data
+		// 使用预获取的批量数据检查飞行器是否存在
 		prevOnGround, found := existingOnGround[a.Hex]
 		if !found {
-			continue // New aircraft - will be handled by normal phase detection
+			continue // 新飞行器 - 将由常规阶段检测处理
 		}
 
-		// Check if ground state changed
+		// 检查地面状态是否发生变化
 		if prevOnGround != a.OnGround {
 			var newPhase string
 			var eventType string
 
-			// Get current phase from pre-fetched batch data to prevent rapid T/O ↔ T/D flapping
+			// 从预获取的批量数据中获取当前阶段以防止 T/O ↔ T/D 快速抖动
 			currentPhase := currentPhases[a.Hex]
 
 			if !prevOnGround && a.OnGround {
-				// Aircraft was airborne, now on ground = LANDING
+				// 飞行器先前在空中,现在在地面 = 着陆
 
-				// Anti-flapping: Prevent T/O → T/D transition if T/O was recent
+				// 抗抖动:如果 T/O 是近期的,则阻止 T/O → T/D 切换
 				if currentPhase != nil && currentPhase.Phase == "T/O" {
 					timeSinceTakeoff := time.Since(currentPhase.Timestamp).Seconds()
 					preservationThreshold := float64(s.flightPhasesConfig.PhasePreservationSeconds)
 					if timeSinceTakeoff < preservationThreshold {
-						s.logger.Warn("Preventing rapid T/O → T/D flapping",
+						s.logger.Warn("防止 T/O → T/D 快速抖动",
 							logger.String("hex", a.Hex),
 							logger.String("flight", a.Flight),
 							logger.Float64("time_since_takeoff", timeSinceTakeoff),
 							logger.Float64("threshold_seconds", preservationThreshold),
 							logger.Float64("altitude", a.ADSB.AltBaro.Float64()),
 						)
-						continue // Skip this transition
+						continue // 跳过此次切换
 					}
 				}
 
 				newPhase = "T/D"
 				eventType = "landing"
 
-				// Record landing for runway-in-use detection
+				// 为使用中跑道检测记录着陆
 				if s.trajectoryTracker != nil && a.ADSB != nil {
 					lat, lon, ok := a.ADSB.Position()
 					if ok {
@@ -1344,7 +1342,7 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 					}
 				}
 
-				s.logger.Info("IMMEDIATE LANDING DETECTED",
+				s.logger.Info("立即着陆已检测",
 					logger.String("hex", a.Hex),
 					logger.String("flight", a.Flight),
 					logger.Bool("was_on_ground", prevOnGround),
@@ -1354,16 +1352,16 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 				)
 
 			} else if prevOnGround && !a.OnGround {
-				// Aircraft was on ground, now airborne = TAKEOFF
+				// 飞行器先前在地面,现在在空中 = 起飞
 
-				// Guard against false takeoff from incomplete ADSB data:
-				// When an aircraft first appears with no/zero altitude it gets marked on_ground=true.
-				// If the next cycle delivers real altitude showing the aircraft well above ground level,
-				// that's data becoming available — not an actual takeoff. Skip T/O and let the
-				// trajectory tracker assign the correct phase (e.g. CRZ, ARR, UNK).
+				// 防止因不完整的 ADSB 数据导致假起飞:
+				// 当一架飞行器首次出现且无/零高度时,会被标记为 on_ground=true。
+				// 如果下一周期送达的真实高度显示飞行器远高于地面,
+				// 那是数据正在变得可用 — 而不是实际起飞。跳过 T/O 并让
+				// 轨迹跟踪器分配正确的阶段(例如 CRZ、ARR、UNK)。
 				alt := a.ADSB.AltBaro.Float64()
 				if alt > float64(s.flightPhasesConfig.DepartureAltitudeFt) {
-					s.logger.Info("Skipping false takeoff — altitude above departure threshold (incomplete data becoming available)",
+					s.logger.Info("跳过假起飞 — 高度超过离场阈值(不完整数据正在变得可用)",
 						logger.String("hex", a.Hex),
 						logger.String("flight", a.Flight),
 						logger.Float64("altitude", alt),
@@ -1372,26 +1370,26 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 					continue
 				}
 
-				// Anti-flapping: Prevent T/D → T/O transition if T/D was recent
+				// 抗抖动:如果 T/D 是近期的,则阻止 T/D → T/O 切换
 				if currentPhase != nil && currentPhase.Phase == "T/D" {
 					timeSinceLanding := time.Since(currentPhase.Timestamp).Seconds()
 					preservationThreshold := float64(s.flightPhasesConfig.PhasePreservationSeconds)
 					if timeSinceLanding < preservationThreshold {
-						s.logger.Warn("Preventing rapid T/D → T/O flapping",
+						s.logger.Warn("防止 T/D → T/O 快速抖动",
 							logger.String("hex", a.Hex),
 							logger.String("flight", a.Flight),
 							logger.Float64("time_since_landing", timeSinceLanding),
 							logger.Float64("threshold_seconds", preservationThreshold),
 							logger.Float64("altitude", a.ADSB.AltBaro.Float64()),
 						)
-						continue // Skip this transition
+						continue // 跳过此次切换
 					}
 				}
 
 				newPhase = "T/O"
 				eventType = "takeoff"
 
-				s.logger.Info("IMMEDIATE TAKEOFF DETECTED",
+				s.logger.Info("立即起飞已检测",
 					logger.String("hex", a.Hex),
 					logger.String("flight", a.Flight),
 					logger.Bool("was_on_ground", prevOnGround),
@@ -1402,7 +1400,7 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 			}
 
 			if newPhase != "" {
-				// Use pre-fetched ADSB target ID
+				// 使用预获取的 ADSB 目标 ID
 				adsbId := adsbTargetIDs[a.Hex]
 
 				immediatePhaseChanges = append(immediatePhaseChanges, PhaseChangeInsert{
@@ -1420,12 +1418,12 @@ func (s *Service) detectGroundStateTransitions(aircraft []*Aircraft, existingOnG
 	return immediatePhaseChanges
 }
 
-// detectSignalLostLandings checks for aircraft that lost signal near the airport
-// and marks them as landed if they meet certain criteria
+// detectSignalLostLandings 检查在机场附近失联的飞行器,
+// 并在满足特定条件时将其标记为已着陆
 func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []PhaseChangeInsert {
 	var landingPhaseChanges []PhaseChangeInsert
 
-	// Check if signal lost landing detection is enabled
+	// 检查是否启用了失联着陆检测
 	if !s.flightPhasesConfig.SignalLostLandingEnabled {
 		return landingPhaseChanges
 	}
@@ -1433,33 +1431,33 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 	now := time.Now().UTC()
 
 	for _, aircraft := range inactiveAircraft {
-		// Skip if already on ground or no ADSB data
+		// 如果已经在地面或没有 ADSB 数据则跳过
 		if aircraft.OnGround || aircraft.ADSB == nil {
 			continue
 		}
 
-		// Check if aircraft was in approach phase
+		// 检查飞行器是否处于进近阶段
 		currentPhase, err := s.storage.GetCurrentPhase(aircraft.Hex)
 		if err != nil || currentPhase == nil {
 			continue
 		}
 
-		// Check if the trajectory shows the aircraft was descending toward the station.
-		// This is a stronger signal than phase alone — if the trajectory buffer confirms
-		// a steady descent toward the airport, we can be confident this is a landing.
+		// 检查轨迹是否显示飞行器正在朝站点下降。
+		// 这是比单凭阶段更强的信号 — 如果轨迹缓冲区确认
+		// 朝机场的稳定下降,我们可以确信这是一次着陆。
 		trajectoryConfirms := false
 		if s.trajectoryTracker != nil {
 			trajectoryConfirms = s.trajectoryTracker.WasDescendingTowardStation(aircraft.Hex)
 		}
 
-		// Accept aircraft in APP phase, low altitude ARR, or trajectory-confirmed descent
+		// 接受处于 APP 阶段、低高度 ARR 或轨迹确认下降的飞行器
 		if currentPhase.Phase != "APP" &&
 			!(currentPhase.Phase == "ARR" && aircraft.ADSB.AltBaro.Float64() < 2000) &&
 			!trajectoryConfirms {
 			continue
 		}
 
-		// Check proximity to airport
+		// 检查与机场的接近度
 		lat, lon, hasPosition := aircraft.ADSB.Position()
 		if !hasPosition {
 			continue
@@ -1469,11 +1467,11 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 			s.stationLat, s.stationLon,
 		))
 
-		// If aircraft was close to airport and low altitude when signal lost
+		// 如果飞行器在失联时靠近机场且高度较低
 		if distanceFromStation <= s.flightPhasesConfig.AirportRangeNM &&
 			aircraft.ADSB.AltBaro.Float64() < s.flightPhasesConfig.SignalLostLandingMaxAltFt {
 
-			// Record for runway-in-use detection
+			// 为使用中跑道检测进行记录
 			if s.trajectoryTracker != nil {
 				runwayInfo := DetectRunwayApproach(
 					lat, lon, NumberOrZero(aircraft.ADSB.Track),
@@ -1484,11 +1482,11 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 				}
 			}
 
-			// Mark as landed
+			// 标记为已着陆
 			aircraft.OnGround = true
 			s.storage.Upsert(aircraft)
 
-			// Create T/D phase record
+			// 创建 T/D 阶段记录
 			adsbId, _ := s.storage.GetLatestADSBTargetID(aircraft.Hex)
 			landingPhaseChanges = append(landingPhaseChanges, PhaseChangeInsert{
 				Hex:       aircraft.Hex,
@@ -1499,7 +1497,7 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 				EventType: "signal_lost_landing",
 			})
 
-			s.logger.Info("Signal lost aircraft marked as landed",
+			s.logger.Info("失联飞行器已标记为着陆",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.Float64("last_altitude", aircraft.ADSB.AltBaro.Float64()),
@@ -1511,8 +1509,8 @@ func (s *Service) detectSignalLostLandings(inactiveAircraft []*Aircraft) []Phase
 	return landingPhaseChanges
 }
 
-// processPhaseChangesBatch handles phase detection using pre-fetched batch data.
-// Returns any new phase changes that were inserted (for downstream enrichment).
+// processPhaseChangesBatch 使用预获取的批量数据处理阶段检测。
+// 返回所有已插入的新阶段变化(用于下游增强)。
 func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseChanges []PhaseChangeInsert,
 	currentPhases map[string]*PhaseChange, adsbTargetIDs map[string]*int, takeoffTimes map[string]*time.Time) []PhaseChangeInsert {
 	if !s.flightPhasesConfig.Enabled {
@@ -1523,16 +1521,16 @@ func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseC
 		return nil
 	}
 
-	// Create map of aircraft that just had immediate ground transitions
+	// 创建刚发生立即地面切换的飞行器的映射
 	immediateTransitions := make(map[string]string) // hex -> phase
 	for _, change := range immediatePhaseChanges {
 		immediateTransitions[change.Hex] = change.Phase
 	}
 
-	// Process each aircraft using pre-fetched batch data
+	// 使用预获取的批量数据处理每架飞行器
 	var phaseChanges []PhaseChangeInsert
 	for _, a := range aircraft {
-		// Skip aircraft that just had immediate ground transitions
+		// 跳过刚发生立即地面切换的飞行器
 		if _, hasImmediate := immediateTransitions[a.Hex]; hasImmediate {
 			continue
 		}
@@ -1540,7 +1538,7 @@ func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseC
 		currentPhase := currentPhases[a.Hex]
 		newPhase := s.trajectoryTracker.DeterminePhase(a, currentPhase, takeoffTimes[a.Hex])
 
-		// Apply phase stability rules and determine if change needed
+		// 应用阶段稳定性规则,判断是否需要变化
 		finalPhase, shouldInsert := s.evaluatePhaseChange(a, currentPhase, newPhase)
 
 		if shouldInsert {
@@ -1554,37 +1552,35 @@ func (s *Service) processPhaseChangesBatch(aircraft []*Aircraft, immediatePhaseC
 		}
 	}
 
-	// Batch insert all phase changes
+	// 批量插入所有阶段变化
 	if len(phaseChanges) > 0 {
 		err := s.storage.InsertPhaseChangesBatch(phaseChanges)
 		if err != nil {
-			s.logger.Error("Failed to insert phase changes batch", logger.Error(err))
+			s.logger.Error("批量插入阶段变化失败", logger.Error(err))
 			return nil
 		}
 
-		// Send WebSocket alerts and log changes
+		// 发送 WebSocket 告警并记录变化
 		s.sendPhaseChangeAlerts(phaseChanges, currentPhases)
 	}
 
 	return phaseChanges
 }
 
-// evaluatePhaseChange applies phase stability rules and determines if a phase change
-// should be inserted into the database.
+// evaluatePhaseChange 应用阶段稳定性规则并判断是否应将阶段变化插入数据库。
 //
-// The trajectory-based phase detection (TrajectoryTracker.DeterminePhase) already provides
-// noise-resistant classification through trajectory window analysis, so airborne flapping
-// prevention is no longer needed. This function handles only:
+// 基于轨迹的阶段检测(TrajectoryTracker.DeterminePhase)已经通过轨迹窗口分析
+// 提供了抗噪声分类,因此空中抖动预防不再必要。此函数仅处理:
 //
-//  1. T/O preservation — Keep takeoff phase visible for PhasePreservationSeconds
-//  2. T/D post-landing flow — Transition T/D → TAX or T/D → NEW based on ground speed
-//  3. Ground phase protection — Prevent premature TAX→NEW and T/D→NEW transitions
-//  4. Inactive aircraft timeout — Revert long-parked aircraft to NEW
+//  1. T/O 保留 — 在 PhasePreservationSeconds 期间保持起飞阶段可见
+//  2. T/D 着陆后流程 — 根据地速将 T/D → TAX 或 T/D → NEW
+//  3. 地面阶段保护 — 防止过早的 TAX→NEW 与 T/D→NEW 切换
+//  4. 非活跃飞行器超时 — 将长时间停放的飞行器恢复为 NEW
 func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChange, newPhase string) (string, bool) {
 	currentPhase := newPhase
 
-	// ── T/D post-landing flow ────────────────────────────────────────
-	// After landing, guide the aircraft through T/D → TAX → NEW gracefully.
+	// ── T/D 着陆后流程 ────────────────────────────────────────
+	// 着陆后,平稳地引导飞行器经过 T/D → TAX → NEW。
 	if latestPhase != nil && latestPhase.Phase == "T/D" {
 		if currentPhase == "NEW" {
 			groundSpeed := 0.0
@@ -1596,7 +1592,7 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 				groundSpeed <= float64(s.flightPhasesConfig.TaxiingMaxSpeedKts) {
 				currentPhase = "TAX"
 			} else {
-				// Keep T/D visible for the preservation period
+				// 在保留期内保持 T/D 可见
 				timeSinceLanding := time.Since(latestPhase.Timestamp).Seconds()
 				if timeSinceLanding < float64(s.flightPhasesConfig.PhasePreservationSeconds) {
 					currentPhase = "T/D"
@@ -1609,9 +1605,9 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 		}
 	}
 
-	// ── T/O preservation ─────────────────────────────────────────────
-	// Keep takeoff phase visible for at least PhasePreservationSeconds so
-	// controllers can see it in the UI before it transitions to DEP.
+	// ── T/O 保留 ─────────────────────────────────────────────
+	// 至少在 PhasePreservationSeconds 期间保持起飞阶段可见,
+	// 以便管制员能在 UI 中看到它,然后再切换到 DEP。
 	if latestPhase != nil && latestPhase.Phase == "T/O" {
 		timeSinceTakeoff := time.Since(latestPhase.Timestamp).Seconds()
 		if timeSinceTakeoff < float64(s.flightPhasesConfig.PhasePreservationSeconds) {
@@ -1619,10 +1615,9 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 		}
 	}
 
-	// ── Phase stability: suppress directional→UNK flapping ──────────
-	// Directional airborne phases (CLB, DEP, ARR) shouldn't downgrade to
-	// UNK just because a brief turn reverses the distance trend. Only allow
-	// transitions to other meaningful phases, not to UNK.
+	// ── 阶段稳定性:抑制方向性→UNK 抖动 ──────────
+	// 方向性的空中阶段(CLB、DEP、ARR)不应仅因短暂转弯反转
+	// 距离趋势就降级为 UNK。仅允许切换到其他有意义的阶段,而不是 UNK。
 	if latestPhase != nil && currentPhase == "UNK" {
 		switch latestPhase.Phase {
 		case "CLB", "DEP", "ARR":
@@ -1630,18 +1625,18 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 		}
 	}
 
-	// ── Determine if a phase change should be recorded ───────────────
+	// ── 判断是否应记录阶段变化 ───────────────
 	var shouldInsert bool
 
 	if latestPhase == nil {
-		// Brand new aircraft — record initial phase
+		// 全新飞行器 — 记录初始阶段
 		shouldInsert = true
 	} else if latestPhase.Phase != currentPhase {
-		// Phase changed — check for premature ground transitions
+		// 阶段已变化 — 检查是否有过早的地面切换
 		if currentPhase == "NEW" && (latestPhase.Phase == "T/D" || latestPhase.Phase == "TAX") {
 			timeSinceLastPhase := time.Since(latestPhase.Timestamp).Seconds()
 			if timeSinceLastPhase < float64(s.flightPhasesConfig.PhaseTransitionTimeoutSeconds) {
-				// Too soon — keep the current ground phase
+				// 太早 — 保持当前的地面阶段
 				currentPhase = latestPhase.Phase
 			} else {
 				shouldInsert = true
@@ -1650,7 +1645,7 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 			shouldInsert = true
 		}
 	} else {
-		// Phase unchanged — check inactive aircraft timeout
+		// 阶段未变 — 检查非活跃飞行器超时
 		if latestPhase.Phase != "NEW" {
 			timeSinceLastPhase := time.Since(latestPhase.Timestamp).Seconds()
 			if timeSinceLastPhase > float64(s.flightPhasesConfig.PhaseChangeTimeoutSeconds) {
@@ -1663,7 +1658,7 @@ func (s *Service) evaluatePhaseChange(aircraft *Aircraft, latestPhase *PhaseChan
 	return currentPhase, shouldInsert
 }
 
-// sendPhaseChangeAlerts sends WebSocket alerts for phase changes
+// sendPhaseChangeAlerts 为阶段变化发送 WebSocket 告警
 func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, currentPhases map[string]*PhaseChange) {
 	for _, change := range phaseChanges {
 		aircraft, found := s.storage.GetByHex(change.Hex)
@@ -1676,14 +1671,14 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 			previousPhase = prevPhase.Phase
 		}
 
-		// Log the phase change with detailed aircraft data for debugging
+		// 记录带详细飞行器数据的阶段变化以便调试
 		distanceFromStation := 0.0
 		if lat, lon, hasPosition := aircraft.ADSB.Position(); hasPosition {
 			distanceFromStation = MetersToNM(Haversine(lat, lon, s.stationLat, s.stationLon))
 		}
 
 		if previousPhase == "" {
-			s.logger.Info("New aircraft phase detected",
+			s.logger.Info("检测到新飞行器阶段",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.String("phase", change.Phase),
@@ -1694,7 +1689,7 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 				logger.Bool("on_ground", aircraft.OnGround),
 			)
 		} else {
-			s.logger.Info("Phase change detected",
+			s.logger.Info("检测到阶段变化",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.String("transition", previousPhase+" → "+change.Phase),
@@ -1706,9 +1701,9 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 			)
 		}
 
-		// Send WebSocket message for phase change
+		// 为阶段变化发送 WebSocket 消息
 		if s.wsServer != nil {
-			// Create message data for phase change
+			// 为阶段变化创建消息数据
 			data := map[string]interface{}{
 				"hex":        aircraft.Hex,
 				"flight":     aircraft.Flight,
@@ -1720,16 +1715,16 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 				"timestamp":  change.Timestamp.Format(time.RFC3339),
 			}
 
-			// Broadcast the phase change message
+			// 广播阶段变化消息
 			s.wsServer.Broadcast(&websocket.Message{
 				Type: "phase_change",
 				Data: data,
 			})
 		}
 
-		// Handle special takeoff/landing phases
+		// 处理特殊的起飞/着陆阶段
 		if change.Phase == "T/O" {
-			s.logger.Info("Aircraft TOOK OFF",
+			s.logger.Info("飞行器已起飞",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.String("transition", previousPhase+" → T/O"),
@@ -1737,9 +1732,9 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 				logger.Bool("on_ground", aircraft.OnGround),
 			)
 
-			// T/O phase change message is sent by the main phase change handler
+			// T/O 阶段变化消息由主阶段变化处理器发送
 		} else if change.Phase == "T/D" {
-			s.logger.Info("Aircraft LANDED",
+			s.logger.Info("飞行器已着陆",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.String("transition", previousPhase+" → T/D"),
@@ -1747,12 +1742,12 @@ func (s *Service) sendPhaseChangeAlerts(phaseChanges []PhaseChangeInsert, curren
 				logger.Bool("on_ground", aircraft.OnGround),
 			)
 
-			// T/D phase change message is sent by the main phase change handler
+			// T/D 阶段变化消息由主阶段变化处理器发送
 		}
 	}
 }
 
-// sendImmediateGroundTransitionAlerts sends immediate WebSocket alerts for ground state transitions
+// sendImmediateGroundTransitionAlerts 为地面状态切换发送立即的 WebSocket 告警
 func (s *Service) sendImmediateGroundTransitionAlerts(phaseChanges []PhaseChangeInsert) {
 	for _, change := range phaseChanges {
 		aircraft, found := s.storage.GetByHex(change.Hex)
@@ -1760,25 +1755,25 @@ func (s *Service) sendImmediateGroundTransitionAlerts(phaseChanges []PhaseChange
 			continue
 		}
 
-		// Get the previous phase for the transition message
+		// 获取前一阶段以用于切换消息
 		var previousPhase string
 		phaseHistory, err := s.storage.GetPhaseHistory(change.Hex)
 		if err == nil && len(phaseHistory) > 1 {
-			// The first item is the current (just inserted), second is the previous
+			// 第一项是当前(刚插入),第二项是前一项
 			previousPhase = phaseHistory[1].Phase
 		}
 
 		if change.Phase == "T/O" {
-			s.logger.Info("Aircraft TOOK OFF (IMMEDIATE)",
+			s.logger.Info("飞行器已起飞(立即)",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.Float64("altitude", aircraft.ADSB.AltBaro.Float64()),
 				logger.String("timestamp", change.Timestamp.Format(time.RFC3339)),
 			)
 
-			// Send phase change message first
+			// 先发送阶段变化消息
 			if s.wsServer != nil {
-				// Send phase_change message
+				// 发送 phase_change 消息
 				phaseData := map[string]interface{}{
 					"hex":        aircraft.Hex,
 					"flight":     aircraft.Flight,
@@ -1795,20 +1790,20 @@ func (s *Service) sendImmediateGroundTransitionAlerts(phaseChanges []PhaseChange
 					Data: phaseData,
 				})
 
-				// T/O phase change message already sent above
+				// T/O 阶段变化消息已在上方发送
 			}
 
 		} else if change.Phase == "T/D" {
-			s.logger.Info("Aircraft LANDED (IMMEDIATE)",
+			s.logger.Info("飞行器已着陆(立即)",
 				logger.String("hex", aircraft.Hex),
 				logger.String("flight", aircraft.Flight),
 				logger.Float64("altitude", aircraft.ADSB.AltBaro.Float64()),
 				logger.String("timestamp", change.Timestamp.Format(time.RFC3339)),
 			)
 
-			// Send phase change message first
+			// 先发送阶段变化消息
 			if s.wsServer != nil {
-				// Send phase_change message
+				// 发送 phase_change 消息
 				phaseData := map[string]interface{}{
 					"hex":        aircraft.Hex,
 					"flight":     aircraft.Flight,
@@ -1825,50 +1820,50 @@ func (s *Service) sendImmediateGroundTransitionAlerts(phaseChanges []PhaseChange
 					Data: phaseData,
 				})
 
-				// T/D phase change message already sent above
+				// T/D 阶段变化消息已在上方发送
 			}
 		}
 	}
 }
 
-// ProcessRawData processes raw ADS-B data into aircraft objects
+// ProcessRawData 将原始 ADS-B 数据处理为飞行器对象
 func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
-	s.logger.Debug("Processing raw ADS-B data",
+	s.logger.Debug("正在处理原始 ADS-B 数据",
 		logger.Int("aircraft_count", len(rawData.Aircraft)),
 	)
 
 	aircraft := make([]*Aircraft, 0, len(rawData.Aircraft))
-	now := time.Now().UTC() // Ensure we use UTC time
+	now := time.Now().UTC() // 确保使用 UTC 时间
 
 	for _, raw := range rawData.Aircraft {
-		// Skip aircraft without a hex identifier (unusable data)
+		// 跳过没有 hex 标识符的飞行器(不可用数据)
 		if raw.Hex == "" {
 			continue
 		}
 
-		// Get the raw flight name and clean it
+		// 获取原始航班名并清洗
 		flightRaw := raw.Flight
 		flightName := strings.TrimSpace(CleanFlightName(flightRaw))
 
-		// If flightName is empty but hex is available, try to derive tail number
+		// 如果 flightName 为空但 hex 可用,尝试派生尾号
 		if flightName == "" && raw.Hex != "" {
-			tailNumber, err := IcaoToTailNumber(raw.Hex) // Use exported function from atc_utils.go
+			tailNumber, err := IcaoToTailNumber(raw.Hex) // 使用 atc_utils.go 的导出函数
 			if err == nil && tailNumber != "" {
-				flightName = tailNumber + "*" // Appended * to indicate derived tail number
-				s.logger.Debug("Derived tail number from ICAO hex",
+				flightName = tailNumber + "*" // 追加 * 表示派生的尾号
+				s.logger.Debug("从 ICAO hex 派生尾号",
 					logger.String("hex", raw.Hex),
 					logger.String("tail_number", flightName))
 			} else if err != nil {
-				s.logger.Debug("Failed to derive tail number from ICAO hex",
+				s.logger.Debug("从 ICAO hex 派生尾号失败",
 					logger.String("hex", raw.Hex),
 					logger.Error(err))
 			}
 		}
 
-		// Determine airline from callsign only for valid flight numbers (3 letters + 1-4 numbers)
+		// 仅对有效航班号(3 个字母 + 1-4 个数字)从呼号判断航司
 		var airlineName, airlineCountry string
 		if len(flightName) >= 4 && len(flightName) <= 7 {
-			// Check if the first 3 characters are letters
+			// 检查前 3 个字符是否为字母
 			firstThree := strings.ToUpper(flightName[:3])
 			isAllLetters := true
 			for _, c := range firstThree {
@@ -1878,7 +1873,7 @@ func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
 				}
 			}
 
-			// Check if the remaining characters are digits (1-4 digits)
+			// 检查剩余字符是否为数字(1-4 位)
 			remainingChars := flightName[3:]
 			isAllDigits := true
 			for _, c := range remainingChars {
@@ -1888,35 +1883,35 @@ func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
 				}
 			}
 
-			// Only lookup airline if it's a valid flight number (3 letters + 1-4 numbers)
+			// 仅当为有效航班号(3 个字母 + 1-4 个数字)时查询航司
 			if isAllLetters && isAllDigits && len(remainingChars) >= 1 && len(remainingChars) <= 4 {
 				icaoCode := firstThree
 				if s.refService != nil {
 					airlineName = s.refService.LookupAirline(icaoCode)
 					airlineCountry = s.refService.LookupAirlineCountry(icaoCode)
 				}
-				s.logger.Debug("Detected valid flight number",
+				s.logger.Debug("检测到有效航班号",
 					logger.String("flight", flightName),
 					logger.String("airline_code", icaoCode),
 					logger.String("airline", airlineName))
 			}
 		}
 
-		// Sensor validation and OnGround determination handled by fetchAndProcess using batch data
+		// 传感器校验和 OnGround 判定由 fetchAndProcess 使用批量数据处理
 
-		aircraftStatus := "active" // Always set to active for aircraft in current ADSB data
+		aircraftStatus := "active" // 当前 ADSB 数据中的飞行器始终设置为 active
 
-		// Check if this is a simulated aircraft
+		// 检查这是否为模拟飞行器
 		isSimulated := (s.simulationService != nil && s.simulationService.IsSimulated(raw.Hex)) || raw.Type == "sim"
 		var simulationControls *SimulationControls
 
 		if isSimulated {
-			// For simulated aircraft, extract controls from the raw data type field
-			// The simulation service will have already populated the ADSB data with current values
+			// 对于模拟飞行器,从原始数据 type 字段提取控制
+			// 模拟服务已经使用当前值填充 ADSB 数据
 			simulationControls = &SimulationControls{
-				TargetHeading:      NumberOrZero(raw.TrueHeading), // Use current heading as target
-				TargetSpeed:        NumberOrZero(raw.TAS),         // Use current TAS as target
-				TargetVerticalRate: NumberOrZero(raw.BaroRate),    // Use current vertical rate as target
+				TargetHeading:      NumberOrZero(raw.TrueHeading), // 使用当前航向作为目标
+				TargetSpeed:        NumberOrZero(raw.TAS),         // 使用当前 TAS 作为目标
+				TargetVerticalRate: NumberOrZero(raw.BaroRate),    // 使用当前垂直速率作为目标
 			}
 		}
 
@@ -1934,19 +1929,19 @@ func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
 
 		a.ADSB.ATCDerived = computeATCDerivedMetrics(a.ADSB, a.Distance)
 
-		// Trajectory-based predictions (hindcast + forecast)
+		// 基于轨迹的预测(后向预测 + 前向预测)
 		if s.trajectoryTracker != nil {
-			// Forecast: trajectory-aware kinematic model (replaces naive PredictFuturePositions)
+			// 前向预测:轨迹感知的运动学模型(替代朴素的 PredictFuturePositions)
 			if forecast := s.trajectoryTracker.GetForecast(raw.Hex); len(forecast) > 0 {
 				a.Future = PredictionPointsToPositions(forecast)
 			}
-			// Hindcast: backward extrapolation before first ADS-B contact
+			// 后向预测:首次 ADS-B 接触前的反向外推
 			if hindcast := s.trajectoryTracker.GetHindcast(raw.Hex); len(hindcast) > 0 {
 				a.Hindcast = PredictionPointsToPositions(hindcast)
 			}
 		}
 
-		// Fallback to old prediction if trajectory forecast unavailable
+		// 当轨迹前向预测不可用时回退到旧预测
 		if len(a.Future) == 0 && raw.HasPosition() && raw.AltBaro.Float64() != 0 {
 			lat, lon, _ := raw.Position()
 			heading := NumberOrZero(raw.TrueHeading)
@@ -1979,7 +1974,7 @@ func (s *Service) ProcessRawData(rawData *RawAircraftData) []*Aircraft {
 		aircraft = append(aircraft, a)
 	}
 
-	s.logger.Debug("Processed ADS-B data",
+	s.logger.Debug("已处理 ADS-B 数据",
 		logger.Int("processed_count", len(aircraft)),
 	)
 

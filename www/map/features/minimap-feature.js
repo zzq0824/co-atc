@@ -1,17 +1,17 @@
 /**
- * Module: map/features/minimap-feature
- * Why it exists:
- * - Renders a focused mini-map view for selected-aircraft track analysis.
- * - Separates track visualization concerns from the main map manager.
+ * 模块: map/features/minimap-feature
+ * 存在原因:
+ * - 为选中飞行器的航迹分析渲染一个聚焦的小地图视图。
+ * - 将航迹可视化关注点与主地图管理器分离开来。
  *
- * Key responsibilities:
- * - Initialize and teardown the mini-map instance and its layer sources.
- * - Draw current, historical, hindcast, and future track primitives.
- * - Keep mini-map view synced to selected aircraft context.
+ * 主要职责:
+ * - 初始化与拆除小地图实例及其图层数据源。
+ * - 绘制当前、历史、回算以及未来航迹的图元。
+ * - 使小地图视图与所选飞行器的上下文保持同步。
  *
- * Quirks / contracts:
- * - Uses a retry loop when container dimensions are initially unavailable.
- * - Safe no-op when track view is disabled or OpenLayers runtime is missing.
+ * 怪癖 / 契约:
+ * - 当容器尺寸最初不可用时使用重试循环。
+ * - 当航迹视图被禁用或 OpenLayers 运行时缺失时安全空操作。
  */
 (function () {
     function toMapCoordinate(lat, lon) {
@@ -49,7 +49,7 @@
         setTimeout(() => {
             const container = document.getElementById(containerId);
             if (!container) {
-                console.warn('Mini-map container not found:', containerId);
+                console.warn('未找到小地图容器:', containerId);
                 return;
             }
 
@@ -57,13 +57,13 @@
                 if (retryCount < 5) {
                     setTimeout(() => initTracksMiniMap(manager, containerId, retryCount + 1), 500);
                 } else {
-                    console.error('Mini-map container failed to get dimensions after 5 retries, giving up');
+                    console.error('小地图容器在 5 次重试后仍无法获取尺寸,放弃');
                 }
                 return;
             }
 
             if (!(window.ol && window.ol.Map && window.ol.View)) {
-                console.warn('OpenLayers runtime unavailable for tracks mini-map');
+                console.warn('航迹小地图所需的 OpenLayers 运行时不可用');
                 return;
             }
 
@@ -106,7 +106,7 @@
                     controls: [],
                 });
             } catch (error) {
-                console.error('Error creating mini-map:', error);
+                console.error('创建小地图时出错:', error);
                 manager.tracksMiniMap = null;
                 manager.tracksMiniMapLayers = null;
                 return;
@@ -248,7 +248,7 @@
             try {
                 manager.tracksMiniMap.setTarget(null);
             } catch (error) {
-                console.warn('Error cleaning up mini-map:', error);
+                console.warn('清理小地图时出错:', error);
             }
             manager.tracksMiniMap = null;
             manager.tracksMiniMapLayers = null;

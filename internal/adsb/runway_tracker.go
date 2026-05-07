@@ -11,27 +11,25 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// ─── Runway-In-Use Detection ─────────────────────────────────────────────────
+// ─── 使用中跑道检测 ─────────────────────────────────────────────────
 //
-// RunwayInUseTracker observes aircraft movements (approaches, landings,
-// departures) to determine which runway ends are currently active. It maintains
-// a rolling time window of weighted evidence events and produces a probability
-// distribution over runway ends.
+// RunwayInUseTracker 通过观察飞行器活动(进近、着陆、离场)来判定
+// 当前活跃的跑道末端。它维护带权重证据事件的滚动时间窗口,
+// 并基于这些事件生成跑道末端的概率分布。
 //
-// The primary consumer is ruleApproach: when we have enough data to be
-// confident about the active runway, approaches to non-active runways (e.g.
-// perpendicular cross-runways during base turns) are suppressed.
+// 主要使用者是 ruleApproach:当我们有足够数据来确定活跃跑道时,
+// 对非活跃跑道(例如基线转弯时的垂直交叉跑道)的进近会被抑制。
 //
-// Thread-safe: the fetch goroutine calls RecordEvent and IsActiveRunway from
-// the same goroutine, but the tracker may also be queried from API handlers.
+// 线程安全:数据获取 goroutine 在同一 goroutine 中调用 RecordEvent 和
+// IsActiveRunway,但 API 处理器也可能查询此 tracker。
 
-// RunwayEventType classifies evidence events by their source.
+// RunwayEventType 按来源分类证据事件。
 type RunwayEventType int
 
 const (
-	RunwayEventApproach RunwayEventType = iota // Aircraft entered APP on this runway end
-	RunwayEventLanding                         // Aircraft touched down (T/D)
-	RunwayEventClimb                           // Aircraft climbed out (CLB) on this runway end
+	RunwayEventApproach RunwayEventType = iota // 飞行器在此跑道末端进入 APP
+	RunwayEventLanding                         // 飞行器接地(T/D)
+	RunwayEventClimb                           // 飞行器在此跑道末端爬升离场(CLB)
 )
 
 func (t RunwayEventType) String() string {
@@ -47,59 +45,58 @@ func (t RunwayEventType) String() string {
 	}
 }
 
-// RunwayEvent records a single piece of evidence that a runway end is in use.
+// RunwayEvent 记录一条跑道末端在用的证据。
 type RunwayEvent struct {
-	RunwayEnd string          // "05-23/05" format (matches RunwayApproachInfo.RunwayID)
+	RunwayEnd string          // "05-23/05" 格式(与 RunwayApproachInfo.RunwayID 匹配)
 	Type      RunwayEventType
-	Hex       string // Aircraft that generated this event
+	Hex       string // 触发此事件的飞行器
 	Timestamp time.Time
 }
 
-// RunwayScore holds the computed score and probability for a runway end.
+// RunwayScore 保存某条跑道末端的计算分数和概率。
 type RunwayScore struct {
 	RunwayEnd   string  `json:"runway_end"`
 	Score       float64 `json:"score"`
-	Probability float64 `json:"probability"` // normalized 0-1
+	Probability float64 `json:"probability"` // 归一化 0-1
 	EventCount  int     `json:"event_count"`
 }
 
-// RunwayInUseTracker maintains a rolling window of runway usage evidence
-// and computes which runway ends are currently active.
+// RunwayInUseTracker 维护跑道使用证据的滚动窗口,
+// 并计算当前哪些跑道末端处于活跃状态。
 type RunwayInUseTracker struct {
 	mu             sync.RWMutex
 	events         []RunwayEvent
 	windowDuration time.Duration
-	weights        [3]float64 // indexed by RunwayEventType
-	decayRate      float64    // per-minute exponential decay
+	weights        [3]float64 // 按 RunwayEventType 索引
+	decayRate      float64    // 每分钟指数衰减
 	logger         *logger.Logger
 
-	// Cached state from last recompute
-	scores        []RunwayScore // sorted descending by score
+	// 上次重算后的缓存状态
+	scores        []RunwayScore // 按分数降序排序
 	activeSet     map[string]bool
-	lastActiveEnd string    // for change detection
-	lastLogTime   time.Time // throttle periodic Info log
+	lastActiveEnd string    // 用于变更检测
+	lastLogTime   time.Time // 节流周期性 Info 日志
 
-	// Persisted state — retained when all events expire from the window so
-	// that the last known active runway is shown instead of N/A during
-	// low-traffic periods.
+	// 持久化状态 —— 当窗口内所有事件都已过期时仍保留,
+	// 这样在低流量时段 UI 显示的是最后已知的活跃跑道而不是 N/A。
 	everHadData bool
 
-	// All known runway end IDs from runway data, for parallel detection.
-	// When one runway of a parallel pair is active, the other is automatically
-	// included in the active set (e.g. 06L active → 06R also active).
+	// 跑道数据中所有已知的跑道末端 ID,用于并行跑道检测。
+	// 当并行对中的一条跑道活跃时,另一条会自动加入活跃集合
+	// (例如 06L 活跃 → 06R 也活跃)。
 	knownRunwayEnds []string
 }
 
 const (
-	// Minimum probability (relative) for a runway to be considered "active".
-	// Handles parallel runway operations (e.g. two parallel runways both at ~40%).
+	// 跑道被视为"活跃"的最低概率(相对值)。
+	// 用于处理并行跑道运行的场景(例如两条并行跑道各自约 40%)。
 	activeMinProbability = 0.15
 
-	// Minimum interval between periodic score logs.
+	// 周期性分数日志之间的最小时间间隔。
 	logThrottleInterval = 60 * time.Second
 )
 
-// NewRunwayInUseTracker creates a tracker with the given scoring parameters.
+// NewRunwayInUseTracker 使用给定的评分参数创建一个 tracker。
 func NewRunwayInUseTracker(
 	windowMinutes int,
 	approachWeight, landingWeight, climbWeight, decayRate float64,
@@ -112,7 +109,7 @@ func NewRunwayInUseTracker(
 		logger:         log.Named("runway-use"),
 		activeSet:      make(map[string]bool),
 	}
-	rt.logger.Info("Runway-in-use tracker started",
+	rt.logger.Info("使用中跑道 tracker 已启动",
 		logger.Int("window_minutes", windowMinutes),
 		logger.Float64("approach_weight", approachWeight),
 		logger.Float64("landing_weight", landingWeight),
@@ -122,7 +119,7 @@ func NewRunwayInUseTracker(
 	return rt
 }
 
-// RecordEvent records evidence of runway usage and recomputes scores.
+// RecordEvent 记录跑道使用证据并重新计算分数。
 func (rt *RunwayInUseTracker) RecordEvent(runwayID string, eventType RunwayEventType, hex string) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
@@ -135,7 +132,7 @@ func (rt *RunwayInUseTracker) RecordEvent(runwayID string, eventType RunwayEvent
 		Timestamp: now,
 	})
 
-	rt.logger.Debug("Runway event recorded",
+	rt.logger.Debug("已记录跑道事件",
 		logger.String("runway", runwayID),
 		logger.String("type", eventType.String()),
 		logger.String("hex", hex),
@@ -144,29 +141,28 @@ func (rt *RunwayInUseTracker) RecordEvent(runwayID string, eventType RunwayEvent
 	rt.recompute(now)
 }
 
-// IsActiveRunway checks whether a runway end is in the current active set.
-// Returns true during startup grace (never had data) so that all runways are
-// accepted until enough traffic has been observed. Once data has been seen,
-// uses the active set (which persists across inactivity periods).
+// IsActiveRunway 检查某个跑道末端是否在当前活跃集合中。
+// 在启动宽限期(从未有过数据)返回 true,以便在观察到足够流量之前
+// 接受所有跑道。一旦有了数据,使用活跃集合(在非活跃时段也会保留)。
 func (rt *RunwayInUseTracker) IsActiveRunway(runwayID string) bool {
 	rt.mu.RLock()
 	defer rt.mu.RUnlock()
 
-	// Startup grace: never had any data → accept all runways
+	// 启动宽限:从未有过任何数据 → 接受所有跑道
 	if !rt.everHadData {
 		return true
 	}
 	return rt.activeSet[runwayID]
 }
 
-// HasData returns true if there are any events in the current window.
+// HasData 当前窗口中存在任何事件时返回 true。
 func (rt *RunwayInUseTracker) HasData() bool {
 	rt.mu.RLock()
 	defer rt.mu.RUnlock()
 	return len(rt.events) > 0
 }
 
-// GetTopScores returns the top N runway scores, sorted by score descending.
+// GetTopScores 返回前 N 个跑道分数,按分数降序排序。
 func (rt *RunwayInUseTracker) GetTopScores(n int) []RunwayScore {
 	rt.mu.RLock()
 	defer rt.mu.RUnlock()
@@ -179,10 +175,10 @@ func (rt *RunwayInUseTracker) GetTopScores(n int) []RunwayScore {
 	return result
 }
 
-// recompute prunes old events, recalculates time-decayed scores, and updates
-// the active set. Must be called with rt.mu held for writing.
+// recompute 清理过期事件,重新计算按时间衰减的分数,并更新
+// 活跃集合。必须在持有 rt.mu 的写锁时调用。
 func (rt *RunwayInUseTracker) recompute(now time.Time) {
-	// ── Prune events outside the window ──
+	// ── 清理窗口外的事件 ──
 	cutoff := now.Add(-rt.windowDuration)
 	writeIdx := 0
 	for _, e := range rt.events {
@@ -193,7 +189,7 @@ func (rt *RunwayInUseTracker) recompute(now time.Time) {
 	}
 	rt.events = rt.events[:writeIdx]
 
-	// ── Compute time-decayed weighted scores per runway end ──
+	// ── 计算每个跑道末端的时间衰减加权分数 ──
 	type accumulator struct {
 		score float64
 		count int
@@ -213,7 +209,7 @@ func (rt *RunwayInUseTracker) recompute(now time.Time) {
 		acc.count++
 	}
 
-	// ── Build sorted score list ──
+	// ── 构建排序后的分数列表 ──
 	scores := make([]RunwayScore, 0, len(scoreMap))
 	totalScore := 0.0
 	for end, acc := range scoreMap {
@@ -229,21 +225,21 @@ func (rt *RunwayInUseTracker) recompute(now time.Time) {
 		return scores[i].Score > scores[j].Score
 	})
 
-	// ── Normalize to probabilities ──
+	// ── 归一化为概率 ──
 	if totalScore > 0 {
 		for i := range scores {
 			scores[i].Probability = scores[i].Score / totalScore
 		}
 	}
 
-	// If we have live data, update scores and mark that we've seen data.
-	// If all events expired (low traffic), keep the last known scores/activeSet
-	// so the UI shows the last active runway instead of N/A.
+	// 如果有实时数据,更新分数并标记我们已经看到数据。
+	// 如果所有事件都已过期(低流量),保留最后已知的 scores/activeSet
+	// 以便 UI 显示最后的活跃跑道而不是 N/A。
 	if len(scores) > 0 {
 		rt.scores = scores
 		rt.everHadData = true
 
-		// ── Build active set (probability >= threshold) ──
+		// ── 构建活跃集合(概率 >= 阈值)──
 		rt.activeSet = make(map[string]bool, len(scores))
 		for _, s := range scores {
 			if s.Probability >= activeMinProbability {
@@ -251,30 +247,30 @@ func (rt *RunwayInUseTracker) recompute(now time.Time) {
 			}
 		}
 
-		// ── Expand for parallel runways ──
-		// If 06L is active, 06R is automatically included (and vice versa).
-		// This breaks the chicken-and-egg where the second parallel runway
-		// can never get APP events because IsActiveRunway rejects it.
+		// ── 为并行跑道做扩展 ──
+		// 如果 06L 活跃,则 06R 也自动包含(反之亦然)。
+		// 这打破了第二条并行跑道因 IsActiveRunway 拒绝而永远
+		// 无法获得 APP 事件的鸡生蛋蛋生鸡问题。
 		rt.expandActiveSetForParallels()
 	}
-	// else: keep previous rt.scores and rt.activeSet intact
+	// 否则:保持原有的 rt.scores 和 rt.activeSet 不变
 
-	// ── Logging ──
+	// ── 日志 ──
 	newActiveEnd := ""
 	if len(rt.scores) > 0 {
 		newActiveEnd = rt.scores[0].RunwayEnd
 	}
 
-	// Log on active runway change
+	// 活跃跑道变化时记录
 	if newActiveEnd != rt.lastActiveEnd && newActiveEnd != "" {
 		if rt.lastActiveEnd != "" {
-			rt.logger.Info("Active runway changed",
+			rt.logger.Info("活跃跑道已变更",
 				logger.String("previous", formatRunwayEnd(rt.lastActiveEnd)),
 				logger.String("current", formatRunwayEnd(newActiveEnd)),
 				logger.String("scores", formatScores(rt.scores)),
 			)
 		} else {
-			rt.logger.Info("Initial active runway detected",
+			rt.logger.Info("已检测到初始活跃跑道",
 				logger.String("runway", formatRunwayEnd(newActiveEnd)),
 				logger.String("scores", formatScores(rt.scores)),
 			)
@@ -282,14 +278,14 @@ func (rt *RunwayInUseTracker) recompute(now time.Time) {
 		rt.lastActiveEnd = newActiveEnd
 	}
 
-	// Periodic score summary (throttled)
+	// 周期性分数摘要(已节流)
 	if now.Sub(rt.lastLogTime) >= logThrottleInterval {
 		if len(rt.scores) > 0 {
 			n := 3
 			if n > len(rt.scores) {
 				n = len(rt.scores)
 			}
-			rt.logger.Info("Runway in use",
+			rt.logger.Info("使用中跑道",
 				logger.String("scores", formatScores(rt.scores[:n])),
 				logger.Int("total_events", len(rt.events)),
 			)
@@ -298,9 +294,9 @@ func (rt *RunwayInUseTracker) recompute(now time.Time) {
 	}
 }
 
-// SetRunwayData provides the tracker with all known runway end IDs for parallel
-// runway detection. When one runway of a parallel pair (e.g. 06L) is active,
-// the tracker automatically includes the parallel (06R) in the active set.
+// SetRunwayData 向 tracker 提供所有已知跑道末端 ID,用于并行跑道
+// 检测。当并行对中的一条跑道(例如 06L)活跃时,tracker 会自动
+// 把并行的另一条(06R)加入活跃集合。
 func (rt *RunwayInUseTracker) SetRunwayData(runways RunwayData) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
@@ -314,13 +310,13 @@ func (rt *RunwayInUseTracker) SetRunwayData(runways RunwayData) {
 	rt.knownRunwayEnds = ends
 
 	if len(ends) > 0 {
-		rt.logger.Info("Runway data loaded for parallel detection",
+		rt.logger.Info("已加载用于并行检测的跑道数据",
 			logger.Int("runway_ends", len(ends)),
 		)
 	}
 }
 
-// runwayEndIdent extracts the end identifier from a full runway ID.
+// runwayEndIdent 从完整的跑道 ID 中提取末端标识符。
 // "06L-24R/06L" → "06L", "05-23/05" → "05"
 func runwayEndIdent(runwayID string) string {
 	parts := strings.SplitN(runwayID, "/", 2)
@@ -330,8 +326,8 @@ func runwayEndIdent(runwayID string) string {
 	return runwayID
 }
 
-// runwayBaseNumber strips the L/R/C suffix from a runway end identifier
-// to get the numeric heading. "06L" → "06", "24R" → "24", "33" → "33"
+// runwayBaseNumber 从跑道末端标识符中去除 L/R/C 后缀,得到
+// 数字航向。"06L" → "06", "24R" → "24", "33" → "33"
 func runwayBaseNumber(endIdent string) string {
 	if len(endIdent) == 0 {
 		return ""
@@ -343,17 +339,16 @@ func runwayBaseNumber(endIdent string) string {
 	return endIdent
 }
 
-// expandActiveSetForParallels adds parallel runway ends to the active set.
-// If "06L-24R/06L" is active, this also marks "06R-24L/06R" as active
-// (if it exists in known runway data). This breaks the chicken-and-egg
-// problem where the second parallel runway can never accumulate approach
-// events because IsActiveRunway rejects it.
+// expandActiveSetForParallels 把并行跑道末端加入活跃集合。
+// 如果 "06L-24R/06L" 活跃,则把 "06R-24L/06R" 也标记为活跃
+// (如果它存在于已知跑道数据中)。这打破了第二条并行跑道因
+// IsActiveRunway 拒绝而永远无法累积进近事件的鸡生蛋蛋生鸡问题。
 func (rt *RunwayInUseTracker) expandActiveSetForParallels() {
 	if len(rt.knownRunwayEnds) == 0 {
 		return
 	}
 
-	// Collect base numbers of all currently active runway ends
+	// 收集当前所有活跃跑道末端的基础编号
 	activeBases := make(map[string]bool)
 	for activeID := range rt.activeSet {
 		base := runwayBaseNumber(runwayEndIdent(activeID))
@@ -362,10 +357,10 @@ func (rt *RunwayInUseTracker) expandActiveSetForParallels() {
 		}
 	}
 
-	// Add any known runway end whose base number matches an active base
+	// 添加任何基础编号与活跃基础匹配的已知跑道末端
 	for _, knownID := range rt.knownRunwayEnds {
 		if rt.activeSet[knownID] {
-			continue // already active
+			continue // 已经活跃
 		}
 		base := runwayBaseNumber(runwayEndIdent(knownID))
 		if base != "" && activeBases[base] {
@@ -374,10 +369,10 @@ func (rt *RunwayInUseTracker) expandActiveSetForParallels() {
 	}
 }
 
-// formatRunwayEnd extracts a human-readable runway name from "05-23/05" format.
-// Returns just the end identifier (e.g. "05") with the pair for context.
+// formatRunwayEnd 从 "05-23/05" 格式中提取易读的跑道名称。
+// 返回末端标识符(例如 "05"),并附上跑道对作为上下文。
 func formatRunwayEnd(runwayID string) string {
-	// RunwayID format: "pairKey/endIdent" e.g. "05-23/05"
+	// RunwayID 格式:"pairKey/endIdent",例如 "05-23/05"
 	parts := strings.SplitN(runwayID, "/", 2)
 	if len(parts) == 2 {
 		return fmt.Sprintf("RWY %s (%s)", parts[1], parts[0])
@@ -385,7 +380,7 @@ func formatRunwayEnd(runwayID string) string {
 	return runwayID
 }
 
-// formatScores produces a compact log-friendly string of runway scores.
+// formatScores 生成简洁、便于日志的跑道分数字符串。
 func formatScores(scores []RunwayScore) string {
 	var b strings.Builder
 	for i, s := range scores {

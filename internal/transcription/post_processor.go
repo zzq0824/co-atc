@@ -13,7 +13,7 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// PostProcessingConfig represents configuration for post-processing
+// PostProcessingConfig 表示后处理的配置
 type PostProcessingConfig struct {
 	Enabled               bool
 	Model                 string
@@ -24,7 +24,7 @@ type PostProcessingConfig struct {
 	TimeoutSeconds        int
 }
 
-// PostProcessingResult represents the structured result from the LLM
+// PostProcessingResult 表示来自 LLM 的结构化结果
 type PostProcessingResult struct {
 	ProcessedContent string                      `json:"processed_content"`
 	SpeakerType      string                      `json:"speaker_type,omitempty"`
@@ -32,12 +32,12 @@ type PostProcessingResult struct {
 	Clearances       []sqlite.ExtractedClearance `json:"clearances,omitempty"`
 }
 
-// TemplateRenderer is an interface for rendering templates with airspace data
+// TemplateRenderer 是用于使用空域数据渲染模板的接口
 type TemplateRenderer interface {
 	RenderPostProcessorTemplate(templatePath string) (string, error)
 }
 
-// PostProcessor manages the post-processing of transcriptions
+// PostProcessor 管理转写的后处理
 type PostProcessor struct {
 	ctx                  context.Context
 	cancel               context.CancelFunc
@@ -52,11 +52,11 @@ type PostProcessor struct {
 	processingInterval   time.Duration
 	batchSize            int
 	wg                   sync.WaitGroup
-	frequencyNames       map[string]string // Map of frequency IDs to names
-	fileLogger           *FileLogger       // Optional file logger for transcriptions
+	frequencyNames       map[string]string // 频率 ID 到名称的映射
+	fileLogger           *FileLogger       // 转写的可选文件日志记录器
 }
 
-// NewPostProcessor creates a new post-processor
+// NewPostProcessor 创建一个新的后处理器
 func NewPostProcessor(
 	ctx context.Context,
 	transcriptionStorage *sqlite.TranscriptionStorage,
@@ -70,10 +70,10 @@ func NewPostProcessor(
 	frequencyNames map[string]string,
 	fileLogger *FileLogger,
 ) (*PostProcessor, error) {
-	// Create context with cancellation
+	// 创建带取消的上下文
 	procCtx, procCancel := context.WithCancel(ctx)
 
-	// Create post-processor
+	// 创建后处理器
 	processor := &PostProcessor{
 		ctx:                  procCtx,
 		cancel:               procCancel,
@@ -94,14 +94,14 @@ func NewPostProcessor(
 	return processor, nil
 }
 
-// Start starts the post-processing loop
+// Start 启动后处理循环
 func (p *PostProcessor) Start() error {
 	if !p.config.Enabled {
-		p.logger.Info("Post-processing is disabled, not starting")
+		p.logger.Info("后处理已禁用,不启动")
 		return nil
 	}
 
-	p.logger.Info("Starting post-processing loop",
+	p.logger.Info("正在启动后处理循环",
 		logger.Int("interval_seconds", p.config.IntervalSeconds),
 		logger.Int("batch_size", p.batchSize))
 
@@ -114,11 +114,11 @@ func (p *PostProcessor) Start() error {
 		for {
 			select {
 			case <-p.ctx.Done():
-				p.logger.Info("Post-processing loop stopped due to context cancellation")
+				p.logger.Info("由于上下文取消,后处理循环已停止")
 				return
 			case <-ticker.C:
 				if err := p.processNextBatch(); err != nil {
-					p.logger.Error("Error processing batch", logger.Error(err))
+					p.logger.Error("处理批次时出错", logger.Error(err))
 				}
 			}
 		}
@@ -126,15 +126,15 @@ func (p *PostProcessor) Start() error {
 	return nil
 }
 
-// Stop stops the post-processing loop
+// Stop 停止后处理循环
 func (p *PostProcessor) Stop() error {
-	p.logger.Info("Stopping post-processing loop")
+	p.logger.Info("正在停止后处理循环")
 	p.cancel()
 	p.wg.Wait()
 	return nil
 }
 
-// TranscriptionBatch represents a batch of transcriptions to be processed
+// TranscriptionBatch 表示要处理的一批转写
 type TranscriptionBatch struct {
 	ID               int64                       `json:"id"`
 	Content          string                      `json:"content"`
@@ -145,22 +145,22 @@ type TranscriptionBatch struct {
 	Timestamp        time.Time                   `json:"timestamp"`
 }
 
-// processNextBatch processes the next batch of unprocessed transcriptions
+// processNextBatch 处理下一批未处理的转写
 func (p *PostProcessor) processNextBatch() error {
-	// Get unprocessed transcriptions
+	// 获取未处理的转写
 	records, err := p.transcriptionStorage.GetUnprocessedTranscriptions(p.batchSize)
 	if err != nil {
-		return fmt.Errorf("failed to get unprocessed transcriptions: %w", err)
+		return fmt.Errorf("获取未处理转写失败: %w", err)
 	}
 
 	if len(records) == 0 {
-		p.logger.Debug("No unprocessed transcriptions found")
-		return nil // Nothing to process
+		p.logger.Debug("没有找到未处理的转写")
+		return nil // 没有要处理的内容
 	}
 
-	p.logger.Debug("Processing batch of transcriptions", logger.Int("count", len(records)))
+	p.logger.Debug("正在处理一批转写", logger.Int("count", len(records)))
 
-	// Get frequency name for the first record (assuming all records are from the same frequency)
+	// 获取第一条记录的频率名称(假设所有记录来自同一频率)
 	var frequencyName string
 	var frequencyID string
 	if len(records) > 0 {
@@ -168,27 +168,27 @@ func (p *PostProcessor) processNextBatch() error {
 		var err error
 		frequencyName, err = p.getFrequencyName(frequencyID)
 		if err != nil {
-			p.logger.Error("Failed to get frequency name", logger.Error(err))
-			frequencyName = frequencyID // Use ID as fallback
+			p.logger.Error("获取频率名称失败", logger.Error(err))
+			frequencyName = frequencyID // 使用 ID 作为后备
 		}
 	}
 
-	// Get the last N processed transcriptions for context
+	// 获取最后 N 条已处理的转写作为上下文
 	var contextRecords []*sqlite.TranscriptionRecord
 	if frequencyID != "" && p.config.ContextTranscriptions > 0 {
 		contextRecords, err = p.transcriptionStorage.GetLastProcessedTranscriptions(frequencyID, p.config.ContextTranscriptions)
 		if err != nil {
-			p.logger.Error("Failed to get context transcriptions", logger.Error(err))
-			// Continue without context
+			p.logger.Error("获取上下文转写失败", logger.Error(err))
+			// 不带上下文继续运行
 		} else {
-			p.logger.Debug("Including context transcriptions", logger.Int("count", len(contextRecords)))
+			p.logger.Debug("包含上下文转写", logger.Int("count", len(contextRecords)))
 		}
 	}
 
-	// Prepare batch of transcriptions for processing
+	// 准备要处理的转写批次
 	var batch []TranscriptionBatch
 
-	// Add both context and unprocessed transcriptions to the batch
+	// 将上下文和未处理的转写都添加到批次中
 	for _, record := range contextRecords {
 		batch = append(batch, TranscriptionBatch{
 			ID:               record.ID,
@@ -196,7 +196,7 @@ func (p *PostProcessor) processNextBatch() error {
 			ContentProcessed: record.ContentProcessed,
 			SpeakerType:      record.SpeakerType,
 			Callsign:         record.Callsign,
-			Clearances:       []sqlite.ExtractedClearance{}, // Empty for context records
+			Clearances:       []sqlite.ExtractedClearance{}, // 上下文记录为空
 			Timestamp:        record.CreatedAt,
 		})
 	}
@@ -208,25 +208,25 @@ func (p *PostProcessor) processNextBatch() error {
 			ContentProcessed: "",
 			SpeakerType:      "",
 			Callsign:         "",
-			Clearances:       []sqlite.ExtractedClearance{}, // Will be filled by AI
+			Clearances:       []sqlite.ExtractedClearance{}, // 将由 AI 填充
 			Timestamp:        record.CreatedAt,
 		})
 	}
 
-	// Sort the batch by timestamp (oldest to newest)
+	// 按时间戳对批次排序(最旧到最新)
 	p.sortBatchByTimestamp(batch)
 
-	// Convert batch to JSON
+	// 将批次转换为 JSON
 	batchJSON, err := json.MarshalIndent(batch, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal transcription batch: %w", err)
+		return fmt.Errorf("序列化转写批次失败: %w", err)
 	}
 
-	// Use template renderer to generate system prompt with current airspace data
+	// 使用模板渲染器生成带当前空域数据的系统提示词
 	systemPrompt, err := p.templateRenderer.RenderPostProcessorTemplate(p.config.SystemPromptPath)
 	if err != nil {
-		p.logger.Error("Failed to render system prompt template", logger.Error(err))
-		// Mark all records as failed to prevent infinite retry
+		p.logger.Error("渲染系统提示词模板失败", logger.Error(err))
+		// 标记所有记录为失败以防止无限重试
 		for _, record := range records {
 			if updateErr := p.transcriptionStorage.UpdateProcessedTranscription(
 				record.ID,
@@ -234,7 +234,7 @@ func (p *PostProcessor) processNextBatch() error {
 				"UNKNOWN",
 				"",
 			); updateErr != nil {
-				p.logger.Error("Failed to mark transcription as failed",
+				p.logger.Error("将转写标记为失败时出错",
 					logger.Int64("id", record.ID),
 					logger.Error(updateErr))
 			}
@@ -242,16 +242,16 @@ func (p *PostProcessor) processNextBatch() error {
 		return err
 	}
 
-	// User input contains only the frequency and transcriptions data
+	// 用户输入仅包含频率和转写数据
 	userInput := fmt.Sprintf("Radio Frequency:\n%s\n\nTransmissions Log:\n%s",
 		frequencyName,
 		string(batchJSON))
 
-	// Process the batch
+	// 处理批次
 	results, err := p.processBatch(systemPrompt, userInput)
 	if err != nil {
-		p.logger.Error("Failed to process batch", logger.Error(err))
-		// Mark all records as failed to prevent infinite retry
+		p.logger.Error("处理批次失败", logger.Error(err))
+		// 标记所有记录为失败以防止无限重试
 		for _, record := range records {
 			if updateErr := p.transcriptionStorage.UpdateProcessedTranscription(
 				record.ID,
@@ -259,7 +259,7 @@ func (p *PostProcessor) processNextBatch() error {
 				"UNKNOWN",
 				"",
 			); updateErr != nil {
-				p.logger.Error("Failed to mark transcription as failed",
+				p.logger.Error("将转写标记为失败时出错",
 					logger.Int64("id", record.ID),
 					logger.Error(updateErr))
 			}
@@ -267,10 +267,10 @@ func (p *PostProcessor) processNextBatch() error {
 		return err
 	}
 
-	// Check if we got any results
+	// 检查是否得到任何结果
 	if len(results) == 0 {
-		p.logger.Warn("No results returned from OpenAI API, marking batch as failed")
-		// Mark all records as failed to prevent infinite retry
+		p.logger.Warn("OpenAI API 没有返回结果,标记批次为失败")
+		// 标记所有记录为失败以防止无限重试
 		for _, record := range records {
 			if updateErr := p.transcriptionStorage.UpdateProcessedTranscription(
 				record.ID,
@@ -278,7 +278,7 @@ func (p *PostProcessor) processNextBatch() error {
 				"UNKNOWN",
 				"",
 			); updateErr != nil {
-				p.logger.Error("Failed to mark transcription as failed",
+				p.logger.Error("将转写标记为失败时出错",
 					logger.Int64("id", record.ID),
 					logger.Error(updateErr))
 			}
@@ -286,11 +286,11 @@ func (p *PostProcessor) processNextBatch() error {
 		return nil
 	}
 
-	// Update database with processed transcriptions
+	// 更新数据库中已处理的转写
 	for _, result := range results {
-		// Skip results with empty processed content or already processed transcriptions (context)
+		// 跳过处理内容为空或已处理的转写(上下文)
 		if result.ContentProcessed == "" {
-			p.logger.Warn("Skipping result with empty processed content - this indicates OpenAI returned a result but didn't fill in the content_processed field",
+			p.logger.Warn("跳过处理内容为空的结果 - 这表示 OpenAI 返回了结果但未填写 content_processed 字段",
 				logger.Int64("id", result.ID),
 				logger.String("original_content", result.Content),
 				logger.String("speaker_type", result.SpeakerType),
@@ -298,7 +298,7 @@ func (p *PostProcessor) processNextBatch() error {
 			continue
 		}
 
-		// Skip context transcriptions that were already processed
+		// 跳过已处理的上下文转写
 		isContextRecord := false
 		for _, contextRecord := range contextRecords {
 			if contextRecord.ID == result.ID {
@@ -307,25 +307,25 @@ func (p *PostProcessor) processNextBatch() error {
 			}
 		}
 		if isContextRecord {
-			p.logger.Debug("Skipping context record that was already processed",
+			p.logger.Debug("跳过已处理的上下文记录",
 				logger.Int64("id", result.ID))
 			continue
 		}
 
-		// Update database
+		// 更新数据库
 		if err := p.transcriptionStorage.UpdateProcessedTranscription(
 			result.ID,
 			result.ContentProcessed,
 			result.SpeakerType,
 			result.Callsign,
 		); err != nil {
-			p.logger.Error("Failed to update processed transcription",
+			p.logger.Error("更新已处理转写失败",
 				logger.Int64("id", result.ID),
 				logger.Error(err))
 			continue
 		}
 
-		// Process clearances if this is an ATC transmission with clearances
+		// 如果这是带许可的 ATC 通信,则处理许可
 		if result.SpeakerType == "ATC" && len(result.Clearances) > 0 {
 			for _, clearance := range result.Clearances {
 				clearanceRecord := &sqlite.ClearanceRecord{
@@ -341,20 +341,20 @@ func (p *PostProcessor) processNextBatch() error {
 
 				clearanceID, err := p.clearanceStorage.StoreClearance(clearanceRecord)
 				if err != nil {
-					p.logger.Error("Failed to store clearance",
+					p.logger.Error("存储许可失败",
 						logger.String("callsign", clearance.Callsign),
 						logger.String("type", clearance.Type),
 						logger.Error(err))
 					continue
 				}
 
-				// Set the ID for broadcasting
+				// 设置用于广播的 ID
 				clearanceRecord.ID = clearanceID
 
-				// Broadcast clearance event via WebSocket
+				// 通过 WebSocket 广播许可事件
 				p.broadcastClearanceEvent(clearanceRecord)
 
-				p.logger.Info("Stored clearance",
+				p.logger.Info("已存储许可",
 					logger.String("callsign", clearance.Callsign),
 					logger.String("type", clearance.Type),
 					logger.String("runway", clearance.Runway),
@@ -362,7 +362,7 @@ func (p *PostProcessor) processNextBatch() error {
 			}
 		}
 
-		// Find the original record to broadcast
+		// 找到原始记录以广播
 		var record *sqlite.TranscriptionRecord
 		for _, r := range records {
 			if r.ID == result.ID {
@@ -372,52 +372,52 @@ func (p *PostProcessor) processNextBatch() error {
 		}
 
 		if record == nil {
-			p.logger.Error("Failed to find original record for broadcasting",
+			p.logger.Error("找不到用于广播的原始记录",
 				logger.Int64("id", result.ID))
 			continue
 		}
 
-		// Update the record with processed content
+		// 用已处理内容更新记录
 		record.ContentProcessed = result.ContentProcessed
 		record.SpeakerType = result.SpeakerType
 		record.Callsign = result.Callsign
 		record.IsProcessed = true
 
-		// Log the processed transcription instead of broadcasting
+		// 记录已处理的转写而不是广播
 		p.logProcessedTranscription(record)
 	}
 
 	return nil
 }
 
-// processBatch processes a batch of transcriptions
+// processBatch 处理一批转写
 func (p *PostProcessor) processBatch(systemPrompt string, userInput string) ([]TranscriptionBatch, error) {
-	// Call OpenAI API to process the batch
+	// 调用 OpenAI API 处理批次
 	results, err := p.openaiClient.PostProcessBatch(p.ctx, systemPrompt, userInput, p.config.Model)
 	if err != nil {
-		return nil, fmt.Errorf("failed to post-process batch: %w", err)
+		return nil, fmt.Errorf("批量后处理失败: %w", err)
 	}
 
 	return results, nil
 }
 
-// getFrequencyName retrieves the name of a frequency from its ID
+// getFrequencyName 从频率 ID 检索频率名称
 func (p *PostProcessor) getFrequencyName(frequencyID string) (string, error) {
-	// Check if we have the frequency name in our cache
+	// 检查我们是否在缓存中有该频率名称
 	if name, ok := p.frequencyNames[frequencyID]; ok {
 		return name, nil
 	}
 
-	// If not in cache, try to get it from the database
-	// This would require adding a method to get frequency info from the database
-	// For now, we'll just return the ID as the name
+	// 如果不在缓存中,尝试从数据库获取
+	// 这需要添加从数据库获取频率信息的方法
+	// 目前,我们仅返回 ID 作为名称
 	return frequencyID, nil
 }
 
-// logProcessedTranscription logs a processed transcription to the server console and broadcasts it to WebSocket clients
+// logProcessedTranscription 将已处理的转写记录到服务器控制台并广播给 WebSocket 客户端
 func (p *PostProcessor) logProcessedTranscription(record *sqlite.TranscriptionRecord) {
-	// Log the processed transcription at debug level
-	p.logger.Debug("Processed transcription",
+	// 在 debug 级别记录已处理的转写
+	p.logger.Debug("已处理转写",
 		logger.Int64("id", record.ID),
 		logger.String("frequency_id", record.FrequencyID),
 		logger.String("original_content", record.Content),
@@ -426,14 +426,14 @@ func (p *PostProcessor) logProcessedTranscription(record *sqlite.TranscriptionRe
 		logger.String("callsign", record.Callsign),
 		logger.Time("timestamp", record.CreatedAt))
 
-	// Write to file logger if enabled
+	// 如果启用,写入文件日志记录器
 	if p.fileLogger != nil {
 		if err := p.fileLogger.LogProcessed(record.FrequencyID, record.CreatedAt, record.SpeakerType, record.Callsign, record.ContentProcessed); err != nil {
-			p.logger.Error("Failed to write processed transcription to log file", logger.Error(err))
+			p.logger.Error("将已处理转写写入日志文件失败", logger.Error(err))
 		}
 	}
 
-	// Create WebSocket message to update the original message
+	// 创建用于更新原始消息的 WebSocket 消息
 	message := &websocket.Message{
 		Type: "transcription_update",
 		Data: map[string]interface{}{
@@ -449,24 +449,24 @@ func (p *PostProcessor) logProcessedTranscription(record *sqlite.TranscriptionRe
 		},
 	}
 
-	// Log the message we're about to send
-	p.logger.Debug("Broadcasting processed transcription to WebSocket clients",
+	// 记录我们即将发送的消息
+	p.logger.Debug("正在向 WebSocket 客户端广播已处理的转写",
 		logger.Int64("id", record.ID),
 		logger.String("frequency_id", record.FrequencyID))
 
-	// Broadcast to WebSocket clients
+	// 广播给 WebSocket 客户端
 	p.wsServer.Broadcast(message)
 }
 
-// sortBatchByTimestamp sorts a batch of transcriptions by timestamp (oldest to newest)
+// sortBatchByTimestamp 按时间戳对一批转写排序(最旧到最新)
 func (p *PostProcessor) sortBatchByTimestamp(batch []TranscriptionBatch) {
-	// Sort the batch by timestamp (ascending order - oldest first)
+	// 按时间戳对批次排序(升序 - 最旧的在前)
 	sort.Slice(batch, func(i, j int) bool {
 		return batch[i].Timestamp.Before(batch[j].Timestamp)
 	})
 }
 
-// broadcastClearanceEvent broadcasts a clearance event via WebSocket
+// broadcastClearanceEvent 通过 WebSocket 广播许可事件
 func (p *PostProcessor) broadcastClearanceEvent(clearance *sqlite.ClearanceRecord) {
 	message := &websocket.Message{
 		Type: "clearance_issued",
@@ -481,12 +481,12 @@ func (p *PostProcessor) broadcastClearanceEvent(clearance *sqlite.ClearanceRecor
 		},
 	}
 
-	// Log the message we're about to send
-	p.logger.Debug("Broadcasting clearance event to WebSocket clients",
+	// 记录我们即将发送的消息
+	p.logger.Debug("正在向 WebSocket 客户端广播许可事件",
 		logger.Int64("id", clearance.ID),
 		logger.String("callsign", clearance.Callsign),
 		logger.String("type", clearance.ClearanceType))
 
-	// Broadcast to WebSocket clients
+	// 广播给 WebSocket 客户端
 	p.wsServer.Broadcast(message)
 }

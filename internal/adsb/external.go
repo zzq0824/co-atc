@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-// FlexibleField can hold either a string or a number
+// FlexibleField 可以保存字符串或数字
 type FlexibleField struct {
 	value interface{}
 }
@@ -21,34 +21,34 @@ func (f *FlexibleField) HasValue() bool {
 	return true
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for FlexibleField
+// UnmarshalJSON 为 FlexibleField 实现自定义 JSON 反序列化
 func (f *FlexibleField) UnmarshalJSON(data []byte) error {
-	// Try to unmarshal as a number first
+	// 首先尝试反序列化为数字
 	var num float64
 	if err := json.Unmarshal(data, &num); err == nil {
 		f.value = num
 		return nil
 	}
 
-	// If that fails, try to unmarshal as a string
+	// 如果失败,尝试反序列化为字符串
 	var str string
 	if err := json.Unmarshal(data, &str); err == nil {
 		f.value = str
 		return nil
 	}
 
-	// If both fail, try to unmarshal as a boolean
+	// 如果都失败,尝试反序列化为布尔值
 	var b bool
 	if err := json.Unmarshal(data, &b); err == nil {
 		f.value = b
 		return nil
 	}
 
-	// If all fail, return an error
-	return fmt.Errorf("cannot unmarshal %s into FlexibleField", data)
+	// 如果都失败,返回错误
+	return fmt.Errorf("无法将 %s 反序列化为 FlexibleField", data)
 }
 
-// Float64 returns the value as a float64
+// Float64 将值作为 float64 返回
 func (f *FlexibleField) Float64() float64 {
 	v, ok := f.Float64OK()
 	if !ok {
@@ -94,7 +94,7 @@ func (f *FlexibleField) Float64Ptr() *float64 {
 	return &v
 }
 
-// Int returns the value as an int
+// Int 将值作为 int 返回
 func (f *FlexibleField) Int() int {
 	v, ok := f.IntOK()
 	if !ok {
@@ -138,7 +138,7 @@ func (f *FlexibleField) IntPtr() *int {
 	return &v
 }
 
-// String returns the value as a string
+// String 将值作为字符串返回
 func (f *FlexibleField) String() string {
 	switch v := f.value.(type) {
 	case float64:
@@ -152,14 +152,14 @@ func (f *FlexibleField) String() string {
 	}
 }
 
-// ExternalADSBTarget represents a single aircraft in the external ADS-B API response
-// It uses FlexibleField to handle fields that can be either string or numeric
+// ExternalADSBTarget 表示外部 ADS-B API 响应中的单个飞行器
+// 它使用 FlexibleField 处理可以是字符串或数字的字段
 type ExternalADSBTarget struct {
 	Hex            string        `json:"hex"`
 	Type           string        `json:"type"`
 	Flight         string        `json:"flight"`
-	Registration   string        `json:"r"` // External API specific field
-	AircraftType   string        `json:"t"` // External API specific field
+	Registration   string        `json:"r"` // 外部 API 特定字段
+	AircraftType   string        `json:"t"` // 外部 API 特定字段
 	AltBaro        FlexibleField `json:"alt_baro"`
 	AltGeom        FlexibleField `json:"alt_geom"`
 	GS             FlexibleField `json:"gs"`
@@ -207,30 +207,30 @@ type ExternalADSBTarget struct {
 	RSSI           FlexibleField `json:"rssi"`
 }
 
-// ExternalAPIResponse represents the raw JSON data from the external ADS-B API
+// ExternalAPIResponse 表示来自外部 ADS-B API 的原始 JSON 数据
 type ExternalAPIResponse struct {
 	Now      float64              `json:"now,omitempty"`
 	Messages int                  `json:"messages,omitempty"`
 	AC       []ExternalADSBTarget `json:"ac"`
 }
 
-// Convert converts an ExternalADSBTarget to the standard ADSBTarget format
+// Convert 将 ExternalADSBTarget 转换为标准 ADSBTarget 格式
 func (e *ExternalADSBTarget) Convert() ADSBTarget {
 	target := ADSBTarget{
 		Hex:          e.Hex,
 		Type:         e.Type,
 		Flight:       e.Flight,
-		Registration: e.Registration, // Copy registration field
-		AircraftType: e.AircraftType, // Copy aircraft type field
+		Registration: e.Registration, // 复制注册字段
+		AircraftType: e.AircraftType, // 复制飞行器类型字段
 		Squawk:       e.Squawk,
 		Category:     e.Category,
 		SILType:      e.SILType,
 		MLAT:         e.MLAT,
 		TISB:         e.TISB,
-		SourceType:   SourceTypeExternalAPI, // Mark as coming from external source
+		SourceType:   SourceTypeExternalAPI, // 标记为来自外部数据源
 	}
 
-	// Convert numeric fields
+	// 转换数字字段
 	if v, ok := e.AltBaro.Float64OK(); ok {
 		target.AltBaro = FlexibleFloat64(v)
 	} else {
@@ -268,7 +268,7 @@ func (e *ExternalADSBTarget) Convert() ADSBTarget {
 	target.RSSI = e.RSSI.Float64Ptr()
 	target.Seen = e.Seen.Float64Ptr()
 
-	// Convert integer fields
+	// 转换整数字段
 	target.NIC = e.NIC.IntPtr()
 	target.RC = e.RC.IntPtr()
 	target.Version = e.Version.IntPtr()

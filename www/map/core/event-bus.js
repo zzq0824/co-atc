@@ -1,18 +1,18 @@
 /**
- * Module: map/core/event-bus
- * Why it exists:
- * - Provides a tiny dependency-free pub/sub primitive for map internals.
- * - Avoids tight coupling between map features that need lightweight signaling.
+ * 模块: map/core/event-bus
+ * 存在原因:
+ * - 为地图内部提供一个微型的、无依赖的发布/订阅原语。
+ * - 避免需要轻量信号传递的地图要素之间产生紧耦合。
  *
- * Key responsibilities:
- * - Register (`on`) and unregister (`off`) event handlers.
- * - Emit payloads safely (`emit`) and support full teardown (`clear`).
+ * 主要职责:
+ * - 注册 (`on`) 与注销 (`off`) 事件处理器。
+ * - 安全地发布载荷 (`emit`),并支持完全销毁 (`clear`)。
  *
- * Quirks / contracts:
- * - Handler exceptions are caught and logged so one faulty subscriber does not
- *   break event delivery to others.
- * - Implemented as a global factory on `window.MapEventBus` to match existing
- *   non-bundled frontend module loading.
+ * 怪癖 / 契约:
+ * - 处理器异常会被捕获并记录,以避免一个故障订阅者
+ *   影响其他订阅者的事件投递。
+ * - 实现为挂载到 `window.MapEventBus` 上的全局工厂,以匹配现有的
+ *   非打包前端模块加载方式。
  */
 (function () {
     function createEventBus() {
@@ -42,7 +42,7 @@
                 try {
                     handler(payload);
                 } catch (error) {
-                    console.warn('MapEventBus handler error:', error);
+                    console.warn('MapEventBus 处理器错误:', error);
                 }
             });
         }

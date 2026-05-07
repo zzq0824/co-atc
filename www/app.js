@@ -1,29 +1,29 @@
 /**
- * Module: app
- * Why it exists:
- * - Main frontend runtime entry point for Co-ATC.
- * - Wires Alpine store state, API/WebSocket clients, map manager integration,
- *   audio/transcription flows, and operator-facing UI behaviors.
+ * 模块: app
+ * 存在的理由:
+ * - Co-ATC 的主要前端运行时入口点。
+ * - 连接 Alpine store 状态、API/WebSocket 客户端、地图管理器集成、
+ *   音频/转写流程,以及面向操作员的 UI 行为。
  *
- * Key responsibilities:
- * - Define runtime configuration and environment-derived endpoints.
- * - Initialize shared clients/services and attach browser lifecycle handlers.
- * - Orchestrate realtime aircraft updates, map rendering, and sidebar/detail views.
+ * 主要职责:
+ * - 定义运行时配置和从环境派生的端点。
+ * - 初始化共享客户端/服务并附加浏览器生命周期处理程序。
+ * - 编排实时飞行器更新、地图渲染以及侧边栏/详情视图。
  *
- * Quirks / contracts:
- * - Assumes same-host API/WebSocket deployment by default (LAN/local first).
- * - Contains deliberate fallbacks for non-secure contexts used in local operations,
- *   including UUID generation and service-worker behavior constraints.
- * - Large by design today: this file remains the integration nexus while map-
- *   specific logic is progressively moved into dedicated modules.
+ * 特性 / 约定:
+ * - 默认假定 API/WebSocket 部署在同一主机(局域网/本地优先)。
+ * - 包含对非安全上下文的有意回退,用于本地操作,
+ *   包括 UUID 生成和 service-worker 行为约束。
+ * - 当前设计上较大: 此文件仍然是集成枢纽,而地图相关
+ *   逻辑正逐步迁移到专用模块中。
  */
 
-// UUID generation with fallback for non-secure contexts (e.g., HTTP on LAN)
+// 用于非安全上下文(例如局域网 HTTP)的 UUID 生成回退
 function generateUUID() {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         return crypto.randomUUID();
     }
-    // Fallback for non-secure contexts
+    // 非安全上下文的回退
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -31,12 +31,12 @@ function generateUUID() {
     });
 }
 
-// Base API URL - dynamically use the current port
+// 基础 API URL — 动态使用当前端口
 const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/v1`;
 
-// Configuration
+// 配置
 const CONFIG = {
-    // defaultCenter: [43.6777, -79.6248], // Will be fetched from API
+    // defaultCenter: [43.6777, -79.6248], // 将从 API 获取
     mapEngine: 'openlayers',
     mapAircraftWebGL: false,
     mapOverlays: null,
@@ -50,14 +50,14 @@ const CONFIG = {
     useRealData: true,
     useSampleData: true,
     rangeRings: [5, 10, 25, 50, 100],
-    selectedFadeOpacity: 0.4, // Opacity for non-selected items when one is selected
-    
-    // Refresh intervals (in milliseconds)
-    stationRefreshInterval: 30 * 60 * 1000,  // 30 minutes for station data
-    weatherRefreshInterval: 30 * 60 * 1000,  // 30 minutes for weather data
+    selectedFadeOpacity: 0.4, // 当某项被选中时,未选中项的透明度
+
+    // 刷新间隔(毫秒)
+    stationRefreshInterval: 30 * 60 * 1000,  // 站点数据每 30 分钟刷新
+    weatherRefreshInterval: 30 * 60 * 1000,  // 气象数据每 30 分钟刷新
 };
 
-// Initialize WebSocket client
+// 初始化 WebSocket 客户端
 const wsClient = new WebSocketClient(CONFIG.wsUrl);
 window.wsClient = wsClient;
 
@@ -118,28 +118,28 @@ async function registerTileCacheServiceWorker() {
     }
 
     if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        console.warn('Service worker tile cache skipped: insecure context');
+        console.warn('已跳过 Service worker 瓦片缓存: 非安全上下文');
         return;
     }
 
     try {
         const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        console.log('Tile cache service worker registered');
+        console.log('瓦片缓存 service worker 已注册');
 
         if (navigator.serviceWorker.controller) {
-            console.log('Tile cache service worker is controlling this page');
+            console.log('瓦片缓存 service worker 正在控制此页面');
             tileCacheRuntimeStats.controlled = true;
             requestTileCacheStatsFromSW();
         } else {
-            console.log('Tile cache service worker installed, will control after next reload');
+            console.log('瓦片缓存 service worker 已安装,将在下次重新加载后生效');
             tileCacheRuntimeStats.controlled = false;
         }
 
         if (registration.waiting) {
-            console.log('Tile cache service worker update is waiting to activate');
+            console.log('瓦片缓存 service worker 更新正在等待激活');
         }
     } catch (error) {
-        console.warn('Tile cache service worker registration failed:', error);
+        console.warn('瓦片缓存 service worker 注册失败:', error);
     }
 }
 
@@ -147,25 +147,25 @@ window.addEventListener('load', () => {
     registerTileCacheServiceWorker();
 });
 
-// Declare Audio client - will be initialized in alpine:init
+// 声明音频客户端 — 将在 alpine:init 中初始化
 let audioClient;
-// Declare Map Manager - will be initialized in alpine:init
+// 声明地图管理器 — 将在 alpine:init 中初始化
 let mapManager;
-// Declare Animation Engine - will be initialized in alpine:init
+// 声明动画引擎 — 将在 alpine:init 中初始化
 let animationEngine;
 
-// Map instance and layers
-let isAppInitialized = false; // Flag to ensure init() runs only once
+// 地图实例和图层
+let isAppInitialized = false; // 标志位确保 init() 只运行一次
 
-// Alpine.js data store
+// Alpine.js 数据存储
 document.addEventListener('alpine:init', () => {
     Alpine.store('atc', {
-        // State
+        // 状态
         aircraft: [],
         filteredAircraft: [],
         searchTerm: '',
-        // Computed aircraft counts — derived from the live aircraft store so they stay
-        // in sync as WebSocket adds/updates/removes aircraft at runtime.
+        // 计算得到的飞行器计数 — 从实时飞行器存储派生,因此随着 WebSocket
+        // 在运行时添加/更新/移除飞行器,它们将保持同步。
         get counts() {
             const now = Date.now();
             const lastSeenCutoff = now - ((this.settings?.lastSeenMinutes || 10) * 60 * 1000);
@@ -183,46 +183,46 @@ document.addEventListener('alpine:init', () => {
             }
             return { ground_active, ground_total, air_active, air_total };
         },
-        visibleAircraftOnMap: new Set(), // Track aircraft visible on map for UI indicators
+        visibleAircraftOnMap: new Set(), // 跟踪地图上可见的飞行器以用于 UI 指示器
         audioFrequencies: [],
-        clientID: generateUUID(), // Unique client ID for audio streams
-        unmutedFrequencies: new Set(), // Set of unmuted frequency IDs
-        audioElements: {}, // Map of frequency ID to audio element
-        audioAnalysers: {}, // Map of frequency ID to analyser node
-        audioDataArrays: {}, // Map of frequency ID to data array
-        visualizationFrameIds: {}, // Map of frequency ID to animation frame ID
+        clientID: generateUUID(), // 用于音频流的唯一客户端 ID
+        unmutedFrequencies: new Set(), // 未静音的频率 ID 集合
+        audioElements: {}, // 频率 ID 到音频元素的映射
+        audioAnalysers: {}, // 频率 ID 到分析器节点的映射
+        audioDataArrays: {}, // 频率 ID 到数据数组的映射
+        visualizationFrameIds: {}, // 频率 ID 到动画帧 ID 的映射
         sourceNodes: {},
-        
-        // Request throttling state
+
+        // 请求节流状态
         pendingRequests: {
             aircraft: false,
-            tracks: new Map(), // Map of hex -> boolean for pending tracks requests
+            tracks: new Map(), // hex -> boolean 的映射,用于待处理的轨迹请求
             proximity: false,
         },
 
-        // Clear pending requests for a specific aircraft
+        // 清除特定飞行器的待处理请求
         clearPendingRequestsForAircraft(hex) {
             this.pendingRequests.tracks.delete(hex);
         },
 
-        // Clear all pending requests
+        // 清除所有待处理请求
         clearAllPendingRequests() {
             this.pendingRequests.aircraft = false;
             this.pendingRequests.tracks.clear();
             this.pendingRequests.proximity = false;
         },
 
-        // Internal state for tracking aircraft selection changes
+        // 用于跟踪飞行器选中变化的内部状态
         _previousSelectedHex: null,
 
-        // Request timeout configuration
-        REQUEST_TIMEOUT_MS: 5000, // 5 seconds
+        // 请求超时配置
+        REQUEST_TIMEOUT_MS: 5000, // 5 秒
 
-        // Create a fetch request with timeout
+        // 创建带超时的 fetch 请求
         async fetchWithTimeout(url, options = {}) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT_MS);
-            
+
             try {
                 const response = await fetch(url, {
                     ...options,
@@ -233,39 +233,39 @@ document.addEventListener('alpine:init', () => {
             } catch (error) {
                 clearTimeout(timeoutId);
                 if (error.name === 'AbortError') {
-                    throw new Error(`Request timeout after ${this.REQUEST_TIMEOUT_MS}ms`);
+                    throw new Error(`请求在 ${this.REQUEST_TIMEOUT_MS}ms 后超时`);
                 }
                 throw error;
             }
         },
-        radiosStarted: false, // Initialize radiosStarted to false
-        wsConnection: null, // WebSocket connection
-        transcriptions: [], // Array of transcription messages
-        aircraftAlerts: [], // Array of aircraft movement alerts
+        radiosStarted: false, // 将 radiosStarted 初始化为 false
+        wsConnection: null, // WebSocket 连接
+        transcriptions: [], // 转写消息数组
+        aircraftAlerts: [], // 飞行器移动告警数组
         audioApiUrl: `${API_BASE_URL}/frequencies`,
-        transcriptionSearchTerm: '', // For searching transcriptions
-        showLostAircraftOnly: false, // Toggle for showing only lost aircraft
-        originalTranscriptions: {}, // Store original transcriptions before filtering
-        stationApiUrl: `${API_BASE_URL}/station`, // API URL for station data
-        wxApiUrl: `${API_BASE_URL}/wx`, // API URL for weather data
+        transcriptionSearchTerm: '', // 用于搜索转写
+        showLostAircraftOnly: false, // 仅显示已丢失飞行器的开关
+        originalTranscriptions: {}, // 在筛选前存储原始转写
+        stationApiUrl: `${API_BASE_URL}/station`, // 站点数据的 API URL
+        wxApiUrl: `${API_BASE_URL}/wx`, // 气象数据的 API URL
         adsbSourceApiUrl: `${API_BASE_URL}/adsb/source`,
         stationLatitude: null,
         stationLongitude: null,
         stationElevationFeet: null,
         stationCruiseAltitudeFt: 18000,
         stationAirportCode: null,
-        // Station override state
+        // 站点覆盖状态
         stationOverride: {
             latitude: null,
             longitude: null,
             active: false,
             mapClickMode: false,
             autoUpdate: false,
-            updateInterval: 60, // seconds
+            updateInterval: 60, // 秒
             geolocationStatus: null,
             geolocationWatchId: null
         },
-        // Weather configuration flags from station config
+        // 来自站点配置的气象配置标志
         stationFetchMETAR: false,
         stationFetchTAF: false,
         stationFetchNOTAMs: false,
@@ -274,13 +274,13 @@ document.addEventListener('alpine:init', () => {
         notams: null,
         weatherLastUpdated: null,
         weatherFetchErrors: [],
-        runwayData: null, // Store runway data
-        runwayInUse: null, // Active runway scores from traffic analysis
-        runwayInUseInterval: null, // 60s polling interval
-        airportsData: null, // Airport reference data
-        heliportsData: null, // Heliport reference data
-        navaidsData: null, // Navaid reference data
-        allRunwaysData: null, // All runways within range
+        runwayData: null, // 存储跑道数据
+        runwayInUse: null, // 来自交通分析的活动跑道评分
+        runwayInUseInterval: null, // 60s 轮询间隔
+        airportsData: null, // 机场参考数据
+        heliportsData: null, // 直升机停机坪参考数据
+        navaidsData: null, // 导航台参考数据
+        allRunwaysData: null, // 范围内所有跑道
         metarDetailsVisible: false,
         tafDetailsVisible: false,
         notamDetailsVisible: false,
@@ -297,27 +297,27 @@ document.addEventListener('alpine:init', () => {
             updated_at: null,
         },
         initialDataLoaded: false,
-        connected: null, // null = initial state, true = connected, false = connection lost
+        connected: null, // null = 初始状态,true = 已连接,false = 连接丢失
         wsReconnectAttempt: 0,
         wsNextRetryDelayMs: null,
         wsConnectionState: 'idle',
         lastUpdate: null,
-        settingsCollapsed: true, // Hide settings panel by default
+        settingsCollapsed: true, // 默认隐藏设置面板
         selectedAircraft: null,
-        showSplashScreen: true, // Show splash screen by default
-        splashScreenAudioPlayed: false, // Track if the welcome sound has been played
-        connectionLostSoundPlayed: false, // Track if the connection lost sound has been played
-        // coordinates removed as they're not needed
+        showSplashScreen: true, // 默认显示启动画面
+        splashScreenAudioPlayed: false, // 跟踪欢迎声音是否已播放
+        connectionLostSoundPlayed: false, // 跟踪连接丢失声音是否已播放
+        // coordinates 已移除,因为不再需要
         currentTime: new Date().toLocaleTimeString(),
-        zuluTime: new Date().toUTCString().match(/(\d{2}:\d{2}:\d{2})/)[0] + 'Z', // Initial Zulu Time
-        showLocalDates: localStorage.getItem('showLocalDates') === 'true' || false, // Default to UTC (false)
+        zuluTime: new Date().toUTCString().match(/(\d{2}:\d{2}:\d{2})/)[0] + 'Z', // 初始祖鲁时间
+        showLocalDates: localStorage.getItem('showLocalDates') === 'true' || false, // 默认使用 UTC (false)
         hoveredAircraft: null,
         sidebarTab: localStorage.getItem('sidebarAircraftTab') || 'active',
         sortColumn: 'callsign',
         sortDirection: 'asc',
-        lastUpdateSeconds: 0, // For footer status
-        timeUpdateIntervalId: null, // Store ID for the time update interval
-        mapPerfUpdateIntervalId: null, // Interval for map performance stats polling
+        lastUpdateSeconds: 0, // 用于页脚状态
+        timeUpdateIntervalId: null, // 存储时间更新间隔的 ID
+        mapPerfUpdateIntervalId: null, // 地图性能统计轮询的间隔
         mapPerformanceStats: {
             heapUsedMB: null,
             heapLimitMB: null,
@@ -351,17 +351,17 @@ document.addEventListener('alpine:init', () => {
         },
         tileCacheStats: { ...tileCacheRuntimeStats },
         _previousHeapUsedMB: null,
-        userSetVolumes: {}, // Initialize as empty object
-        lastSignificantAudioTime: {}, // Stores timestamp for each freqId
-        secondsSinceLastAudio: {},  // Stores formatted string for display (e.g., "5s")
-        lastAudioUpdateIntervalId: null, // Interval ID for updating secondsSinceLastAudio
-        frequencyTranscriptions: {}, // Stores transcriptions per frequency_id
-        transcriptionViewerVisible: {}, // Stores visibility state for each frequency's viewer
-        unreadTranscriptions: {}, // Unread count per frequency (only live WS messages while viewer is closed)
-        _readDividerId: {}, // ID of the first already-read message when viewer opens with unread
-        frequencyConnectionStatus: {}, // Tracks connection status per frequency (connecting, connected, failed)
+        userSetVolumes: {}, // 初始化为空对象
+        lastSignificantAudioTime: {}, // 存储每个 freqId 的时间戳
+        secondsSinceLastAudio: {},  // 存储用于显示的格式化字符串(例如 "5s")
+        lastAudioUpdateIntervalId: null, // 用于更新 secondsSinceLastAudio 的间隔 ID
+        frequencyTranscriptions: {}, // 按 frequency_id 存储转写
+        transcriptionViewerVisible: {}, // 存储每个频率查看器的可见状态
+        unreadTranscriptions: {}, // 每个频率的未读计数(仅在查看器关闭期间的实时 WS 消息)
+        _readDividerId: {}, // 当查看器打开且有未读时,第一条已读消息的 ID
+        frequencyConnectionStatus: {}, // 按频率跟踪连接状态(connecting、connected、failed)
 
-        // Settings
+        // 设置
         settings: {
             mapStyle: (() => {
                 const savedStyle = localStorage.getItem('mapStyle') || 'vfr-sectional';
@@ -422,15 +422,15 @@ document.addEventListener('alpine:init', () => {
                 const allowed = ['1', '2', '5', '10', '20'];
                 const value = (localStorage.getItem('lastSeenMinutes') || '10').trim();
                 return allowed.includes(value) ? value : '10';
-            })(), // Compact retention presets for sidebar control
+            })(), // 用于侧边栏控件的紧凑保留预设
             listSort: localStorage.getItem('listSort') || localStorage.getItem('activeListSort') || localStorage.getItem('lostListSort') || 'callsign_az',
             statusFilters: JSON.parse(localStorage.getItem('statusFilters')) || { active: true, stale: true, signal_lost: true },
             showAirAircraft: JSON.parse(localStorage.getItem('showAirAircraft')) ?? true,
             showGroundAircraft: JSON.parse(localStorage.getItem('showGroundAircraft')) ?? true,
-            showLocalDates: JSON.parse(localStorage.getItem('showLocalDates')) ?? false, // Default to UTC (false)
+            showLocalDates: JSON.parse(localStorage.getItem('showLocalDates')) ?? false, // 默认使用 UTC (false)
             phaseFilters: JSON.parse(localStorage.getItem('phaseFilters')) || { CRZ: true, CLB: true, DEP: true, APP: true, ARR: true, TAX: true, 'T/O': true, 'T/D': true, NEW: true, UNK: true },
-            excludeOtherAirportsGrounded: JSON.parse(localStorage.getItem('excludeOtherAirportsGrounded')) ?? false, // Default to false (show all grounded aircraft)
-            // Aircraft animation settings
+            excludeOtherAirportsGrounded: JSON.parse(localStorage.getItem('excludeOtherAirportsGrounded')) ?? false, // 默认为 false (显示所有地面飞行器)
+            // 飞行器动画设置
             aircraftAnimation: {
                 enabled: JSON.parse(localStorage.getItem('aircraftAnimationEnabled')) ?? true,
                 interpolationFps: parseInt(localStorage.getItem('aircraftAnimationFps')) || 30,
@@ -438,34 +438,34 @@ document.addEventListener('alpine:init', () => {
             },
         },
 
-        // Add property to track previous settings for change detection
+        // 添加用于变化检测的先前设置属性
         previousSettings: {},
         needsFullReload: false,
         _settingsSaveTimeoutId: null,
         _settingsSaveDebounceMs: 300,
         _lastSettingsHash: null,
-        
-        // Simulation state
+
+        // 仿真状态
         showCreateSimulatedAircraft: false,
         simulationModal: {
-            lat: 43.6777, // Default to CYYZ area
+            lat: 43.6777, // 默认为 CYYZ 区域
             lon: -79.6248,
             altitude: 5000,
-            heading: Math.floor(Math.random() * 360), // Random heading
+            heading: Math.floor(Math.random() * 360), // 随机航向
             speed: 250,
             verticalRate: 0,
             mapClickMode: false
         },
 
-        // Caching properties for filteredAircraft performance optimization
+        // 用于 filteredAircraft 性能优化的缓存属性
         _filteredAircraftCache: null,
         _lastFilterHash: null,
 
-        // Enhanced settings save with change detection for WebSocket
+        // 带变化检测的增强设置保存,供 WebSocket 使用
         saveSettings() {
             const previousSettings = { ...this.previousSettings };
-            
-            // Save to localStorage
+
+            // 保存到 localStorage
             localStorage.setItem('mapStyle', this.settings.mapStyle);
             localStorage.setItem('showLabels', this.settings.showLabels);
             localStorage.setItem('showPaths', this.settings.showPaths);
@@ -501,33 +501,33 @@ document.addEventListener('alpine:init', () => {
             localStorage.setItem('noaaRadarOpacity', this.settings.noaaRadarOpacity);
             localStorage.setItem('showWeatherRadar', this.settings.showNexrad);
 
-            // Save aircraft animation settings
+            // 保存飞行器动画设置
             localStorage.setItem('aircraftAnimationEnabled', this.settings.aircraftAnimation.enabled);
             localStorage.setItem('aircraftAnimationFps', this.settings.aircraftAnimation.interpolationFps);
             localStorage.setItem('aircraftAnimationViewportCulling', this.settings.aircraftAnimation.viewportCulling);
-            
-            // Update animation engine configuration if it exists
+
+            // 如果存在动画引擎,则更新其配置
             if (this.animationEngine) {
                 this.animationEngine.updateConfig(this.settings.aircraftAnimation);
             }
-            
-            // Detect if server-side filter change occurred
+
+            // 检测是否发生了服务端筛选变化
             const serverSideChanged = (
                 previousSettings.minAltitude !== this.settings.minAltitude ||
                 previousSettings.maxAltitude !== this.settings.maxAltitude ||
                 previousSettings.lastSeenMinutes !== this.settings.lastSeenMinutes ||
                 previousSettings.excludeOtherAirportsGrounded !== this.settings.excludeOtherAirportsGrounded
             );
-            
+
             if (serverSideChanged && Object.keys(previousSettings).length > 0) {
                 this.needsFullReload = true;
             }
-            
-            // Store current settings for next comparison
+
+            // 存储当前设置以供下次比较
             this.previousSettings = { ...this.settings };
         },
 
-        // Debounced settings save to reduce frequent writes and reactivity churn
+        // 防抖的设置保存,以减少频繁写入和响应式抖动
         queueSaveSettings() {
             const settingsHash = JSON.stringify(this.settings);
             if (this._lastSettingsHash === settingsHash) {
@@ -545,34 +545,34 @@ document.addEventListener('alpine:init', () => {
             }, this._settingsSaveDebounceMs);
         },
 
-        // Enhanced settings change handlers for WebSocket
+        // 用于 WebSocket 的增强设置变更处理程序
         onFilterChange() {
             this.queueSaveSettings();
-            
-            // Check if this is a server-side filter change that requires bulk reload
+
+            // 检查这是否是需要批量重新加载的服务端筛选变化
             if (this.needsFullReload) {
-                console.log('Server-side filter change detected, requesting bulk reload via WebSocket...');
-                this.requestInitialAircraftData(); // Use WebSocket bulk request
+                console.log('检测到服务端筛选变化,正通过 WebSocket 请求批量重新加载...');
+                this.requestInitialAircraftData(); // 使用 WebSocket 批量请求
                 this.needsFullReload = false;
             } else {
-                // Simple filters like search, phase, air/ground can be handled client-side
+                // 简单的筛选如搜索、阶段、空中/地面可以在客户端处理
                 this._lastFilterHash = null;
-                
+
                 if (this.mapManager) {
                     this.mapManager.applyFiltersAndRefreshView();
                 }
             }
         },
 
-        // Helper method to check if a frequency is unmuted
+        // 用于检查频率是否未静音的辅助方法
         isUnmuted(frequencyId) {
             return this.unmutedFrequencies.has(frequencyId);
         },
 
-        // MapManager instance
-        mapManager: null, // Will be set in alpine:init
+        // MapManager 实例
+        mapManager: null, // 将在 alpine:init 中设置
 
-        // Computed
+        // 计算属性
         get aircraftCount() {
             return Object.keys(this.aircraft).length;
         },
@@ -580,7 +580,7 @@ document.addEventListener('alpine:init', () => {
         isSignalLostForSidebar(aircraft) {
             if (!aircraft) return false;
 
-            // Strict source of truth: classification is time-based from last ADS-B poll.
+            // 严格的真实来源: 分类基于上次 ADS-B 轮询的时间。
             const secondsSince = this.getSecondsSinceLastSeen(aircraft);
             return Number.isFinite(secondsSince) && secondsSince >= 60;
         },
@@ -609,24 +609,24 @@ document.addEventListener('alpine:init', () => {
         },
 
         getStatusColor(aircraft) {
-            if (!aircraft || !aircraft.status) return 'bg-highlight'; // Default green
-            
-            // If aircraft is on ground, use a neutral gray color
+            if (!aircraft || !aircraft.status) return 'bg-highlight'; // 默认绿色
+
+            // 如果飞行器在地面上,使用中性灰色
             if (aircraft.on_ground) return 'bg-gray-400';
-            
+
             switch (aircraft.status) {
                 case 'active':
-                    return 'bg-highlight'; // Green
+                    return 'bg-highlight'; // 绿色
                 case 'stale':
-                    return 'bg-warning';   // Yellow
+                    return 'bg-warning';   // 黄色
                 case 'signal_lost':
-                    return 'bg-gray-500';  // Grey
+                    return 'bg-gray-500';  // 灰色
                 default:
-                    return 'bg-highlight'; // Default green
+                    return 'bg-highlight'; // 默认绿色
             }
         },
 
-        // Helper function to safely get current phase
+        // 安全获取当前阶段的辅助函数
         getCurrentPhase(aircraft) {
             if (!aircraft) return 'NEW';
             return (aircraft.phase && aircraft.phase.current && aircraft.phase.current.length > 0)
@@ -635,28 +635,28 @@ document.addEventListener('alpine:init', () => {
         },
 
         get filteredAircraft() {
-            // CRITICAL FIX: Maintain stable array reference to prevent full table re-renders
+            // 关键修复: 维护稳定的数组引用以防止完整表格重新渲染
             if (!this._filteredAircraftCache) {
                 this._filteredAircraftCache = [];
             }
 
-            // If no filtering has been done yet, do it immediately (synchronously for first load)
+            // 如果尚未进行筛选,则立即进行(首次加载时同步执行)
             if (!this._lastFilterHash) {
                 this._performFiltering();
                 return this._filteredAircraftCache;
             }
- 
-            // Return stable array reference
+
+            // 返回稳定的数组引用
             return this._filteredAircraftCache;
         },
-        
-        // Perform heavy filtering computation asynchronously
+
+        // 异步执行重型筛选计算
         _performFiltering() {
-            // Create lightweight hash of current filter state (include ALL filter settings)
+            // 创建当前筛选状态的轻量级哈希(包含所有筛选设置)
             const phaseFilterHash = this.settings.phaseFilters ? Object.entries(this.settings.phaseFilters).map(([k, v]) => `${k}:${v}`).join(',') : '';
             const filterHash = `${this.searchTerm}|${this.settings.showGroundAircraft}|${this.settings.showAirAircraft}|${this.settings.minAltitude}|${this.settings.maxAltitude}|${this.settings.lastSeenMinutes}|${this.settings.listSort}|${phaseFilterHash}|${Object.keys(this.aircraft).length}|${this.selectedAircraft?.hex}|${this.sortColumn}|${this.sortDirection}`;
 
-            // Return cached result if nothing changed (but always filter if no cache exists)
+            // 如果未发生变化则返回缓存结果(但若不存在缓存则始终筛选)
             if (this._lastFilterHash === filterHash && this._filteredAircraftCache) {
                 return;
             }
@@ -667,7 +667,7 @@ document.addEventListener('alpine:init', () => {
             const lastSeenCutoff = new Date(now.getTime() - (lastSeenMinutes * 60 * 1000));
 
             const filtered = Object.values(this.aircraft).filter(aircraft => {
-                // Filter by last seen time - hide aircraft not seen recently
+                // 按上次出现时间筛选 — 隐藏最近未出现的飞行器
                 if (aircraft.last_seen) {
                     const lastSeenDate = new Date(aircraft.last_seen);
                     if (lastSeenDate < lastSeenCutoff) {
@@ -675,7 +675,7 @@ document.addEventListener('alpine:init', () => {
                     }
                 }
 
-                // Filter by search term - includes callsign, type, category, manufacturer
+                // 按搜索词筛选 — 包括呼号、类型、分类、制造商
                 if (searchLower) {
                     const callsign = (aircraft.flight || aircraft.hex).toLowerCase();
                     const type = (aircraft.adsb?.type || '').toLowerCase();
@@ -692,7 +692,7 @@ document.addEventListener('alpine:init', () => {
                     if (!matchesSearch) return false;
                 }
 
-                // Filter by air/ground settings - both can be enabled/disabled independently
+                // 按空中/地面设置筛选 — 两者可独立启用/禁用
                 const showThisAircraft = (aircraft.on_ground && this.settings.showGroundAircraft) ||
                                         (!aircraft.on_ground && this.settings.showAirAircraft);
 
@@ -700,15 +700,15 @@ document.addEventListener('alpine:init', () => {
                     return false;
                 }
 
-                // Filter by flight phase
+                // 按飞行阶段筛选
                 const currentPhase = this.getCurrentPhase(aircraft);
 
                 if (this.settings.phaseFilters && this.settings.phaseFilters[currentPhase] === false) {
                     return false;
                 }
 
-                // Filter by altitude (client-side for immediate table update)
-                // Only apply altitude filter to aircraft in the air
+                // 按高度筛选(客户端用于即时表格更新)
+                // 仅对空中飞行器应用高度筛选
                 if (!aircraft.on_ground && (!aircraft.adsb || aircraft.adsb.alt_baro < this.settings.minAltitude || aircraft.adsb.alt_baro > this.settings.maxAltitude)) {
                     return false;
                 }
@@ -718,28 +718,28 @@ document.addEventListener('alpine:init', () => {
 
             const sortKey = this.settings.listSort || 'callsign_az';
             const sorted = filtered.sort((a, b) => this.compareAircraftForSidebar(a, b, sortKey));
-            
-            // CRITICAL FIX: Update array in-place to maintain stable reference and prevent full table re-render
+
+            // 关键修复: 就地更新数组以维持稳定引用并防止完整表格重新渲染
             this._updateFilteredAircraftInPlace(sorted);
             this._lastFilterHash = filterHash;
             this._lastFilterTime = Date.now();
         },
 
-        // Update filtered aircraft array in-place to maintain stable reference
+        // 就地更新筛选后的飞行器数组以维持稳定引用
         _updateFilteredAircraftInPlace(newFiltered) {
             if (!this._filteredAircraftCache) {
                 this._filteredAircraftCache = [];
             }
 
-            // Create maps for efficient lookups
+            // 为高效查找创建映射
             const currentMap = new Map(this._filteredAircraftCache.map((aircraft, index) => [aircraft.hex, { aircraft, index }]));
             const newMap = new Map(newFiltered.map(aircraft => [aircraft.hex, aircraft]));
 
-            // Track aircraft that need animations
+            // 跟踪需要动画的飞行器
             const addedAircraft = [];
             const removedAircraft = [];
 
-            // Remove aircraft that are no longer in the filtered list
+            // 移除不再在筛选列表中的飞行器
             for (let i = this._filteredAircraftCache.length - 1; i >= 0; i--) {
                 const aircraft = this._filteredAircraftCache[i];
                 if (!newMap.has(aircraft.hex)) {
@@ -748,33 +748,33 @@ document.addEventListener('alpine:init', () => {
                 }
             }
 
-            // Update existing aircraft and add new ones
+            // 更新已有飞行器并添加新飞行器
             const finalArray = [];
             for (const newAircraft of newFiltered) {
                 const existingEntry = currentMap.get(newAircraft.hex);
-                
+
                 if (existingEntry) {
-                    // Update existing aircraft in-place
+                    // 就地更新已有飞行器
                     Object.assign(existingEntry.aircraft, newAircraft);
                     finalArray.push(existingEntry.aircraft);
                 } else {
-                    // Add new aircraft
+                    // 添加新飞行器
                     addedAircraft.push(newAircraft);
                     finalArray.push(newAircraft);
                 }
             }
 
-            // Replace array contents while maintaining reference
+            // 在保持引用的同时替换数组内容
             this._filteredAircraftCache.length = 0;
             this._filteredAircraftCache.push(...finalArray);
 
-            // Trigger animations for added/removed aircraft
+            // 为添加/移除的飞行器触发动画
             this._animateAircraftChanges(addedAircraft, removedAircraft);
         },
 
-        // Animate aircraft appearing and disappearing
+        // 飞行器出现和消失的动画
         _animateAircraftChanges(addedAircraft, removedAircraft) {
-            // Animate new aircraft appearing
+            // 新飞行器出现的动画
             addedAircraft.forEach(aircraft => {
                 setTimeout(() => {
                     const row = document.querySelector(`tr[data-aircraft-hex="${aircraft.hex}"]`);
@@ -782,8 +782,8 @@ document.addEventListener('alpine:init', () => {
                         row.style.opacity = '0';
                         row.style.transform = 'translateX(-20px)';
                         row.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                        
-                        // Trigger animation
+
+                        // 触发动画
                         requestAnimationFrame(() => {
                             row.style.opacity = '1';
                             row.style.transform = 'translateX(0)';
@@ -792,7 +792,7 @@ document.addEventListener('alpine:init', () => {
                 }, 50);
             });
 
-            // Animate removed aircraft disappearing
+            // 已移除飞行器消失的动画
             removedAircraft.forEach(aircraft => {
                 const row = document.querySelector(`tr[data-aircraft-hex="${aircraft.hex}"]`);
                 if (row) {
@@ -825,7 +825,7 @@ document.addEventListener('alpine:init', () => {
                         ? aircraft.adsb.gs
                         : Number.NEGATIVE_INFINITY;
                 case 'distance':
-                    return aircraft.distance ?? 999999; // Sort undefined distances to the end
+                    return aircraft.distance ?? 999999; // 将未定义的距离排到末尾
                 case 'last_seen': {
                     if (!aircraft.last_seen) return Number.NEGATIVE_INFINITY;
                     const ts = new Date(aircraft.last_seen).getTime();
@@ -853,16 +853,16 @@ document.addEventListener('alpine:init', () => {
             return 0;
         },
 
-        // RESTORING createLabelContent
+        // 还原 createLabelContent
         createLabelContent(aircraft, callsign, altitude, verticalTrend) {
             const altitudeColorClass = 'text-white';
-            // Use alt_baro consistently across all components (same as details panel and flight strip)
+            // 在所有组件中一致地使用 alt_baro(与详情面板和飞行条相同)
             const hasAlt = aircraft.adsb && typeof aircraft.adsb.alt_baro === 'number' && Number.isFinite(aircraft.adsb.alt_baro);
             const altitudeDisplay = hasAlt
                 ? `${Math.round(aircraft.adsb.alt_baro / 100) * 100}`
                 : '-';
-            
-            // Speed logic: prefer TAS when present, otherwise GS, otherwise '-'.
+
+            // 速度逻辑: 优先使用 TAS,否则 GS,否则 '-'。
             const tasValue = aircraft.adsb && typeof aircraft.adsb.tas === 'number' && Number.isFinite(aircraft.adsb.tas)
                 ? Math.round(aircraft.adsb.tas)
                 : null;
@@ -882,22 +882,22 @@ document.addEventListener('alpine:init', () => {
             const altitudeTrendIconClass = this.getAltitudeTrendIcon(aircraft);
             const altitudeTrendColorClass = this.getAltitudeTrendClasses(aircraft);
 
-            // Determine callsign color based on aircraft status
-            let callsignColorClass = 'text-highlight'; // Default green for active aircraft
+            // 根据飞行器状态决定呼号颜色
+            let callsignColorClass = 'text-highlight'; // 活动飞行器默认绿色
             if (aircraft.status === 'signal_lost') {
-                callsignColorClass = 'text-red-400'; // Red for signal lost (matching table)
+                callsignColorClass = 'text-red-400'; // 信号丢失为红色(与表格一致)
             } else if (aircraft.stale_position) {
-                callsignColorClass = 'text-orange-400'; // Orange for stale position (GPS lost)
+                callsignColorClass = 'text-orange-400'; // 位置过时为橙色(GPS 丢失)
             } else if (aircraft.on_ground) {
-                callsignColorClass = 'text-white'; // White for grounded aircraft
+                callsignColorClass = 'text-white'; // 地面飞行器为白色
             }
 
-            // Stale position badge — shown when aircraft lost GPS but marker remains at last known location
+            // 过时位置徽章 — 当飞行器失去 GPS 但标记仍保留在最后已知位置时显示
             const staleBadge = aircraft.stale_position
-                ? '<span class="text-[7px] font-bold text-orange-400/80 ml-1" title="Last known position — GPS data lost">LP</span>'
+                ? '<span class="text-[7px] font-bold text-orange-400/80 ml-1" title="最后已知位置 — GPS 数据丢失">LP</span>'
                 : '';
 
-            // Create phase badge (identical to table formatting)
+            // 创建阶段徽章(与表格格式相同)
             let phaseBadge = '';
             const currentPhase = this.getCurrentPhase(aircraft);
             if (currentPhase) {
@@ -917,7 +917,7 @@ document.addEventListener('alpine:init', () => {
                 phaseBadge = `<span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${phaseClass}">${currentPhase}</span>`;
             }
 
-            // Create airline and type display on same line
+            // 在同一行创建航空公司和类型显示
             const aircraftType = aircraft.adsb?.t || '-';
             const airlineTypeDisplay = aircraft.airline ? `${aircraft.airline} (${aircraftType})` : aircraftType;
 
@@ -962,19 +962,19 @@ document.addEventListener('alpine:init', () => {
             `;
         },
 
-        // RESTORING getAltitudeTrendClasses and getAltitudeTrendIcon
+        // 还原 getAltitudeTrendClasses 和 getAltitudeTrendIcon
         getAltitudeTrendClasses(aircraft) {
-            if (!aircraft || !aircraft.adsb || typeof aircraft.adsb.baro_rate === 'undefined') return 'text-text'; // Default
-            if (aircraft.adsb.baro_rate > 100) return 'text-highlight'; // Climbing - green
-            if (aircraft.adsb.baro_rate < -100) return 'text-danger'; // Descending - red
-            return 'text-text'; // Level
+            if (!aircraft || !aircraft.adsb || typeof aircraft.adsb.baro_rate === 'undefined') return 'text-text'; // 默认
+            if (aircraft.adsb.baro_rate > 100) return 'text-highlight'; // 爬升 — 绿色
+            if (aircraft.adsb.baro_rate < -100) return 'text-danger'; // 下降 — 红色
+            return 'text-text'; // 平飞
         },
 
         getAltitudeTrendIcon(aircraft) {
-            if (!aircraft || !aircraft.adsb || typeof aircraft.adsb.baro_rate === 'undefined') return 'fas fa-arrows-alt-h'; // Default - level
-            if (aircraft.adsb.baro_rate > 100) return 'fas fa-arrow-up'; // Climbing
-            if (aircraft.adsb.baro_rate < -100) return 'fas fa-arrow-down'; // Descending
-            return 'fas fa-arrows-alt-h'; // Level
+            if (!aircraft || !aircraft.adsb || typeof aircraft.adsb.baro_rate === 'undefined') return 'fas fa-arrows-alt-h'; // 默认 — 平飞
+            if (aircraft.adsb.baro_rate > 100) return 'fas fa-arrow-up'; // 爬升
+            if (aircraft.adsb.baro_rate < -100) return 'fas fa-arrow-down'; // 下降
+            return 'fas fa-arrows-alt-h'; // 平飞
         },
 
         getAltitudeUnitLabel(aircraft) {
@@ -1096,14 +1096,14 @@ document.addEventListener('alpine:init', () => {
             };
         },
 
-        // RESTORING formatAircraftDetails
+        // 还原 formatAircraftDetails
         formatAircraftDetails() {
             if (!this.selectedAircraft) return '';
 
             const aircraft = this.selectedAircraft;
             const adsbData = aircraft.adsb || {};
-            
-            // Calculate seconds since last seen
+
+            // 计算自上次出现以来的秒数
             let lastSeenText = '-';
             let lastSeenSeconds = '';
             if (aircraft.last_seen) {
@@ -1112,7 +1112,7 @@ document.addEventListener('alpine:init', () => {
                 lastSeenSeconds = `${secondsAgo}s`;
             }
 
-            // Calculate first seen text with seconds ago
+            // 计算首次出现文本及秒数
             let firstSeenText = '-';
             let firstSeenSeconds = '';
             if (aircraft.created_at) {
@@ -1121,7 +1121,7 @@ document.addEventListener('alpine:init', () => {
                 firstSeenSeconds = `${secondsAgo}s`;
             }
 
-            // Calculate takeoff time text with seconds ago
+            // 计算起飞时间文本及秒数
             let takeoffTimeText = '-';
             let takeoffSeconds = '';
             if (aircraft.DateTookoff || aircraft.date_tookoff) {
@@ -1131,7 +1131,7 @@ document.addEventListener('alpine:init', () => {
                 takeoffSeconds = `${secondsAgo}s`;
             }
 
-            // Calculate landing time text with seconds ago
+            // 计算着陆时间文本及秒数
             let landingTimeText = '-';
             let landingSeconds = '';
             if (aircraft.DateLanded || aircraft.date_landed) {
@@ -1141,101 +1141,101 @@ document.addEventListener('alpine:init', () => {
                 landingSeconds = `${secondsAgo}s`;
             }
 
-            // Get BSDB data if available - use it to enrich basic info
+            // 如果可用,获取 BSDB 数据 — 用于丰富基本信息
             const bsdbData = aircraft.bsdb || {};
 
-            // Prefer BSDB data over ADSB data for type and registration
+            // 类型和注册号优先使用 BSDB 数据而非 ADSB 数据
             const aircraftType = bsdbData.type || adsbData.t || '-';
             const aircraftReg = bsdbData.registration || adsbData.r || '-';
             const aircraftOperator = bsdbData.registered_owners || '-';
             const derived = this.getATCDerivedMetrics(aircraft);
 
             const fields = [
-                ['Basic Info', [
-                    ['Callsign', aircraft.flight?.trim() || '-'],
-                    ['Airline', aircraft.airline || '-'],
-                    ['Operator', aircraftOperator],
-                    ['Country', aircraft.airline_country || '-'],
+                ['基本信息', [
+                    ['呼号', aircraft.flight?.trim() || '-'],
+                    ['航空公司', aircraft.airline || '-'],
+                    ['运营商', aircraftOperator],
+                    ['国家', aircraft.airline_country || '-'],
                     ['Hex', aircraft.hex],
-                    ['Type', aircraftType],
-                    ['Registration', aircraftReg],
-                    ['Category', adsbData.category || '-'],
+                    ['类型', aircraftType],
+                    ['注册号', aircraftReg],
+                    ['分类', adsbData.category || '-'],
                     ['Squawk', adsbData.squawk || '-'],
-                    ['First Seen', firstSeenText, firstSeenSeconds],
-                    ['Last Seen', lastSeenText, lastSeenSeconds]
+                    ['首次出现', firstSeenText, firstSeenSeconds],
+                    ['上次出现', lastSeenText, lastSeenSeconds]
                 ]],
-                ['Status', [
-                    ['On Ground', aircraft.on_ground ? 'Yes' : 'No'],
-                    ['Phase', this.getCurrentPhase(aircraft)],
-                    ['Takeoff Time', takeoffTimeText, takeoffSeconds],
-                    ['Landing Time', landingTimeText, landingSeconds]
+                ['状态', [
+                    ['是否在地面', aircraft.on_ground ? '是' : '否'],
+                    ['阶段', this.getCurrentPhase(aircraft)],
+                    ['起飞时间', takeoffTimeText, takeoffSeconds],
+                    ['着陆时间', landingTimeText, landingSeconds]
                 ]],
-                ['Position', [
-                    ['Latitude', adsbData.lat?.toFixed(6) || '-'],
-                    ['Longitude', adsbData.lon?.toFixed(6) || '-'],
-                    ['Distance (NM)', aircraft.distance ?? '-'],
-                    ['Altitude (Baro)', `${adsbData.alt_baro ?? '-'} ft`],
-                    ['Altitude (Geom)', `${adsbData.alt_geom ?? '-'} ft`],
-                    ['Vertical Rate', `${adsbData.baro_rate ?? '-'} ft/min`]
+                ['位置', [
+                    ['纬度', adsbData.lat?.toFixed(6) || '-'],
+                    ['经度', adsbData.lon?.toFixed(6) || '-'],
+                    ['距离 (海里)', aircraft.distance ?? '-'],
+                    ['高度 (气压)', `${adsbData.alt_baro ?? '-'} ft`],
+                    ['高度 (几何)', `${adsbData.alt_geom ?? '-'} ft`],
+                    ['垂直速率', `${adsbData.baro_rate ?? '-'} ft/min`]
                 ]],
-                ['Speed & Direction', [
-                    ['Ground Speed', `${adsbData.gs ?? '-'} kts`],
-                    ['True Airspeed', `${adsbData.tas ?? '-'} kts`],
+                ['速度与方向', [
+                    ['地速', `${adsbData.gs ?? '-'} kts`],
+                    ['真空速', `${adsbData.tas ?? '-'} kts`],
                     ['IAS', `${adsbData.ias ?? '-'} kts`],
                     ['TAS', `${adsbData.tas ?? '-'} kts`],
-                    ['Mach', adsbData.mach ?? '-'],
-                    ['Track', `${adsbData.track ?? '-'}°`],
-                    ['Mag Heading', `${adsbData.mag_heading ?? '-'}°`],
-                    ['True Heading', `${adsbData.true_heading ?? '-'}°`]
+                    ['马赫', adsbData.mach ?? '-'],
+                    ['航迹', `${adsbData.track ?? '-'}°`],
+                    ['磁航向', `${adsbData.mag_heading ?? '-'}°`],
+                    ['真航向', `${adsbData.true_heading ?? '-'}°`]
                 ]],
-                ['Navigation', [
+                ['导航', [
                     ['Nav QNH', `${adsbData.nav_qnh ?? '-'} hPa`],
-                    ['Nav Altitude MCP', `${adsbData.nav_altitude_mcp ?? '-'} ft`],
-                    ['Nav Altitude FMS', `${adsbData.nav_altitude_fms ?? '-'} ft`],
-                    ['Nav Heading', `${adsbData.nav_heading ?? '-'}°`]
+                    ['Nav 高度 MCP', `${adsbData.nav_altitude_mcp ?? '-'} ft`],
+                    ['Nav 高度 FMS', `${adsbData.nav_altitude_fms ?? '-'} ft`],
+                    ['Nav 航向', `${adsbData.nav_heading ?? '-'}°`]
                 ]],
-                ['Weather', [
-                    ['Wind Direction', `${adsbData.wd ?? '-'}°`],
-                    ['Wind Speed', `${adsbData.ws ?? '-'} kts`],
+                ['气象', [
+                    ['风向', `${adsbData.wd ?? '-'}°`],
+                    ['风速', `${adsbData.ws ?? '-'} kts`],
                     ['OAT', `${adsbData.oat ?? '-'}°C`],
                     ['TAT', `${adsbData.tat ?? '-'}°C`]
                 ]],
-                ['ATC Derived', [
-                    ['Heading Source', derived.headingSource],
-                    ['Track-Heading Error', derived.trackHeadingError],
-                    ['Head/Tail Wind', derived.headTailWind],
-                    ['Crosswind (L/R)', derived.crossWind],
-                    ['Flight Path Angle', derived.flightPathAngle],
-                    ['Climb Gradient', derived.climbGradient],
-                    ['Turn Rate', derived.turnRateText],
-                    ['ETA to Station', derived.etaToStation]
+                ['ATC 派生', [
+                    ['航向来源', derived.headingSource],
+                    ['航迹-航向偏差', derived.trackHeadingError],
+                    ['顶/顺风', derived.headTailWind],
+                    ['侧风 (L/R)', derived.crossWind],
+                    ['飞行航径角', derived.flightPathAngle],
+                    ['爬升梯度', derived.climbGradient],
+                    ['转弯率', derived.turnRateText],
+                    ['到站点 ETA', derived.etaToStation]
                 ]],
-                ['ADSB Info', [
-                    ['Version', adsbData.version ?? '-'],
+                ['ADSB 信息', [
+                    ['版本', adsbData.version ?? '-'],
                     ['NIC', adsbData.nic ?? '-'],
                     ['NACp', adsbData.nac_p ?? '-'],
                     ['NACv', adsbData.nac_v ?? '-'],
                     ['SIL', adsbData.sil ?? '-'],
-                    ['SIL Type', adsbData.sil_type || '-'],
+                    ['SIL 类型', adsbData.sil_type || '-'],
                     ['GVA', adsbData.gva ?? '-'],
                     ['SDA', adsbData.sda ?? '-']
                 ]],
-                ['Signal', [
-                    ['Messages', adsbData.messages ?? '-'],
-                    ['Seen', `${adsbData.seen ?? '-'}s`], 
+                ['信号', [
+                    ['消息数', adsbData.messages ?? '-'],
+                    ['Seen', `${adsbData.seen ?? '-'}s`],
                     ['RSSI', `${adsbData.rssi ?? '-'} dBm`]
                 ]]
             ];
 
-            // Initialize collapsible sections state if not already done
+            // 如果尚未完成,初始化可折叠区段状态
             if (!this.collapsibleSections) {
                 this.collapsibleSections = {};
                 fields.forEach(([category]) => {
-                    // Default to expanded, except for ADSB Info and Signal which are collapsed by default
-                    this.collapsibleSections[category] = !['ADSB Info', 'Signal'].includes(category);
+                    // 默认展开,除了 ADSB 信息 和 信号 默认折叠
+                    this.collapsibleSections[category] = !['ADSB 信息', '信号'].includes(category);
                 });
             }
-            
+
             return `
                 <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                     ${fields.map(([category, items]) => `
@@ -1244,7 +1244,7 @@ document.addEventListener('alpine:init', () => {
                                  onclick="Alpine.store('atc').toggleSection('${category}')">
                                 <h4 class="text-highlight font-bold text-[11px] uppercase tracking-wider">${category}</h4>
                                 <i class="fas fa-chevron-${this.collapsibleSections[category] ? 'down' : 'right'} text-highlight/70 text-xs"></i>
-                                <!-- Subtle green underline -->
+                                <!-- 微妙的绿色下划线 -->
                                 <div class="absolute bottom-0 left-0 right-0 h-px bg-highlight/30"></div>
                             </div>
                             <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 transition-all duration-300 overflow-hidden"
@@ -1267,7 +1267,7 @@ document.addEventListener('alpine:init', () => {
             `;
         },
 
-        // RESTORING toggleSort
+        // 还原 toggleSort
         toggleSort(column) {
             if (this.sortColumn === column) {
                 this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
@@ -1275,23 +1275,23 @@ document.addEventListener('alpine:init', () => {
                 this.sortColumn = column;
                 this.sortDirection = 'asc';
             }
-            // No need to explicitly call applyFilters here, as the sorted list is a computed property
-            // that will react to changes in sortColumn or sortDirection.
-            // However, if applyFilters also handles map updates, it might be needed if sorting should affect map directly.
-            // For now, assuming filteredAircraft computed property handles table refresh.
+            // 此处无需显式调用 applyFilters,因为已排序的列表是计算属性,
+            // 它会响应 sortColumn 或 sortDirection 的变化。
+            // 但是,如果 applyFilters 也处理地图更新,在排序应直接影响地图时可能需要它。
+            // 目前假定 filteredAircraft 计算属性处理表格刷新。
         },
 
-        // RESTORING toggleStatusFilter and toggleGroundedAircraft
+        // 还原 toggleStatusFilter 和 toggleGroundedAircraft
         toggleStatusFilter(statusKey) {
             if (this.settings.statusFilters.hasOwnProperty(statusKey)) {
                 this.settings.statusFilters[statusKey] = !this.settings.statusFilters[statusKey];
                 this.saveSettings();
-                // this.applyFilters(); // applyFilters calls mapManager.applyFiltersAndRefreshView()
+                // this.applyFilters(); // applyFilters 调用 mapManager.applyFiltersAndRefreshView()
                 if (this.mapManager) this.mapManager.applyFiltersAndRefreshView();
             }
         },
-        
-        // Toggle collapsible sections in aircraft details
+
+        // 切换飞行器详情中的可折叠区段
         toggleSection(category) {
             if (!this.collapsibleSections) {
                 this.collapsibleSections = {};
@@ -1299,37 +1299,37 @@ document.addEventListener('alpine:init', () => {
             this.collapsibleSections[category] = !this.collapsibleSections[category];
         },
 
-        // Toggle Air aircraft visibility
+        // 切换空中飞行器可见性
         toggleAirAircraft() {
-            console.log('[Alpine Store] toggleAirAircraft called, current state:', this.settings.showAirAircraft);
+            console.log('[Alpine Store] 调用 toggleAirAircraft,当前状态:', this.settings.showAirAircraft);
             this.settings.showAirAircraft = !this.settings.showAirAircraft;
 
             this.saveSettings();
             this.applyFilters();
-            this.refreshAlertsDisplay(); // Refresh alerts based on new filter
+            this.refreshAlertsDisplay(); // 根据新筛选刷新告警
 
-            // Update map visibility including tracks
+            // 更新地图可见性,包括轨迹
             if (this.mapManager) {
                 this.mapManager.applyFiltersAndRefreshView();
             }
         },
 
-        // Toggle Ground aircraft visibility
+        // 切换地面飞行器可见性
         toggleGroundAircraft() {
-            //console.log('[Alpine Store] toggleGroundAircraft called, current state:', this.settings.showGroundAircraft);
+            //console.log('[Alpine Store] 调用 toggleGroundAircraft,当前状态:', this.settings.showGroundAircraft);
             this.settings.showGroundAircraft = !this.settings.showGroundAircraft;
 
             this.saveSettings();
             this.applyFilters();
-            this.refreshAlertsDisplay(); // Refresh alerts based on new filter
+            this.refreshAlertsDisplay(); // 根据新筛选刷新告警
 
-            // Update map visibility including tracks
+            // 更新地图可见性,包括轨迹
             if (this.mapManager) {
                 this.mapManager.applyFiltersAndRefreshView();
             }
         },
 
-        // Toggle flight phase filter
+        // 切换飞行阶段筛选
         togglePhaseFilter(phase) {
             if (!this.settings.phaseFilters) {
                 this.settings.phaseFilters = { CRZ: true, CLB: true, DEP: true, APP: true, ARR: true, TAX: true, 'T/O': true, 'T/D': true, NEW: true, UNK: true };
@@ -1337,15 +1337,15 @@ document.addEventListener('alpine:init', () => {
             this.settings.phaseFilters[phase] = !this.settings.phaseFilters[phase];
             this.saveSettings();
             this.applyFilters();
-            this.refreshAlertsDisplay(); // Refresh alerts based on new filter
+            this.refreshAlertsDisplay(); // 根据新筛选刷新告警
 
-            // Update map visibility including tracks
+            // 更新地图可见性,包括轨迹
             if (this.mapManager) {
                 this.mapManager.applyFiltersAndRefreshView();
             }
         },
 
-        // Simulation methods
+        // 仿真方法
         async createSimulatedAircraft(lat, lon, altitude, heading, speed, verticalRate) {
             try {
                 const response = await this.fetchWithTimeout(`${API_BASE_URL}/simulation/aircraft`, {
@@ -1365,43 +1365,43 @@ document.addEventListener('alpine:init', () => {
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`Failed to create simulated aircraft: ${errorText}`);
+                    throw new Error(`创建仿真飞行器失败: ${errorText}`);
                 }
 
                 const result = await response.json();
-                console.log('Created simulated aircraft:', result.aircraft);
-                
-                // Close the modal
+                console.log('已创建仿真飞行器:', result.aircraft);
+
+                // 关闭模态框
                 this.showCreateSimulatedAircraft = false;
                 this.simulationModal.mapClickMode = false;
-                
+
                 return result.aircraft;
             } catch (error) {
-                console.error('Error creating simulated aircraft:', error);
+                console.error('创建仿真飞行器时出错:', error);
                 throw error;
             }
         },
 
-        // Set all simulation controls at once via WebSocket
+        // 通过 WebSocket 一次设置所有仿真控件
         setSimulationControls(hex, heading, speed, verticalRate) {
-            // Find the aircraft (this.aircraft is an object, not array)
+            // 查找飞行器(this.aircraft 是对象,不是数组)
             const aircraft = this.aircraft[hex];
             if (!aircraft) {
-                console.error('Aircraft not found:', hex);
+                console.error('未找到飞行器:', hex);
                 return;
             }
 
-            // Initialize simulation_controls if needed
+            // 如果需要,初始化 simulation_controls
             if (!aircraft.simulation_controls) {
                 aircraft.simulation_controls = {};
             }
 
-            // Update local values immediately for responsive UI
+            // 立即更新本地值以保持 UI 响应
             aircraft.simulation_controls.target_heading = parseFloat(heading);
             aircraft.simulation_controls.target_speed = parseFloat(speed);
             aircraft.simulation_controls.target_vertical_rate = parseFloat(verticalRate);
 
-            // Send update via WebSocket
+            // 通过 WebSocket 发送更新
             if (wsClient && wsClient.connection && wsClient.connection.readyState === WebSocket.OPEN) {
                 const message = {
                     type: 'simulation_control_update',
@@ -1413,9 +1413,9 @@ document.addEventListener('alpine:init', () => {
                     }
                 };
                 wsClient.connection.send(JSON.stringify(message));
-                console.log(`Updated simulation controls via WebSocket for ${hex}: hdg=${heading} spd=${speed} vs=${verticalRate}`);
+                console.log(`已通过 WebSocket 更新 ${hex} 的仿真控件: hdg=${heading} spd=${speed} vs=${verticalRate}`);
             } else {
-                console.error('WebSocket not connected, cannot update simulation controls');
+                console.error('WebSocket 未连接,无法更新仿真控件');
             }
         },
 
@@ -1427,12 +1427,12 @@ document.addEventListener('alpine:init', () => {
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`Failed to remove simulated aircraft: ${errorText}`);
+                    throw new Error(`移除仿真飞行器失败: ${errorText}`);
                 }
 
-                console.log('Removed simulated aircraft:', hex);
+                console.log('已移除仿真飞行器:', hex);
             } catch (error) {
-                console.error('Error removing simulated aircraft:', error);
+                console.error('移除仿真飞行器时出错:', error);
                 throw error;
             }
         },
@@ -1440,13 +1440,13 @@ document.addEventListener('alpine:init', () => {
         setSimulationPositionFromMap() {
             this.simulationModal.mapClickMode = !this.simulationModal.mapClickMode;
             if (this.simulationModal.mapClickMode) {
-                console.log('Click on map to set simulated aircraft position');
-                // Add map click handler
+                console.log('点击地图以设置仿真飞行器位置');
+                // 添加地图点击处理程序
                 if (this.mapManager && this.mapManager.map) {
                     this.mapManager.enableSimulationPositionMode();
                 }
             } else {
-                // Disable map click handler
+                // 禁用地图点击处理程序
                 if (this.mapManager && this.mapManager.map) {
                     this.mapManager.disableSimulationPositionMode();
                 }
@@ -1454,25 +1454,25 @@ document.addEventListener('alpine:init', () => {
         },
 
         generateRandomPosition() {
-            // Generate random position within 50 nautical miles of airport
-            const centerLat = this.stationLatitude || 43.6777; // CYYZ default
+            // 在机场 50 海里范围内生成随机位置
+            const centerLat = this.stationLatitude || 43.6777; // CYYZ 默认
             const centerLon = this.stationLongitude || -79.6248;
-            
-            // 50 nautical miles = ~0.833 degrees latitude
+
+            // 50 海里 = ~0.833 度纬度
             const maxDistanceDeg = 0.833;
-            
-            // Random angle and distance
+
+            // 随机角度和距离
             const angle = Math.random() * 2 * Math.PI;
             const distance = Math.random() * maxDistanceDeg;
-            
-            // Calculate new position
+
+            // 计算新位置
             const latOffset = distance * Math.cos(angle);
             const lonOffset = distance * Math.sin(angle) / Math.cos(centerLat * Math.PI / 180);
-            
+
             this.simulationModal.lat = centerLat + latOffset;
             this.simulationModal.lon = centerLon + lonOffset;
-            
-            console.log(`Generated random position: ${this.simulationModal.lat.toFixed(6)}, ${this.simulationModal.lon.toFixed(6)}`);
+
+            console.log(`已生成随机位置: ${this.simulationModal.lat.toFixed(6)}, ${this.simulationModal.lon.toFixed(6)}`);
         },
 
         onMapClickForSimulation(lat, lon) {
@@ -1480,17 +1480,17 @@ document.addEventListener('alpine:init', () => {
                 this.simulationModal.lat = lat;
                 this.simulationModal.lon = lon;
                 this.simulationModal.mapClickMode = false;
-                
-                // Disable map click mode
+
+                // 禁用地图点击模式
                 if (this.mapManager && this.mapManager.map) {
                     this.mapManager.disableSimulationPositionMode();
                 }
-                
-                console.log(`Set simulation position from map: ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+
+                console.log(`已从地图设置仿真位置: ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
             }
         },
 
-        // Get phase color class (matches navigation bar colors)
+        // 获取阶段颜色类(与导航栏颜色匹配)
         getPhaseColorClass(phase) {
             const phaseColorMap = {
                 'NEW': 'text-gray-400',

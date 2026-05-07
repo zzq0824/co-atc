@@ -14,14 +14,14 @@ import (
 
 const atcRenderedPromptDebugPath = "data/atc_chat_system_prompt_rendered.txt"
 
-// Service provides the main templating functionality
+// Service 提供主要的模板功能
 type Service struct {
 	engine     *Engine
 	aggregator *DataAggregator
 	logger     *logger.Logger
 }
 
-// NewService creates a new templating service
+// NewService 创建一个新的模板服务
 func NewService(
 	adsbService *adsb.Service,
 	weatherService *weather.Service,
@@ -30,7 +30,7 @@ func NewService(
 	config *config.Config,
 	logger *logger.Logger,
 ) *Service {
-	// Create data aggregator
+	// 创建数据聚合器
 	aggregator := NewDataAggregator(
 		adsbService,
 		weatherService,
@@ -40,7 +40,7 @@ func NewService(
 		logger,
 	)
 
-	// Create template engine
+	// 创建模板引擎
 	engine := NewEngine(aggregator, logger)
 
 	return &Service{
@@ -50,7 +50,7 @@ func NewService(
 	}
 }
 
-// RenderATCChatTemplate renders the ATC chat template with full context
+// RenderATCChatTemplate 使用完整上下文渲染 ATC 聊天模板
 func (s *Service) RenderATCChatTemplate(templatePath string) (string, error) {
 	opts := ATCChatFormattingOptions()
 	rendered, err := s.engine.RenderTemplate(templatePath, opts)
@@ -59,7 +59,7 @@ func (s *Service) RenderATCChatTemplate(templatePath string) (string, error) {
 	}
 
 	if writeErr := s.writeRenderedATCChatPrompt(rendered); writeErr != nil {
-		s.logger.Warn("Failed to write rendered ATC chat system prompt debug file",
+		s.logger.Warn("写入已渲染的 ATC 聊天系统提示词调试文件失败",
 			logger.String("path", atcRenderedPromptDebugPath),
 			logger.Error(writeErr))
 	}
@@ -75,48 +75,48 @@ func (s *Service) writeRenderedATCChatPrompt(rendered string) error {
 	return os.WriteFile(atcRenderedPromptDebugPath, []byte(rendered), 0o644)
 }
 
-// RenderPostProcessorTemplate renders the post-processor template without transcription history
+// RenderPostProcessorTemplate 渲染后处理器模板,不包含转写历史
 func (s *Service) RenderPostProcessorTemplate(templatePath string) (string, error) {
 	opts := PostProcessorFormattingOptions()
 	return s.engine.RenderTemplate(templatePath, opts)
 }
 
-// RenderTemplate renders a template with custom formatting options
+// RenderTemplate 使用自定义格式化选项渲染模板
 func (s *Service) RenderTemplate(templatePath string, opts FormattingOptions) (string, error) {
 	return s.engine.RenderTemplate(templatePath, opts)
 }
 
-// GetTemplateContext gets the current airspace context for custom processing
+// GetTemplateContext 获取当前空域上下文用于自定义处理
 func (s *Service) GetTemplateContext(opts FormattingOptions) (*TemplateContext, error) {
 	return s.aggregator.GetTemplateContext(opts)
 }
 
-// RenderTemplateWithContext renders a template with pre-aggregated context
+// RenderTemplateWithContext 使用预聚合的上下文渲染模板
 func (s *Service) RenderTemplateWithContext(templatePath string, context *TemplateContext, opts FormattingOptions) (string, error) {
 	return s.engine.RenderTemplateWithContext(templatePath, context, opts)
 }
 
-// ReloadTemplate forces a template to be reloaded from file
+// ReloadTemplate 强制从文件重新加载模板
 func (s *Service) ReloadTemplate(templatePath string) error {
 	return s.engine.ReloadTemplate(templatePath)
 }
 
-// ReloadAllTemplates forces all cached templates to be reloaded
+// ReloadAllTemplates 强制重新加载所有缓存的模板
 func (s *Service) ReloadAllTemplates() error {
 	return s.engine.ReloadAllTemplates()
 }
 
-// ClearCache clears the template cache
+// ClearCache 清除模板缓存
 func (s *Service) ClearCache() {
 	s.engine.ClearCache()
 }
 
-// GetCacheStats returns statistics about the template cache
+// GetCacheStats 返回模板缓存的统计信息
 func (s *Service) GetCacheStats() map[string]interface{} {
 	return s.engine.GetCacheStats()
 }
 
-// GetRawTemplate returns the raw template content without processing
+// GetRawTemplate 返回未经处理的原始模板内容
 func (s *Service) GetRawTemplate(templatePath string) (string, error) {
 	return s.engine.GetRawTemplate(templatePath)
 }

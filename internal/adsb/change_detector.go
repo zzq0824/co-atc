@@ -4,13 +4,13 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// ChangeDetector tracks aircraft changes between polling cycles
+// ChangeDetector 跟踪轮询周期之间的飞行器变化
 type ChangeDetector struct {
 	previousAircraft map[string]*Aircraft
 	logger           *logger.Logger
 }
 
-// NewChangeDetector creates a new change detector
+// NewChangeDetector 创建一个新的变化检测器
 func NewChangeDetector(logger *logger.Logger) *ChangeDetector {
 	return &ChangeDetector{
 		previousAircraft: make(map[string]*Aircraft),
@@ -18,28 +18,28 @@ func NewChangeDetector(logger *logger.Logger) *ChangeDetector {
 	}
 }
 
-// AircraftChange represents a change in aircraft data
+// AircraftChange 表示飞行器数据的变化
 type AircraftChange struct {
-	Type     string                 // "added", "updated", "removed"
-	Aircraft *Aircraft              // Full object for "added", nil for others
-	Hex      string                 // Aircraft hex code
-	Delta    map[string]interface{} // Changed fields only (for "updated")
+	Type     string                 // "added","updated","removed"
+	Aircraft *Aircraft              // "added" 的完整对象,其他为 nil
+	Hex      string                 // 飞行器十六进制代码
+	Delta    map[string]interface{} // 仅变化的字段(用于 "updated")
 }
 
-// DetectChanges compares current aircraft data with previous and returns changes
+// DetectChanges 比较当前飞行器数据与之前的数据并返回变化
 func (cd *ChangeDetector) DetectChanges(currentAircraft []*Aircraft) []AircraftChange {
 	changes := []AircraftChange{}
 	currentMap := make(map[string]*Aircraft)
 
-	// Build current aircraft map
+	// 构建当前飞行器映射
 	for _, aircraft := range currentAircraft {
 		currentMap[aircraft.Hex] = aircraft
 	}
 
-	// Detect new and updated aircraft
+	// 检测新增和更新的飞行器
 	for hex, current := range currentMap {
 		if previous, exists := cd.previousAircraft[hex]; exists {
-			// Compute delta - only returns non-empty if there are actual changes
+			// 计算增量 - 仅在有实际变化时返回非空
 			delta := cd.computeDelta(previous, current)
 			if len(delta) > 0 {
 				changes = append(changes, AircraftChange{
@@ -50,7 +50,7 @@ func (cd *ChangeDetector) DetectChanges(currentAircraft []*Aircraft) []AircraftC
 				})
 			}
 		} else {
-			// New aircraft - send full object
+			// 新飞行器 - 发送完整对象
 			changes = append(changes, AircraftChange{
 				Type:     "added",
 				Aircraft: current,
@@ -59,7 +59,7 @@ func (cd *ChangeDetector) DetectChanges(currentAircraft []*Aircraft) []AircraftC
 		}
 	}
 
-	// Detect removed aircraft
+	// 检测移除的飞行器
 	for hex := range cd.previousAircraft {
 		if _, exists := currentMap[hex]; !exists {
 			changes = append(changes, AircraftChange{
@@ -69,18 +69,18 @@ func (cd *ChangeDetector) DetectChanges(currentAircraft []*Aircraft) []AircraftC
 		}
 	}
 
-	// Update previous state
+	// 更新先前状态
 	cd.previousAircraft = currentMap
 	return changes
 }
 
-// computeDelta returns only the fields that changed between previous and current aircraft
+// computeDelta 仅返回先前与当前飞行器之间发生变化的字段
 func (cd *ChangeDetector) computeDelta(previous, current *Aircraft) map[string]interface{} {
 	delta := make(map[string]interface{})
 
-	// Compare ADSB data
+	// 比较 ADSB 数据
 	if previous.ADSB != nil && current.ADSB != nil {
-		// Position
+		// 位置
 		if !floatPtrEqual(previous.ADSB.Lat, current.ADSB.Lat) {
 			delta["lat"] = current.ADSB.Lat
 		}
@@ -88,47 +88,47 @@ func (cd *ChangeDetector) computeDelta(previous, current *Aircraft) map[string]i
 			delta["lon"] = current.ADSB.Lon
 		}
 
-		// Altitude
+		// 高度
 		if previous.ADSB.AltBaro != current.ADSB.AltBaro {
 			delta["alt_baro"] = current.ADSB.AltBaro
 		}
 
-		// Track
+		// 航迹
 		if previous.ADSB.Track != current.ADSB.Track {
 			delta["track"] = current.ADSB.Track
 		}
 
-		// Ground Speed
+		// 地速
 		if !floatPtrEqual(previous.ADSB.GS, current.ADSB.GS) {
 			delta["gs"] = current.ADSB.GS
 		}
 
-		// True Airspeed
+		// 真空速
 		if !floatPtrEqual(previous.ADSB.TAS, current.ADSB.TAS) {
 			delta["tas"] = current.ADSB.TAS
 		}
 
-		// Barometric Rate
+		// 气压速率
 		if !floatPtrEqual(previous.ADSB.BaroRate, current.ADSB.BaroRate) {
 			delta["baro_rate"] = current.ADSB.BaroRate
 		}
 
-		// Magnetic Heading
+		// 磁航向
 		if previous.ADSB.MagHeading != current.ADSB.MagHeading {
 			delta["mag_heading"] = current.ADSB.MagHeading
 		}
 
-		// True Heading
+		// 真航向
 		if previous.ADSB.TrueHeading != current.ADSB.TrueHeading {
 			delta["true_heading"] = current.ADSB.TrueHeading
 		}
 
-		// ATC derived metrics
+		// ATC 派生指标
 		if !atcDerivedEqual(previous.ADSB.ATCDerived, current.ADSB.ATCDerived) {
 			delta["atc_derived"] = current.ADSB.ATCDerived
 		}
 	} else if (previous.ADSB == nil) != (current.ADSB == nil) {
-		// ADSB data appeared or disappeared - send full ADSB object
+		// ADSB 数据出现或消失 - 发送完整 ADSB 对象
 		if current.ADSB != nil {
 			delta["adsb"] = current.ADSB
 		} else {
@@ -136,7 +136,7 @@ func (cd *ChangeDetector) computeDelta(previous, current *Aircraft) map[string]i
 		}
 	}
 
-	// Compare basic aircraft properties
+	// 比较基本飞行器属性
 	if previous.Flight != current.Flight {
 		delta["flight"] = current.Flight
 	}
@@ -149,43 +149,43 @@ func (cd *ChangeDetector) computeDelta(previous, current *Aircraft) map[string]i
 		delta["on_ground"] = current.OnGround
 	}
 
-	// Compare phase data (optimized - no reflection)
+	// 比较阶段数据(优化 - 不使用反射)
 	if !phaseDataEqual(previous.Phase, current.Phase) {
 		delta["phase"] = current.Phase
 	}
 
-	// Compare distance
+	// 比较距离
 	if (previous.Distance == nil) != (current.Distance == nil) ||
 		(previous.Distance != nil && current.Distance != nil && *previous.Distance != *current.Distance) {
 		delta["distance"] = current.Distance
 	}
 
-	// Compare BSDB data (BaseStation.sqb enrichment)
+	// 比较 BSDB 数据(BaseStation.sqb 增强)
 	if !bsdbDataEqual(previous.BSDB, current.BSDB) {
 		delta["bsdb"] = current.BSDB
 	}
 
-	// last_seen is sourced from ADS-B observations (server-side LastSeen).
+	// last_seen 来自 ADS-B 观测(服务器端 LastSeen)。
 
 	return delta
 }
 
-// phaseDataEqual compares two PhaseData structs without using reflection
-// Only compares the current phase since that's what matters for change detection
+// phaseDataEqual 不使用反射比较两个 PhaseData 结构
+// 仅比较当前阶段,因为这是变化检测的关键
 func phaseDataEqual(a, b *PhaseData) bool {
-	// Both nil = equal
+	// 都为 nil = 相等
 	if a == nil && b == nil {
 		return true
 	}
-	// One nil, one not = not equal
+	// 一个为 nil,一个不为 nil = 不相等
 	if a == nil || b == nil {
 		return false
 	}
-	// Compare current phase arrays length
+	// 比较当前阶段数组的长度
 	if len(a.Current) != len(b.Current) {
 		return false
 	}
-	// If both have current phase, compare the phase string and timestamp
+	// 如果两者都有当前阶段,比较阶段字符串和时间戳
 	if len(a.Current) > 0 && len(b.Current) > 0 {
 		if a.Current[0].Phase != b.Current[0].Phase {
 			return false
@@ -197,18 +197,18 @@ func phaseDataEqual(a, b *PhaseData) bool {
 	return true
 }
 
-// bsdbDataEqual compares two BSDBData structs without using reflection
-// Returns true if both are equal (including both nil)
+// bsdbDataEqual 不使用反射比较两个 BSDBData 结构
+// 如果两者相等(包括都为 nil)则返回 true
 func bsdbDataEqual(a, b *BSDBData) bool {
-	// Both nil = equal
+	// 都为 nil = 相等
 	if a == nil && b == nil {
 		return true
 	}
-	// One nil, one not = not equal
+	// 一个为 nil,一个不为 nil = 不相等
 	if a == nil || b == nil {
 		return false
 	}
-	// Compare all fields
+	// 比较所有字段
 	return a.Registration == b.Registration &&
 		a.ICAOTypeCode == b.ICAOTypeCode &&
 		a.OperatorFlagCode == b.OperatorFlagCode &&

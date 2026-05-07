@@ -8,7 +8,7 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Cache manages weather data caching with thread-safe operations
+// Cache 通过线程安全的操作管理气象数据缓存
 type Cache struct {
 	cache  *WeatherCache
 	config WeatherConfig
@@ -16,7 +16,7 @@ type Cache struct {
 	mu     sync.RWMutex
 }
 
-// NewCache creates a new weather cache manager
+// NewCache 创建一个新的气象缓存管理器
 func NewCache(config WeatherConfig, logger *logger.Logger) *Cache {
 	return &Cache{
 		cache:  NewWeatherCache(),
@@ -25,8 +25,8 @@ func NewCache(config WeatherConfig, logger *logger.Logger) *Cache {
 	}
 }
 
-// Get returns the current cached weather data
-// Returns nil if no data has been fetched yet
+// Get 返回当前缓存的气象数据
+// 如果尚未获取过数据则返回 nil
 func (c *Cache) Get() *WeatherData {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -36,7 +36,7 @@ func (c *Cache) Get() *WeatherData {
 		return nil
 	}
 
-	// Check if this is just the default empty data (no actual weather data fetched)
+	// 检查是否仅是默认的空数据(没有实际获取到气象数据)
 	if data.METAR == nil && data.TAF == nil && data.NOTAMs == nil && len(data.FetchErrors) == 0 {
 		return nil
 	}
@@ -44,7 +44,7 @@ func (c *Cache) Get() *WeatherData {
 	return data
 }
 
-// Set updates the cache with new weather data
+// Set 用新的气象数据更新缓存
 func (c *Cache) Set(data *WeatherData) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -52,31 +52,31 @@ func (c *Cache) Set(data *WeatherData) {
 	expiryDuration := time.Duration(c.config.CacheExpiryMinutes) * time.Minute
 	c.cache.Set(data, expiryDuration)
 
-	c.logger.Debug("Weather data cached",
+	c.logger.Debug("气象数据已缓存",
 		logger.Time("last_updated", data.LastUpdated),
 		logger.Time("expires_at", time.Now().Add(expiryDuration)),
 		logger.Int("error_count", len(data.FetchErrors)))
 }
 
-// IsExpired checks if the cached data has expired
+// IsExpired 检查缓存的数据是否已过期
 func (c *Cache) IsExpired() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.cache.IsExpired()
 }
 
-// Update updates the cache with new fetch results
+// Update 用新的获取结果更新缓存
 func (c *Cache) Update(results []FetchResult, airportCode string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Get current data or create new
+	// 获取当前数据或新建
 	currentData := c.cache.Get()
 	if currentData == nil {
 		currentData = &WeatherData{}
 	}
 
-	// Create new data structure
+	// 创建新的数据结构
 	newData := &WeatherData{
 		METAR:       currentData.METAR,
 		TAF:         currentData.TAF,
@@ -85,70 +85,70 @@ func (c *Cache) Update(results []FetchResult, airportCode string) {
 		FetchErrors: []string{},
 	}
 
-	// Process fetch results
+	// 处理获取结果
 	for _, result := range results {
 		switch result.Type {
 		case WeatherTypeMETAR:
 			if result.Err != nil {
 				newData.FetchErrors = append(newData.FetchErrors, fmt.Sprintf("METAR: %s", result.Err.Error()))
-				c.logger.Warn("Failed to fetch METAR data",
+				c.logger.Warn("获取 METAR 数据失败",
 					logger.String("airport", airportCode),
 					logger.Error(result.Err))
 			} else {
 				newData.METAR = result.Data
-				c.logger.Debug("METAR data updated",
+				c.logger.Debug("METAR 数据已更新",
 					logger.String("airport", airportCode))
 			}
 
 		case WeatherTypeTAF:
 			if result.Err != nil {
 				newData.FetchErrors = append(newData.FetchErrors, fmt.Sprintf("TAF: %s", result.Err.Error()))
-				c.logger.Warn("Failed to fetch TAF data",
+				c.logger.Warn("获取 TAF 数据失败",
 					logger.String("airport", airportCode),
 					logger.Error(result.Err))
 			} else {
 				newData.TAF = result.Data
-				c.logger.Debug("TAF data updated",
+				c.logger.Debug("TAF 数据已更新",
 					logger.String("airport", airportCode))
 			}
 
 		case WeatherTypeNOTAMs:
 			if result.Err != nil {
 				newData.FetchErrors = append(newData.FetchErrors, fmt.Sprintf("NOTAMs: %s", result.Err.Error()))
-				c.logger.Warn("Failed to fetch NOTAM data",
+				c.logger.Warn("获取 NOTAM 数据失败",
 					logger.String("airport", airportCode),
 					logger.Error(result.Err))
 			} else {
 				newData.NOTAMs = result.Data
-				c.logger.Debug("NOTAM data updated",
+				c.logger.Debug("NOTAM 数据已更新",
 					logger.String("airport", airportCode))
 			}
 		}
 	}
 
-	// Update cache with new data
+	// 用新数据更新缓存
 	expiryDuration := time.Duration(c.config.CacheExpiryMinutes) * time.Minute
 	c.cache.Set(newData, expiryDuration)
 
-	// Log cache update
+	// 记录缓存更新
 	successCount := len(results) - len(newData.FetchErrors)
-	c.logger.Info("Weather cache updated",
+	c.logger.Info("气象缓存已更新",
 		logger.String("airport", airportCode),
 		logger.Int("successful_fetches", successCount),
 		logger.Int("failed_fetches", len(newData.FetchErrors)),
 		logger.Time("expires_at", time.Now().Add(expiryDuration)))
 }
 
-// Invalidate clears the cache
+// Invalidate 清空缓存
 func (c *Cache) Invalidate() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.cache = NewWeatherCache()
-	c.logger.Info("Weather cache invalidated")
+	c.logger.Info("气象缓存已失效")
 }
 
-// GetStats returns cache statistics
+// GetStats 返回缓存统计信息
 func (c *Cache) GetStats() map[string]interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

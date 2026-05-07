@@ -17,7 +17,7 @@ import (
 const activeRunwayProbabilityThreshold = 0.15
 const defaultTranscriptionHistorySeconds = 600
 
-// DataAggregator collects and formats airspace data for template rendering
+// DataAggregator 收集并格式化用于模板渲染的空域数据
 type DataAggregator struct {
 	adsbService          *adsb.Service
 	weatherService       *weather.Service
@@ -27,7 +27,7 @@ type DataAggregator struct {
 	logger               *logger.Logger
 }
 
-// NewDataAggregator creates a new data aggregator
+// NewDataAggregator 创建一个新的数据聚合器
 func NewDataAggregator(
 	adsbService *adsb.Service,
 	weatherService *weather.Service,
@@ -46,15 +46,15 @@ func NewDataAggregator(
 	}
 }
 
-// GetTemplateContext aggregates all current airspace data for templating
+// GetTemplateContext 聚合所有当前空域数据用于模板渲染
 func (da *DataAggregator) GetTemplateContext(opts FormattingOptions) (*TemplateContext, error) {
-	// Override max aircraft with config value if available for ATC chat
+	// 如果 ATC 聊天可用,则使用配置值覆盖最大飞行器数
 	maxAircraft := opts.MaxAircraft
 	if opts.IncludeTranscriptionHistory && da.config.ATCChat.MaxContextAircraft > 0 {
 		maxAircraft = da.config.ATCChat.MaxContextAircraft
 	}
 
-	da.logger.Debug("Aggregating template context",
+	da.logger.Debug("正在聚合模板上下文",
 		logger.Int("max_aircraft", maxAircraft),
 		logger.Int("config_max_aircraft", da.config.ATCChat.MaxContextAircraft),
 		logger.Bool("include_weather", opts.IncludeWeather),
@@ -66,49 +66,49 @@ func (da *DataAggregator) GetTemplateContext(opts FormattingOptions) (*TemplateC
 		Airport:   da.getAirportInfo(),
 	}
 
-	// Get aircraft data
+	// 获取飞行器数据
 	aircraft, err := da.getAircraftData(maxAircraft)
 	if err != nil {
-		da.logger.Error("Failed to get aircraft data", logger.Error(err))
-		// Continue with empty aircraft list rather than failing completely
+		da.logger.Error("获取飞行器数据失败", logger.Error(err))
+		// 继续使用空的飞行器列表,而不是完全失败
 		aircraft = []*adsb.Aircraft{}
 	}
 	context.Aircraft = aircraft
 
-	// Get weather data if requested
+	// 如果请求,获取气象数据
 	if opts.IncludeWeather {
 		weatherData, err := da.getWeatherData()
 		if err != nil {
-			da.logger.Error("Failed to get weather data", logger.Error(err))
-			// Continue with nil weather rather than failing completely
+			da.logger.Error("获取气象数据失败", logger.Error(err))
+			// 继续使用 nil weather,而不是完全失败
 		}
 		context.Weather = weatherData
 	}
 
-	// Get runway data if requested
+	// 如果请求,获取跑道数据
 	if opts.IncludeRunways {
 		runways, err := da.getRunwayData()
 		if err != nil {
-			da.logger.Error("Failed to get runway data", logger.Error(err))
-			// Continue with empty runways rather than failing completely
+			da.logger.Error("获取跑道数据失败", logger.Error(err))
+			// 继续使用空跑道,而不是完全失败
 			runways = []RunwayInfo{}
 		}
 		context.Runways = runways
 		context.ActiveRunways = da.getActiveRunwayScores(2)
 	}
 
-	// Get recent communications if requested (only for ATC Chat)
+	// 如果请求,获取最近通信(仅用于 ATC 聊天)
 	if opts.IncludeTranscriptionHistory {
 		communications, err := da.getRecentCommunications()
 		if err != nil {
-			da.logger.Error("Failed to get recent communications", logger.Error(err))
-			// Continue with empty communications rather than failing completely
+			da.logger.Error("获取最近通信失败", logger.Error(err))
+			// 继续使用空通信,而不是完全失败
 			communications = []TranscriptionSummary{}
 		}
 		context.TranscriptionHistory = communications
 	}
 
-	da.logger.Debug("Template context aggregated",
+	da.logger.Debug("模板上下文已聚合",
 		logger.Int("aircraft_count", len(context.Aircraft)),
 		logger.Int("runway_count", len(context.Runways)),
 		logger.Int("communication_count", len(context.TranscriptionHistory)))
@@ -140,16 +140,16 @@ func (da *DataAggregator) getActiveRunwayScores(maxRunways int) []adsb.RunwaySco
 	return detected
 }
 
-// getAircraftData retrieves aircraft data with distance filtering
+// getAircraftData 获取带距离过滤的飞行器数据
 func (da *DataAggregator) getAircraftData(maxAircraft int) ([]*adsb.Aircraft, error) {
-	// Get aircraft from ADSB service
+	// 从 ADSB 服务获取飞行器
 	allAircraft := da.adsbService.GetAllAircraft()
 
 	if len(allAircraft) == 0 {
 		return []*adsb.Aircraft{}, nil
 	}
 
-	// First filter: Only include active aircraft (exclude signal_lost, stale, etc.)
+	// 第一步过滤: 仅包含活动的飞行器(排除 signal_lost、stale 等)
 	var activeAircraft []*adsb.Aircraft
 	for _, ac := range allAircraft {
 		if ac.Status == "active" {
@@ -157,7 +157,7 @@ func (da *DataAggregator) getAircraftData(maxAircraft int) ([]*adsb.Aircraft, er
 		}
 	}
 
-	da.logger.Debug("Filtered aircraft by status",
+	da.logger.Debug("按状态过滤飞行器",
 		logger.Int("total_aircraft", len(allAircraft)),
 		logger.Int("active_aircraft", len(activeAircraft)))
 
@@ -165,7 +165,7 @@ func (da *DataAggregator) getAircraftData(maxAircraft int) ([]*adsb.Aircraft, er
 		return []*adsb.Aircraft{}, nil
 	}
 
-	// Filter by distance from airport
+	// 按距机场距离过滤
 	airport := da.getAirportInfo()
 	var aircraft []*adsb.Aircraft
 	if len(airport.Coordinates) >= 2 {
@@ -176,7 +176,7 @@ func (da *DataAggregator) getAircraftData(maxAircraft int) ([]*adsb.Aircraft, er
 				lat, lon, _ := ac.ADSB.Position()
 				distance := da.calculateDistance(lat, lon, airport.Coordinates[0], airport.Coordinates[1])
 
-				// Include if within radius OR if airborne (preserve all airborne traffic)
+				// 如果在半径内或在空中(保留所有空中流量),则包含
 				if distance <= radius || !ac.OnGround {
 					ac.Distance = &distance
 					adsb.AttachATCDerivedMetrics(ac)
@@ -185,15 +185,15 @@ func (da *DataAggregator) getAircraftData(maxAircraft int) ([]*adsb.Aircraft, er
 			}
 		}
 	} else {
-		// If no airport coordinates, just use active aircraft
+		// 如果没有机场坐标,则仅使用活动飞行器
 		aircraft = activeAircraft
 	}
 
-	da.logger.Debug("Filtered aircraft by distance",
+	da.logger.Debug("按距离过滤飞行器",
 		logger.Int("active_aircraft", len(activeAircraft)),
 		logger.Int("filtered_aircraft", len(aircraft)))
 
-	// Limit the number of aircraft
+	// 限制飞行器数量
 	if len(aircraft) > maxAircraft {
 		aircraft = aircraft[:maxAircraft]
 	}
@@ -201,24 +201,24 @@ func (da *DataAggregator) getAircraftData(maxAircraft int) ([]*adsb.Aircraft, er
 	return aircraft, nil
 }
 
-// getWeatherData retrieves current weather information
+// getWeatherData 检索当前气象信息
 func (da *DataAggregator) getWeatherData() (*weather.WeatherData, error) {
 	if da.weatherService == nil {
-		return nil, fmt.Errorf("weather service not available")
+		return nil, fmt.Errorf("气象服务不可用")
 	}
 
 	weatherData := da.weatherService.GetWeatherData()
 	if weatherData == nil {
-		return nil, fmt.Errorf("no weather data available")
+		return nil, fmt.Errorf("没有可用的气象数据")
 	}
 
 	return weatherData, nil
 }
 
-// getRunwayData retrieves runway configuration from the reference data loaded at startup
+// getRunwayData 从启动时加载的参考数据中检索跑道配置
 func (da *DataAggregator) getRunwayData() ([]RunwayInfo, error) {
 	if da.adsbService == nil {
-		return nil, fmt.Errorf("adsb service not available")
+		return nil, fmt.Errorf("adsb 服务不可用")
 	}
 
 	rwData := da.adsbService.GetRunwayData()
@@ -226,7 +226,7 @@ func (da *DataAggregator) getRunwayData() ([]RunwayInfo, error) {
 		return []RunwayInfo{}, nil
 	}
 
-	// Extract unique runway end identifiers from the threshold data
+	// 从阈值数据中提取唯一的跑道端点标识符
 	var runways []RunwayInfo
 	for _, thresholds := range rwData.RunwayThresholds {
 		for endID := range thresholds {
@@ -240,13 +240,13 @@ func (da *DataAggregator) getRunwayData() ([]RunwayInfo, error) {
 	return runways, nil
 }
 
-// getRecentCommunications retrieves recent radio communications
+// getRecentCommunications 检索最近的无线电通信
 func (da *DataAggregator) getRecentCommunications() ([]TranscriptionSummary, error) {
 	if da.transcriptionStorage == nil {
 		return []TranscriptionSummary{}, nil
 	}
 
-	// Get recent transcriptions (default: last 10 minutes)
+	// 获取最近的转写(默认: 最近 10 分钟)
 	timeWindowSeconds := defaultTranscriptionHistorySeconds
 	if da.config.ATCChat.TranscriptionHistorySeconds > 0 {
 		timeWindowSeconds = da.config.ATCChat.TranscriptionHistorySeconds
@@ -257,10 +257,10 @@ func (da *DataAggregator) getRecentCommunications() ([]TranscriptionSummary, err
 
 	transcriptions, err := da.transcriptionStorage.GetTranscriptionsByTimeRange(since, endTime, 100, 0)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get recent transcriptions: %w", err)
+		return nil, fmt.Errorf("获取最近转写失败: %w", err)
 	}
 
-	// Convert to TranscriptionSummary format
+	// 转换为 TranscriptionSummary 格式
 	var communications []TranscriptionSummary
 	for _, t := range transcriptions {
 		content := strings.TrimSpace(t.ContentProcessed)
@@ -272,7 +272,7 @@ func (da *DataAggregator) getRecentCommunications() ([]TranscriptionSummary, err
 			continue
 		}
 
-		// Get frequency name
+		// 获取频率名称
 		frequencyName := t.FrequencyID
 		if da.frequencyService != nil {
 			if freq, ok := da.frequencyService.GetFrequencyByID(t.FrequencyID); ok {
@@ -292,9 +292,9 @@ func (da *DataAggregator) getRecentCommunications() ([]TranscriptionSummary, err
 	return communications, nil
 }
 
-// getAirportInfo returns airport information from config
+// getAirportInfo 从配置返回机场信息
 func (da *DataAggregator) getAirportInfo() AirportInfo {
-	// Generate airport name from code if not available in config
+	// 如果配置中没有,则从代码生成机场名称
 	airportName := da.config.Station.AirportCode
 	if da.config.Station.AirportCode != "" {
 		airportName = "Airport " + da.config.Station.AirportCode
@@ -308,17 +308,17 @@ func (da *DataAggregator) getAirportInfo() AirportInfo {
 	}
 }
 
-// calculateDistance calculates the distance between two points using Haversine formula
+// calculateDistance 使用 Haversine 公式计算两点之间的距离
 func (da *DataAggregator) calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
-	const R = 3440.07 // Earth radius in nautical miles
+	const R = 3440.07 // 地球半径,单位为海里
 
-	// Convert degrees to radians
+	// 度数转换为弧度
 	lat1Rad := lat1 * math.Pi / 180
 	lon1Rad := lon1 * math.Pi / 180
 	lat2Rad := lat2 * math.Pi / 180
 	lon2Rad := lon2 * math.Pi / 180
 
-	// Haversine formula
+	// Haversine 公式
 	dLat := lat2Rad - lat1Rad
 	dLon := lon2Rad - lon1Rad
 

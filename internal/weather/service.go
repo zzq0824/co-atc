@@ -9,7 +9,7 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Service manages weather data fetching and caching
+// Service 管理气象数据的获取与缓存
 type Service struct {
 	config      WeatherConfig
 	airportCode string
@@ -17,21 +17,21 @@ type Service struct {
 	cache       *Cache
 	logger      *logger.Logger
 
-	// Service lifecycle
+	// 服务生命周期
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      sync.WaitGroup
 	started bool
 	mu      sync.RWMutex
 
-	// Initial data readiness
+	// 初始数据就绪
 	initialDataReady chan struct{}
 	initialDataOnce  sync.Once
 }
 
-// NewService creates a new weather service
+// NewService 创建一个新的气象服务
 func NewService(configWeather ConfigWeatherConfig, airportCode string, logger *logger.Logger) *Service {
-	// Convert config to internal WeatherConfig type
+	// 将 config 转换为内部 WeatherConfig 类型
 	weatherConfig := FromConfigWeatherConfig(configWeather)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -48,27 +48,27 @@ func NewService(configWeather ConfigWeatherConfig, airportCode string, logger *l
 	}
 }
 
-// Start begins the weather service background operations
+// Start 启动气象服务的后台操作
 func (s *Service) Start() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.started {
-		return nil // Already started
+		return nil // 已启动
 	}
 
-	s.logger.Info("Starting weather service",
+	s.logger.Info("正在启动气象服务",
 		logger.String("airport", s.airportCode),
 		logger.Int("refresh_interval_minutes", s.config.RefreshIntervalMinutes))
 
-	// Perform initial fetch
+	// 执行首次获取
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
 		s.performInitialFetch()
 	}()
 
-	// Start background refresh goroutine
+	// 启动后台刷新 goroutine
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
@@ -79,155 +79,155 @@ func (s *Service) Start() error {
 	return nil
 }
 
-// Stop gracefully shuts down the weather service
+// Stop 优雅地关闭气象服务
 func (s *Service) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if !s.started {
-		return nil // Already stopped
+		return nil // 已停止
 	}
 
-	s.logger.Info("Stopping weather service")
+	s.logger.Info("正在停止气象服务")
 
-	// Cancel context to signal goroutines to stop
+	// 取消 context,通知 goroutine 停止
 	s.cancel()
 
-	// Wait for all goroutines to finish
+	// 等待所有 goroutine 完成
 	s.wg.Wait()
 
 	s.started = false
-	s.logger.Info("Weather service stopped")
+	s.logger.Info("气象服务已停止")
 	return nil
 }
 
-// GetWeatherData returns the current cached weather data
-// Waits for initial data to be available if service just started
+// GetWeatherData 返回当前缓存的气象数据
+// 如果服务刚启动,会等待初始数据可用
 func (s *Service) GetWeatherData() *WeatherData {
-	// Wait for initial data to be ready (with timeout)
+	// 等待初始数据就绪(带超时)
 	select {
 	case <-s.initialDataReady:
-		// Initial data is ready, proceed normally
+		// 初始数据已就绪,继续正常处理
 	case <-time.After(30 * time.Second):
-		// Timeout waiting for initial data, log warning and return error data
-		s.logger.Warn("Timeout waiting for initial weather data")
+		// 等待初始数据超时,记录警告并返回错误数据
+		s.logger.Warn("等待初始气象数据超时")
 		return &WeatherData{
 			LastUpdated: time.Now(),
-			FetchErrors: []string{"Weather data is still being fetched, please try again in a moment"},
+			FetchErrors: []string{"气象数据仍在获取中,请稍后再试"},
 		}
 	}
 
 	data := s.cache.Get()
 	if data == nil {
-		// This shouldn't happen after initial data is ready, but handle gracefully
-		s.logger.Warn("No weather data available after initial fetch completed")
+		// 在初始数据就绪后通常不应发生,但要优雅处理
+		s.logger.Warn("初始获取完成后仍无气象数据可用")
 		return &WeatherData{
 			LastUpdated: time.Now(),
-			FetchErrors: []string{"Weather data temporarily unavailable"},
+			FetchErrors: []string{"气象数据暂时不可用"},
 		}
 	}
 
 	return data
 }
 
-// RefreshNow triggers an immediate refresh of weather data
+// RefreshNow 触发气象数据的立即刷新
 func (s *Service) RefreshNow() {
-	s.logger.Info("Manual weather refresh triggered")
+	s.logger.Info("已触发手动气象刷新")
 	go s.fetchAndUpdateCache()
 }
 
-// GetCacheStats returns cache statistics
+// GetCacheStats 返回缓存统计信息
 func (s *Service) GetCacheStats() map[string]interface{} {
 	return s.cache.GetStats()
 }
 
-// IsStarted returns whether the service is currently running
+// IsStarted 返回服务当前是否在运行
 func (s *Service) IsStarted() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.started
 }
 
-// performInitialFetch performs the first weather data fetch on service start
+// performInitialFetch 在服务启动时执行第一次气象数据获取
 func (s *Service) performInitialFetch() {
-	s.logger.Info("Performing initial weather data fetch",
+	s.logger.Info("正在执行初始气象数据获取",
 		logger.String("airport", s.airportCode))
 
 	s.fetchAndUpdateCache()
 
-	// Signal that initial data is ready
+	// 通知初始数据已就绪
 	s.initialDataOnce.Do(func() {
 		close(s.initialDataReady)
-		s.logger.Info("Initial weather data fetch completed")
+		s.logger.Info("初始气象数据获取完成")
 	})
 }
 
-// backgroundRefresh runs the periodic weather data refresh
+// backgroundRefresh 运行周期性的气象数据刷新
 func (s *Service) backgroundRefresh() {
 	refreshInterval := time.Duration(s.config.RefreshIntervalMinutes) * time.Minute
 	ticker := time.NewTicker(refreshInterval)
 	defer ticker.Stop()
 
-	s.logger.Info("Background weather refresh started",
+	s.logger.Info("后台气象刷新已启动",
 		logger.String("interval", refreshInterval.String()))
 
 	for {
 		select {
 		case <-s.ctx.Done():
-			s.logger.Info("Background weather refresh stopped")
+			s.logger.Info("后台气象刷新已停止")
 			return
 		case <-ticker.C:
-			s.logger.Debug("Periodic weather refresh triggered")
+			s.logger.Debug("已触发周期性气象刷新")
 			s.fetchAndUpdateCache()
 		}
 	}
 }
 
-// fetchAndUpdateCache fetches weather data and updates the cache
+// fetchAndUpdateCache 获取气象数据并更新缓存
 func (s *Service) fetchAndUpdateCache() {
 	startTime := time.Now()
 
-	s.logger.Debug("Fetching weather data",
+	s.logger.Debug("正在获取气象数据",
 		logger.String("airport", s.airportCode))
 
-	// Fetch all enabled weather data types
+	// 获取所有已启用的气象数据类型
 	results := s.client.FetchAll(s.airportCode)
 
-	// Update cache with results
+	// 用结果更新缓存
 	s.cache.Update(results, s.airportCode)
 
 	duration := time.Since(startTime)
-	s.logger.Info("Weather data fetch completed",
+	s.logger.Info("气象数据获取完成",
 		logger.String("airport", s.airportCode),
 		logger.String("duration", duration.String()),
 		logger.Int("total_requests", len(results)))
 }
 
-// ValidateConfig validates the weather service configuration
+// ValidateConfig 校验气象服务配置
 func ValidateConfig(config WeatherConfig) error {
 	if config.RefreshIntervalMinutes <= 0 {
-		return fmt.Errorf("refresh_interval_minutes must be greater than 0")
+		return fmt.Errorf("refresh_interval_minutes 必须大于 0")
 	}
 
 	if config.RequestTimeoutSeconds <= 0 {
-		return fmt.Errorf("request_timeout_seconds must be greater than 0")
+		return fmt.Errorf("request_timeout_seconds 必须大于 0")
 	}
 
 	if config.MaxRetries < 0 {
-		return fmt.Errorf("max_retries must be 0 or greater")
+		return fmt.Errorf("max_retries 必须为 0 或更大")
 	}
 
 	if config.CacheExpiryMinutes <= 0 {
-		return fmt.Errorf("cache_expiry_minutes must be greater than 0")
+		return fmt.Errorf("cache_expiry_minutes 必须大于 0")
 	}
 
 	if config.APIBaseURL == "" {
-		return fmt.Errorf("api_base_url cannot be empty")
+		return fmt.Errorf("api_base_url 不能为空")
 	}
 
-	// At least one weather type must be enabled
+	// 至少必须启用一种气象类型
 	if !config.FetchMETAR && !config.FetchTAF && !config.FetchNOTAMs {
-		return fmt.Errorf("at least one weather type must be enabled (fetch_metar, fetch_taf, or fetch_notams)")
+		return fmt.Errorf("至少必须启用一种气象类型(fetch_metar、fetch_taf 或 fetch_notams)")
 	}
 
 	return nil

@@ -1,17 +1,17 @@
 /**
- * Module: map/renderers/rendering-facades
- * Why it exists:
- * - Consolidates small renderer facade entry points into one script to reduce file churn
- *   and script-tag overhead while preserving existing global contracts.
+ * 模块: map/renderers/rendering-facades
+ * 存在原因:
+ * - 将多个小型渲染器门面入口合并到一个脚本中,以减少文件变动
+ *   及 script 标签开销,同时保留现有的全局契约。
  *
- * Key responsibilities:
- * - Expose `window.MapAircraftRenderer.updateAircraft`.
- * - Expose `window.MapTrailsRenderer.refreshTrails`.
- * - Expose `window.MapReferenceRenderer.refreshReferenceLayers`.
+ * 主要职责:
+ * - 暴露 `window.MapAircraftRenderer.updateAircraft`。
+ * - 暴露 `window.MapTrailsRenderer.refreshTrails`。
+ * - 暴露 `window.MapReferenceRenderer.refreshReferenceLayers`。
  *
- * Quirks / contracts:
- * - This module intentionally delegates all work to `OpenLayersMapManager` methods.
- * - Public global names are preserved to avoid breaking existing call sites.
+ * 怪癖 / 契约:
+ * - 该模块刻意将所有工作委托给 `OpenLayersMapManager` 的方法。
+ * - 公共全局名保持不变以避免破坏现有调用点。
  */
 (function () {
     function updateAircraft(manager, hex, aircraft) {

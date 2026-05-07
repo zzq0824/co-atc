@@ -16,7 +16,7 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Import the logger package's exported functions
+// 导入 logger 包的导出函数
 var (
 	String = logger.String
 	Int    = logger.Int
@@ -24,7 +24,7 @@ var (
 	Error  = logger.Error
 )
 
-// Processor manages transcription for a specific frequency using a provided reader
+// Processor 使用提供的读取器管理特定频率的转写
 type Processor struct {
 	frequencyID         string
 	audioReader         io.ReadCloser
@@ -47,7 +47,7 @@ type Processor struct {
 	fileLogger          *FileLogger
 }
 
-// NewProcessor creates a new transcription processor with a provided reader
+// NewProcessor 使用提供的读取器创建一个新的转写处理器
 func NewProcessor(
 	ctx context.Context,
 	frequencyID string,
@@ -58,17 +58,17 @@ func NewProcessor(
 	logger *logger.Logger,
 	fileLogger *FileLogger,
 ) (ProcessorInterface, error) {
-	// Check if OpenAI API key is provided - fail fast if missing
+	// 检查是否提供了 OpenAI API 密钥 - 缺失则快速失败
 	if config.OpenAIAPIKey == "" {
-		return nil, fmt.Errorf("OpenAI API key is required for transcription processor")
+		return nil, fmt.Errorf("转写处理器需要 OpenAI API 密钥")
 	}
 
 	procCtx, procCancel := context.WithCancel(ctx)
 
-	// Create OpenAI client
+	// 创建 OpenAI 客户端
 	openaiClient := NewOpenAIClient(config.OpenAIAPIKey, config.Model, config.TimeoutSeconds, logger)
 
-	// Create processor
+	// 创建处理器
 	processor := &Processor{
 		frequencyID:         frequencyID,
 		audioReader:         audioReader,
@@ -86,40 +86,40 @@ func NewProcessor(
 	return processor, nil
 }
 
-// Start starts the transcription processor
+// Start 启动转写处理器
 func (p *Processor) Start() error {
-	p.logger.Info("Starting custom transcription processor",
+	p.logger.Info("正在启动自定义转写处理器",
 		String("frequency_id", p.frequencyID))
 
-	// Create OpenAI transcription session
+	// 创建 OpenAI 转写会话
 	var err error
 	p.sessionID, p.clientSecret, err = p.openaiClient.CreateSession(p.ctx, p.transcriptionConfig)
 	if err != nil {
 		p.audioReader.Close()
-		return fmt.Errorf("failed to create transcription session: %w", err)
+		return fmt.Errorf("创建转写会话失败: %w", err)
 	}
-	p.logger.Info("Created transcription session", String("session_id", p.sessionID))
+	p.logger.Info("已创建转写会话", String("session_id", p.sessionID))
 
-	// Record session start time
+	// 记录会话启动时间
 	p.sessionStartTime = time.Now()
 
-	// Connect to OpenAI WebSocket
+	// 连接到 OpenAI WebSocket
 	wsConn, err := p.openaiClient.ConnectWebSocket(p.ctx, p.sessionID, p.clientSecret)
 	if err != nil {
 		p.audioReader.Close()
-		return fmt.Errorf("failed to connect to WebSocket: %w", err)
+		return fmt.Errorf("连接 WebSocket 失败: %w", err)
 	}
 	p.setWebSocketConn(wsConn)
-	p.logger.Info("Connected to OpenAI WebSocket")
+	p.logger.Info("已连接到 OpenAI WebSocket")
 
-	// Log service start to file
+	// 将服务启动事件记录到文件
 	if p.fileLogger != nil {
 		if err := p.fileLogger.LogServiceStarted(p.frequencyID); err != nil {
-			p.logger.Error("Failed to write service started to log file", Error(err))
+			p.logger.Error("写入服务启动日志文件失败", Error(err))
 		}
 	}
 
-	// Start processing in goroutines
+	// 在 goroutine 中启动处理
 	go p.processAudio()
 	go p.processTranscriptions()
 	go p.monitorSessionDuration()
@@ -127,19 +127,19 @@ func (p *Processor) Start() error {
 	return nil
 }
 
-// Stop stops the transcription processor
+// Stop 停止转写处理器
 func (p *Processor) Stop() error {
-	p.logger.Info("Stopping custom transcription processor")
+	p.logger.Info("正在停止自定义转写处理器")
 
-	// Cancel context to stop all operations
+	// 取消上下文以停止所有操作
 	p.cancel()
 
-	// Close WebSocket connection
+	// 关闭 WebSocket 连接
 	if wsConn := p.getWebSocketConn(); wsConn != nil {
 		wsConn.Close()
 	}
 
-	// Close audio reader
+	// 关闭音频读取器
 	if p.audioReader != nil {
 		p.audioReader.Close()
 	}
@@ -147,96 +147,96 @@ func (p *Processor) Stop() error {
 	return nil
 }
 
-// processAudio processes audio from the reader
+// processAudio 处理来自读取器的音频
 func (p *Processor) processAudio() {
-	p.logger.Info("Starting audio processing")
+	p.logger.Info("正在启动音频处理")
 
-	// Create buffer for audio chunks
+	// 为音频块创建缓冲区
 	buffer := make([]byte, 4096)
 
-	// Track consecutive errors for backoff
+	// 跟踪连续错误以执行退避
 	consecutiveErrors := 0
 	maxConsecutiveErrors := 5
 
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Info("Audio processing stopped due to context cancellation")
+			p.logger.Info("音频处理因上下文取消而停止")
 			return
 		default:
-			// Read from audio source
+			// 从音频源读取
 			n, err := p.audioReader.Read(buffer)
 			if err != nil {
 				if err == io.EOF {
-					p.logger.Info("Audio source ended")
+					p.logger.Info("音频源已结束")
 					return
 				}
-				p.logger.Error("Error reading from audio source", Error(err))
+				p.logger.Error("从音频源读取错误", Error(err))
 				return
 			}
 
 			if n > 0 {
-				// Process audio chunk
+				// 处理音频块
 				chunks, err := p.audioChunker.ProcessChunk(buffer[:n])
 				if err != nil {
-					p.logger.Error("Error processing audio chunk", Error(err))
+					p.logger.Error("处理音频块错误", Error(err))
 					continue
 				}
 
-				// Send chunks to OpenAI
+				// 将块发送到 OpenAI
 				for _, chunk := range chunks {
-					// Base64 encode the chunk
+					// 对块进行 Base64 编码
 					encoded := base64.StdEncoding.EncodeToString(chunk)
 
-					// Send to OpenAI
+					// 发送到 OpenAI
 					if err := p.sendAudioChunk(encoded); err != nil {
 						consecutiveErrors++
 
-						// Log with appropriate level based on consecutive errors
+						// 根据连续错误数以适当级别记录日志
 						if consecutiveErrors <= 2 {
-							p.logger.Error("Error sending audio chunk",
+							p.logger.Error("发送音频块错误",
 								Error(err),
 								Int("consecutive_errors", consecutiveErrors))
 						} else if consecutiveErrors == 3 {
-							p.logger.Warn("Multiple consecutive errors sending audio chunks, will attempt reconnection soon",
+							p.logger.Warn("发送音频块出现多次连续错误,即将尝试重新连接",
 								Error(err),
 								Int("consecutive_errors", consecutiveErrors))
 						} else {
-							// Only log every 10th error after the initial ones to avoid log spam
+							// 在初始错误之后,仅每隔 10 个错误记录一次,以避免日志泛滥
 							if consecutiveErrors%10 == 0 {
-								p.logger.Warn("Continuing to experience audio chunk sending errors",
+								p.logger.Warn("音频块发送错误持续出现",
 									Error(err),
 									Int("consecutive_errors", consecutiveErrors))
 							}
 						}
 
-						// After several consecutive errors, keep trying to reconnect. A single
-						// failed reconnect must not permanently strand the sender on a bad socket.
+						// 在多次连续错误后,持续尝试重新连接。一次失败的重连不应让发送端
+						// 永远停留在错误的套接字上。
 						if consecutiveErrors >= maxConsecutiveErrors && (consecutiveErrors == maxConsecutiveErrors || consecutiveErrors%10 == 0) {
-							p.logger.Info("Too many consecutive errors, attempting to reconnect WebSocket")
+							p.logger.Info("连续错误过多,正在尝试重新连接 WebSocket")
 
-							// Try to reconnect
+							// 尝试重新连接
 							if err := p.reconnectOpenAI(); err != nil {
-								p.logger.Error("Failed to reconnect to OpenAI", Error(err))
+								p.logger.Error("重新连接 OpenAI 失败", Error(err))
 							} else {
-								p.logger.Info("Successfully reconnected to OpenAI")
+								p.logger.Info("已成功重新连接到 OpenAI")
 								consecutiveErrors = 0
 							}
 						}
 
-						// Add a small delay to avoid hammering the service
+						// 添加少量延迟以避免冲击服务
 						if consecutiveErrors > 0 {
-							// Exponential backoff with a cap
-							backoffMs := 100 * (1 << uint(min(consecutiveErrors-1, 6))) // Cap at 6.4 seconds
+							// 带上限的指数退避
+							backoffMs := 100 * (1 << uint(min(consecutiveErrors-1, 6))) // 上限为 6.4 秒
 							time.Sleep(time.Duration(backoffMs) * time.Millisecond)
 						}
 
 						continue
 					}
 
-					// Reset error counter on successful send
+					// 发送成功后重置错误计数器
 					if consecutiveErrors > 0 {
-						p.logger.Info("Audio chunk sending recovered after errors",
+						p.logger.Info("音频块发送在错误后已恢复",
 							Int("previous_consecutive_errors", consecutiveErrors))
 						consecutiveErrors = 0
 					}
@@ -246,7 +246,7 @@ func (p *Processor) processAudio() {
 	}
 }
 
-// min returns the smaller of x or y
+// min 返回 x 和 y 中较小的一个
 func min(x, y int) int {
 	if x < y {
 		return x
@@ -281,37 +281,37 @@ func (p *Processor) sleepWithContext(duration time.Duration) bool {
 	}
 }
 
-// sendAudioChunk sends an audio chunk to OpenAI
+// sendAudioChunk 向 OpenAI 发送一个音频块
 func (p *Processor) sendAudioChunk(encodedChunk string) error {
-	// Create message
+	// 创建消息
 	message := map[string]interface{}{
 		"type":  "input_audio_buffer.append",
 		"audio": encodedChunk,
 	}
 
-	// Marshal to JSON
+	// 序列化为 JSON
 	data, err := json.Marshal(message)
 	if err != nil {
-		return fmt.Errorf("failed to marshal audio chunk message: %w", err)
+		return fmt.Errorf("序列化音频块消息失败: %w", err)
 	}
 
-	// Log every 100th chunk to avoid excessive logging
+	// 每 100 个块记录一次日志,避免日志过多
 	p.chunkCountMu.Lock()
 	p.chunkCount++
 	chunkCount := p.chunkCount
 	p.chunkCountMu.Unlock()
 
 	if chunkCount%100 == 0 {
-		p.logger.Debug("Sending audio chunk", Int("chunk_number", chunkCount))
+		p.logger.Debug("正在发送音频块", Int("chunk_number", chunkCount))
 	}
 
-	// Send to OpenAI
+	// 发送到 OpenAI
 	wsConn := p.getWebSocketConn()
 	if wsConn == nil {
-		return fmt.Errorf("WebSocket connection is not established")
+		return fmt.Errorf("WebSocket 连接尚未建立")
 	}
 	if err := wsConn.Send(string(data)); err != nil {
-		return fmt.Errorf("failed to send audio chunk: %w", err)
+		return fmt.Errorf("发送音频块失败: %w", err)
 	}
 
 	return nil
@@ -342,13 +342,13 @@ func isReconnectableWebSocketError(errorMsg string) bool {
 	return false
 }
 
-// processTranscriptions processes transcription events from OpenAI
+// processTranscriptions 处理来自 OpenAI 的转写事件
 func (p *Processor) processTranscriptions() {
-	p.logger.Info("Starting transcription processing",
+	p.logger.Info("正在启动转写处理",
 		String("frequency_id", p.frequencyID),
 		String("session_id", p.sessionID))
 
-	// Track reconnection attempts
+	// 跟踪重连尝试次数
 	reconnectAttempts := 0
 	maxReconnectAttempts := 5
 	lastReconnectTime := time.Now()
@@ -357,16 +357,16 @@ func (p *Processor) processTranscriptions() {
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Info("Transcription processing stopped due to context cancellation")
+			p.logger.Info("转写处理因上下文取消而停止")
 			return
 		default:
-			// Receive message from OpenAI
+			// 接收来自 OpenAI 的消息
 			wsConn := p.getWebSocketConn()
 			if wsConn == nil {
-				p.logger.Warn("OpenAI WebSocket connection is nil, attempting reconnect",
+				p.logger.Warn("OpenAI WebSocket 连接为空,正在尝试重新连接",
 					String("frequency_id", p.frequencyID))
 				if err := p.reconnectOpenAI(); err != nil {
-					p.logger.Error("Failed to reconnect nil OpenAI WebSocket", Error(err))
+					p.logger.Error("重新连接空的 OpenAI WebSocket 失败", Error(err))
 					if !p.sleepWithContext(time.Duration(reconnectBackoffSeconds) * time.Second) {
 						return
 					}
@@ -377,61 +377,60 @@ func (p *Processor) processTranscriptions() {
 
 			message, err := wsConn.Receive()
 			if err != nil {
-				// Check if context is canceled or connection is closed
+				// 检查上下文是否已取消或连接是否已关闭
 				select {
 				case <-p.ctx.Done():
-					// This is an expected error during shutdown
-					p.logger.Info("WebSocket connection closed during shutdown",
+					// 这是关机过程中的预期错误
+					p.logger.Info("WebSocket 连接在关机过程中已关闭",
 						String("frequency_id", p.frequencyID),
 						String("session_id", p.sessionID))
 					return
 				default:
-					// If another goroutine already replaced this connection, the read error
-					// is expected fallout from closing the stale socket. Keep receiving on
-					// the current socket instead of starting a second reconnect cycle.
+					// 如果另一个 goroutine 已经替换了此连接,读取错误是关闭过期套接字的
+					// 预期结果。继续在当前套接字上接收,而不是开始第二轮重连循环。
 					if !p.isCurrentWebSocketConn(wsConn) {
-						p.logger.Info("Ignoring read error from stale OpenAI WebSocket",
+						p.logger.Info("忽略来自过期 OpenAI WebSocket 的读取错误",
 							Error(err),
 							String("frequency_id", p.frequencyID))
 						continue
 					}
 
-					// Categorize the error
+					// 对错误进行分类
 					errorMsg := err.Error()
 					isReconnectableError := isReconnectableWebSocketError(errorMsg)
 
-					// Log the error with appropriate level
+					// 以适当级别记录错误
 					if isReconnectableError {
-						p.logger.Warn("WebSocket connection issue detected",
+						p.logger.Warn("检测到 WebSocket 连接问题",
 							Error(err),
 							String("frequency_id", p.frequencyID),
 							String("session_id", p.sessionID),
 							Int("reconnect_attempts", reconnectAttempts))
 					} else {
-						p.logger.Error("Error receiving WebSocket message",
+						p.logger.Error("接收 WebSocket 消息错误",
 							Error(err),
 							String("frequency_id", p.frequencyID),
 							String("session_id", p.sessionID))
 					}
 
-					// Don't immediately return on network errors during shutdown
+					// 关机期间不应在网络错误时立即返回
 					if p.ctx.Err() != nil {
 						return
 					}
 
-					// For reconnectable errors, try to reconnect with backoff
+					// 对于可重连的错误,尝试以退避方式重新连接
 					if isReconnectableError {
-						// Check if we've exceeded max reconnect attempts
+						// 检查是否已超出最大重连次数
 						if reconnectAttempts >= maxReconnectAttempts {
 							timeSinceLastReconnect := time.Since(lastReconnectTime)
-							// Reset counter if it's been a while since last reconnect attempt
+							// 如果距离上次重连尝试已经过了一段时间,则重置计数器
 							if timeSinceLastReconnect > time.Minute*5 {
-								p.logger.Info("Resetting reconnection counter after cooling period",
+								p.logger.Info("冷却期后重置重连计数器",
 									String("frequency_id", p.frequencyID))
 								reconnectAttempts = 0
 								reconnectBackoffSeconds = 1
 							} else {
-								p.logger.Error("Exceeded maximum reconnection attempts; cooling down but staying alive",
+								p.logger.Error("已超过最大重连尝试次数;进入冷却但保持存活",
 									String("frequency_id", p.frequencyID),
 									Int("max_attempts", maxReconnectAttempts),
 									String("cooldown", (time.Minute*5).String()))
@@ -444,9 +443,9 @@ func (p *Processor) processTranscriptions() {
 							}
 						}
 
-						// Apply exponential backoff
+						// 应用指数退避
 						backoffDuration := time.Duration(reconnectBackoffSeconds) * time.Second
-						p.logger.Info("WebSocket connection closed, waiting before reconnect attempt",
+						p.logger.Info("WebSocket 连接已关闭,等待后再尝试重连",
 							String("frequency_id", p.frequencyID),
 							String("backoff_duration", backoffDuration.String()),
 							Int("attempt", reconnectAttempts+1))
@@ -455,16 +454,16 @@ func (p *Processor) processTranscriptions() {
 							return
 						}
 
-						// Attempt to reconnect
+						// 尝试重新连接
 						if err := p.reconnectOpenAI(); err != nil {
 							reconnectAttempts++
-							reconnectBackoffSeconds = min(reconnectBackoffSeconds*2, 60) // Cap at 60 seconds
-							p.logger.Error("Failed to reconnect to OpenAI",
+							reconnectBackoffSeconds = min(reconnectBackoffSeconds*2, 60) // 上限为 60 秒
+							p.logger.Error("重新连接 OpenAI 失败",
 								Error(err),
 								Int("reconnect_attempts", reconnectAttempts),
 								Int("next_backoff_seconds", reconnectBackoffSeconds))
 						} else {
-							p.logger.Info("Successfully reconnected to OpenAI WebSocket",
+							p.logger.Info("已成功重新连接到 OpenAI WebSocket",
 								String("frequency_id", p.frequencyID),
 								String("session_id", p.sessionID))
 							reconnectAttempts = 0
@@ -474,12 +473,12 @@ func (p *Processor) processTranscriptions() {
 						continue
 					}
 
-					// For other unexpected errors, return
+					// 对于其他意外错误,返回
 					return
 				}
 			}
 
-			// Reset reconnect attempts on successful message
+			// 在收到消息后重置重连尝试次数
 			if reconnectAttempts > 0 {
 				reconnectAttempts = 0
 				reconnectBackoffSeconds = 1
@@ -489,77 +488,77 @@ func (p *Processor) processTranscriptions() {
 			// 	String("frequency_id", p.frequencyID),
 			// 	String("message_length", fmt.Sprintf("%d bytes", len(message))))
 
-			// Parse message
+			// 解析消息
 			var event map[string]interface{}
 			if err := json.Unmarshal([]byte(message), &event); err != nil {
-				p.logger.Error("Error parsing event", Error(err))
+				p.logger.Error("解析事件错误", Error(err))
 				continue
 			}
 
-			// Get event type
+			// 获取事件类型
 			eventType, ok := event["type"].(string)
 			if !ok {
-				p.logger.Error("Event missing type field", String("event", message))
+				p.logger.Error("事件缺少 type 字段", String("event", message))
 				continue
 			}
 
-			// Process event based on type
+			// 根据类型处理事件
 			switch eventType {
 			case "conversation.item.input_audio_transcription.delta":
-				// Handle partial transcript
+				// 处理增量转写
 				deltaText, ok := event["delta"].(string)
 				if !ok {
-					p.logger.Error("Delta event missing delta field", String("event", message))
+					p.logger.Error("Delta 事件缺少 delta 字段", String("event", message))
 					continue
 				}
 
-				// Log the delta but don't send to WebSocket clients
-				p.logger.Debug("Received delta transcription",
+				// 记录增量但不发送给 WebSocket 客户端
+				p.logger.Debug("收到增量转写",
 					String("frequency_id", p.frequencyID),
 					String("text", deltaText))
 
 			case "conversation.item.input_audio_transcription.completed":
-				// Handle completed transcript
+				// 处理已完成的转写
 				transcript, ok := event["transcript"].(string)
 				if !ok {
-					p.logger.Error("Completed event missing transcript field", String("event", message))
+					p.logger.Error("已完成事件缺少 transcript 字段", String("event", message))
 					continue
 				}
 
-				// Create transcription event
+				// 创建转写事件
 				transcriptionEvent := &TranscriptionEvent{
 					Type:      "completed",
 					Text:      transcript,
 					Timestamp: time.Now().UTC(),
 				}
 
-				// Process the event
+				// 处理事件
 				if err := p.processTranscriptionEvent(transcriptionEvent); err != nil {
-					p.logger.Error("Error processing completed transcription", Error(err))
+					p.logger.Error("处理已完成转写错误", Error(err))
 				}
 
 			case "error":
-				// Handle error
+				// 处理错误
 				errorObj, ok := event["error"].(map[string]interface{})
 				if !ok {
-					p.logger.Error("Error event missing error field", String("event", message))
+					p.logger.Error("错误事件缺少 error 字段", String("event", message))
 					continue
 				}
 
 				errorMessage, ok := errorObj["message"].(string)
 				if !ok {
-					p.logger.Error("Error object missing message field", String("event", message))
+					p.logger.Error("错误对象缺少 message 字段", String("event", message))
 					continue
 				}
 
-				p.logger.Error("Received error from OpenAI", String("error", errorMessage))
+				p.logger.Error("收到来自 OpenAI 的错误", String("error", errorMessage))
 
-				// Check if session expired
+				// 检查会话是否已过期
 				errorCode, ok := errorObj["code"].(string)
 				if ok && errorCode == "session_expired" {
-					p.logger.Info("Session expired, reconnecting")
+					p.logger.Info("会话已过期,正在重新连接")
 					if err := p.reconnectOpenAI(); err != nil {
-						p.logger.Error("Failed to reconnect to OpenAI", Error(err))
+						p.logger.Error("重新连接 OpenAI 失败", Error(err))
 						return
 					}
 				}
@@ -568,18 +567,18 @@ func (p *Processor) processTranscriptions() {
 	}
 }
 
-// processTranscriptionEvent processes a transcription event
+// processTranscriptionEvent 处理一个转写事件
 func (p *Processor) processTranscriptionEvent(event *TranscriptionEvent) error {
-	// Log the event
+	// 记录事件
 	if event.Type == "delta" {
-		p.logger.Debug("Received delta transcription", String("text", event.Text))
+		p.logger.Debug("收到增量转写", String("text", event.Text))
 	} else {
-		p.logger.Debug("Received completed transcription", String("text", event.Text))
+		p.logger.Debug("收到已完成的转写", String("text", event.Text))
 	}
 
-	// Store completed transcriptions in the database
+	// 将已完成的转写存储到数据库
 	if event.Type == "completed" {
-		// Create record
+		// 创建记录
 		record := &sqlite.TranscriptionRecord{
 			FrequencyID:      p.frequencyID,
 			CreatedAt:        event.Timestamp,
@@ -587,28 +586,28 @@ func (p *Processor) processTranscriptionEvent(event *TranscriptionEvent) error {
 			IsComplete:       true,
 			IsProcessed:      false,
 			ContentProcessed: "",
-			// SpeakerType and Callsign will be empty for now
+			// SpeakerType 和 Callsign 暂时为空
 		}
 
-		// Store in database
+		// 存储到数据库
 		id, err := p.storage.StoreTranscription(record)
 		if err != nil {
-			return fmt.Errorf("failed to store transcription: %w", err)
+			return fmt.Errorf("存储转写失败: %w", err)
 		}
 
-		p.logger.Debug("Stored transcription in database", Int64("id", id))
+		p.logger.Debug("已将转写存储到数据库", Int64("id", id))
 
-		// Write to file logger if enabled
+		// 如果已启用,写入文件日志
 		if p.fileLogger != nil {
 			if err := p.fileLogger.LogRaw(p.frequencyID, event.Timestamp, event.Text); err != nil {
-				p.logger.Error("Failed to write raw transcription to log file", Error(err))
+				p.logger.Error("写入原始转写到日志文件失败", Error(err))
 			}
 		}
 
-		// Update the record with the ID
+		// 用 ID 更新记录
 		record.ID = id
 
-		// Send to WebSocket clients
+		// 发送到 WebSocket 客户端
 		message := &websocket.Message{
 			Type: "transcription",
 			Data: map[string]interface{}{
@@ -622,7 +621,7 @@ func (p *Processor) processTranscriptionEvent(event *TranscriptionEvent) error {
 			},
 		}
 
-		p.logger.Debug("Broadcasting transcription to WebSocket clients",
+		p.logger.Debug("正在向 WebSocket 客户端广播转写",
 			String("frequency_id", p.frequencyID),
 			String("text", event.Text),
 			String("type", event.Type),
@@ -634,7 +633,7 @@ func (p *Processor) processTranscriptionEvent(event *TranscriptionEvent) error {
 		return nil
 	}
 
-	// For delta transcriptions, just send to WebSocket clients without storing in DB
+	// 对于增量转写,只发送到 WebSocket 客户端而不存入数据库
 	message := &websocket.Message{
 		Type: "transcription",
 		Data: map[string]interface{}{
@@ -652,67 +651,66 @@ func (p *Processor) processTranscriptionEvent(event *TranscriptionEvent) error {
 	return nil
 }
 
-// reconnectOpenAI reconnects to OpenAI
+// reconnectOpenAI 重新连接到 OpenAI
 func (p *Processor) reconnectOpenAI() error {
 	p.sessionRefreshMu.Lock()
 	defer p.sessionRefreshMu.Unlock()
 
 	oldConn := p.getWebSocketConn()
 
-	// Create new session
+	// 创建新会话
 	var err error
 	p.sessionID, p.clientSecret, err = p.openaiClient.CreateSession(p.ctx, p.transcriptionConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create new transcription session: %w", err)
+		return fmt.Errorf("创建新的转写会话失败: %w", err)
 	}
-	p.logger.Info("Created new transcription session", String("session_id", p.sessionID))
+	p.logger.Info("已创建新的转写会话", String("session_id", p.sessionID))
 
-	// Reset session start time
+	// 重置会话启动时间
 	p.sessionStartTime = time.Now()
 
-	// Connect to WebSocket before swapping it into active use. This avoids
-	// leaving audio senders pointed at a known-closed connection while the
-	// session creation/dial path is retrying.
+	// 在切换到活跃使用之前先连接 WebSocket。这样可以避免在会话创建/拨号路径
+	// 重试期间,音频发送端指向已知关闭的连接。
 	newConn, err := p.openaiClient.ConnectWebSocket(p.ctx, p.sessionID, p.clientSecret)
 	if err != nil {
-		return fmt.Errorf("failed to connect to WebSocket: %w", err)
+		return fmt.Errorf("连接 WebSocket 失败: %w", err)
 	}
 	p.setWebSocketConn(newConn)
 	if oldConn != nil && oldConn != newConn {
 		oldConn.Close()
 	}
-	p.logger.Info("Reconnected to OpenAI WebSocket")
+	p.logger.Info("已重新连接到 OpenAI WebSocket")
 
 	return nil
 }
 
-// monitorSessionDuration monitors the session duration and refreshes it before it expires
+// monitorSessionDuration 监控会话时长并在过期前刷新
 func (p *Processor) monitorSessionDuration() {
-	// OpenAI sessions expire after 30 minutes, so refresh at 25 minutes to be safe
+	// OpenAI 会话在 30 分钟后过期,因此为安全起见在 25 分钟时刷新
 	sessionRefreshInterval := 25 * time.Minute
 
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Info("Session monitoring stopped due to context cancellation")
+			p.logger.Info("会话监控因上下文取消而停止")
 			return
-		case <-time.After(1 * time.Minute): // Check every minute
+		case <-time.After(1 * time.Minute): // 每分钟检查一次
 			sessionDuration := time.Since(p.sessionStartTime)
 
-			// If session is approaching expiration, refresh it
+			// 如果会话即将过期,主动刷新
 			if sessionDuration >= sessionRefreshInterval {
-				p.logger.Info("Session approaching expiration, proactively refreshing",
+				p.logger.Info("会话即将过期,正在主动刷新",
 					String("frequency_id", p.frequencyID),
 					String("session_duration", sessionDuration.String()),
 					String("refresh_interval", sessionRefreshInterval.String()))
 
 				if err := p.reconnectOpenAI(); err != nil {
-					p.logger.Error("Failed to proactively refresh session",
+					p.logger.Error("主动刷新会话失败",
 						String("frequency_id", p.frequencyID),
 						Error(err))
-					// Continue monitoring even if refresh fails
+					// 即使刷新失败也继续监控
 				} else {
-					p.logger.Info("Successfully refreshed session before expiration",
+					p.logger.Info("已在过期前成功刷新会话",
 						String("frequency_id", p.frequencyID))
 				}
 			}

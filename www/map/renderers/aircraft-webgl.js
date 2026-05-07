@@ -1,18 +1,18 @@
 /**
- * Module: map/renderers/aircraft-webgl
- * Why it exists:
- * - Implements high-volume aircraft rendering and styling for OpenLayers maps.
- * - Encapsulates label composition, visual state styling, and icon colorization.
+ * 模块: map/renderers/aircraft-webgl
+ * 存在原因:
+ * - 为 OpenLayers 地图实现高吞吐量的飞行器渲染与样式处理。
+ * - 封装标签合成、视觉状态样式以及图标着色逻辑。
  *
- * Key responsibilities:
- * - Upsert aircraft features with geometry/style updates.
- * - Build callsign/type/detail labels and phase-aware visual prefixes.
- * - Manage WebGL-capable rendering paths with vector fallback behavior.
+ * 主要职责:
+ * - 通过几何/样式更新对飞行器要素进行 upsert(更新或插入)。
+ * - 构建呼号/型号/详情标签以及阶段感知的视觉前缀。
+ * - 管理具备 WebGL 能力的渲染路径,并在必要时回退至矢量行为。
  *
- * Quirks / contracts:
- * - Runtime adapts between WebGL and vector rendering based on capability/errors.
- * - Icon colorization is cached by `iconSrc|colorHex` and notifies listeners on completion.
- * - Label density/readability settings are expected to be driven by external store state.
+ * 怪癖 / 契约:
+ * - 运行时会依据能力/错误情况在 WebGL 与矢量渲染之间自适应切换。
+ * - 图标着色按 `iconSrc|colorHex` 进行缓存,完成后会通知监听器。
+ * - 标签密度/可读性设置预期由外部存储状态驱动。
  */
 (function () {
     const colorizedAircraftIconCache = new Map();
@@ -36,7 +36,7 @@
             try {
                 listener();
             } catch (error) {
-                // ignore listener failures
+                // 忽略监听器失败
             }
         });
     }
@@ -673,7 +673,7 @@
                     window.sessionStorage.setItem(WEBGL_DISABLE_SESSION_KEY, '1');
                 }
             } catch (error) {
-                // ignore storage failures
+                // 忽略存储失败
             }
         }
 
@@ -688,7 +688,7 @@
         function fallbackToVector(reason) {
             if (!map || backend !== 'webgl') return;
 
-            console.warn('[MapAircraftWebGLRenderer] Falling back to vector renderer:', reason || 'unknown reason');
+            console.warn('[MapAircraftWebGLRenderer] 回退到矢量渲染器:', reason || '未知原因');
 
             if (layer) {
                 map.removeLayer(layer);
@@ -756,7 +756,7 @@
                     backend = 'webgl';
                     attachRuntimeWebGLErrorGuard();
                 } catch (error) {
-                    console.warn('[MapAircraftWebGLRenderer] WebGLPoints init failed, falling back to vector layer:', error);
+                    console.warn('[MapAircraftWebGLRenderer] WebGLPoints 初始化失败,回退到矢量图层:', error);
                     layer = createVectorLayer();
                     backend = 'vector';
                     markWebGLDisabledForSession();

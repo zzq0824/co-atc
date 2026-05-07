@@ -1,28 +1,27 @@
-// Package adsb provides ADS-B aircraft tracking, trajectory analysis, and flight phase detection.
+// Package adsb 提供 ADS-B 飞行器追踪、轨迹分析与飞行阶段检测。
 //
-// # Trajectory-Based Phase Detection
+// # 基于轨迹的阶段检测
 //
-// The TrajectoryTracker maintains a rolling window of recent ADS-B observations for each
-// tracked aircraft. Instead of making phase decisions from a single data point (which is
-// fragile near coverage edges), the system analyzes trajectory windows to compute derived
-// state vectors—velocity trends, acceleration, altitude slopes, and distance-to-station
-// rates—that enable robust, noise-resistant flight phase classification.
+// TrajectoryTracker 为每个被跟踪的飞行器维护近期 ADS-B 观测的滚动窗口。
+// 系统不依赖单点数据做阶段判定(在覆盖边缘很脆弱),而是分析轨迹窗口
+// 来计算派生状态向量 —— 速度趋势、加速度、高度斜率和到台站的距离变化率
+// —— 从而实现健壮、抗噪声的飞行阶段分类。
 //
-// Each aircraft's ring buffer holds ~90 seconds of data at 1-second fetch intervals.
-// The derived state is recomputed once per fetch cycle using three analysis windows:
+// 每架飞行器的环形缓冲区在 1 秒抓取间隔下保留约 90 秒的数据。
+// 派生状态在每个抓取周期重新计算一次,使用三个分析窗口:
 //
-//   - Short (10s): Current velocity and acceleration. Responds quickly to real changes.
-//   - Medium (30s): Trend detection (climbing, descending, turning). Smooths out noise.
-//   - Long (full buffer): High-confidence decisions and gap detection.
+//   - 短(10s):当前速度与加速度。对真实变化响应快。
+//   - 中(30s):趋势检测(爬升、下降、转弯)。对噪声做平滑。
+//   - 长(整个缓冲区):高置信度决策与数据缺口检测。
 //
-// Key algorithms:
-//   - Ordinary Least Squares (OLS) linear regression for altitude/speed/distance trends
-//   - Median filtering for vertical rate (resists outlier spikes from bad transponder data)
-//   - Circular difference for heading rate (handles 0°/360° wraparound)
-//   - Data gap detection to avoid corrupting trends with stale data
+// 关键算法:
+//   - 用普通最小二乘(OLS)线性回归计算高度/速度/距离趋势
+//   - 对垂直速率使用中位数滤波(抵抗异常应答机数据带来的离群尖峰)
+//   - 对航向变化率使用循环差(处理 0°/360° 环绕)
+//   - 数据缺口检测,避免陈旧数据污染趋势
 //
-// The ring buffer is pre-allocated and reuses slots, producing zero GC pressure during
-// steady-state operation. Memory cost is ~18 KB per aircraft, ~9 MB for 500 aircraft.
+// 环形缓冲区预先分配并复用槽位,稳态运行时不产生 GC 压力。
+// 每架飞行器的内存开销约 18 KB,500 架约 9 MB。
 
 package adsb
 
@@ -38,38 +37,38 @@ import (
 
 const maxLivePredictionAge = 60 * time.Second
 
-// ─── Trajectory Snapshot ──────────────────────────────────────────────────────
+// ─── 轨迹快照 ──────────────────────────────────────────────────────
 
-// TrajectorySnapshot is a single ADS-B observation stored in the ring buffer.
-// Fields are a flattened subset of ADSBTarget, with a proper time.Time timestamp
-// and a validity flag. Invalid snapshots (no position data) are stored but excluded
-// from derived state computations.
+// TrajectorySnapshot 是存放在环形缓冲区中的单条 ADS-B 观测。
+// 字段是 ADSBTarget 的扁平子集,带有标准的 time.Time 时间戳和
+// 有效性标志。无效快照(无位置数据)仍会存储,但会从派生状态
+// 计算中排除。
 type TrajectorySnapshot struct {
-	Timestamp   time.Time // UTC wall-clock time when this observation was ingested
-	Lat         float64   // Latitude (degrees)
-	Lon         float64   // Longitude (degrees)
-	AltBaro     float64   // Barometric altitude (feet)
-	AltGeom     float64   // Geometric altitude (feet)
-	GS          float64   // Ground speed (knots)
-	TAS         float64   // True airspeed (knots)
-	IAS         float64   // Indicated airspeed (knots)
-	Track       float64   // Track angle (degrees, 0-360)
-	MagHeading  float64   // Magnetic heading (degrees)
-	TrueHeading float64   // True heading (degrees)
-	BaroRate    float64   // Barometric vertical rate (feet per minute)
-	GeomRate    float64   // Geometric vertical rate (feet per minute)
-	Roll        float64   // Roll angle (degrees)
-	TrackRate   float64   // Rate of change of track (degrees per second)
-	OnGround    bool      // Whether the aircraft is on the ground
-	NavAltMCP   float64   // MCP (Mode Control Panel) altitude setting (feet)
-	NavAltFMS   float64   // FMS (Flight Management System) altitude setting (feet)
-	Seen        float64   // Seconds since last ADS-B message (data freshness)
-	Valid       bool      // False if key fields are missing (no position)
+	Timestamp   time.Time // 该观测被摄入时的 UTC 墙钟时间
+	Lat         float64   // 纬度(度)
+	Lon         float64   // 经度(度)
+	AltBaro     float64   // 气压高度(英尺)
+	AltGeom     float64   // 几何高度(英尺)
+	GS          float64   // 地速(节)
+	TAS         float64   // 真空速(节)
+	IAS         float64   // 指示空速(节)
+	Track       float64   // 航迹角(度,0-360)
+	MagHeading  float64   // 磁航向(度)
+	TrueHeading float64   // 真航向(度)
+	BaroRate    float64   // 气压垂直速率(英尺/分钟)
+	GeomRate    float64   // 几何垂直速率(英尺/分钟)
+	Roll        float64   // 滚转角(度)
+	TrackRate   float64   // 航迹变化率(度/秒)
+	OnGround    bool      // 飞行器是否在地面
+	NavAltMCP   float64   // MCP(模式控制面板)高度设定(英尺)
+	NavAltFMS   float64   // FMS(飞行管理系统)高度设定(英尺)
+	Seen        float64   // 距上次 ADS-B 消息的秒数(数据时新性)
+	Valid       bool      // 当关键字段缺失(无位置)时为 false
 }
 
-// TrajectorySnapshotFromADSB converts an ADSBTarget and ground state into a
-// TrajectorySnapshot suitable for the ring buffer. The snapshot is marked invalid
-// when both lat and lon are zero (no position data available).
+// TrajectorySnapshotFromADSB 把 ADSBTarget 与地面状态转换为适用于
+// 环形缓冲区的 TrajectorySnapshot。当 lat 和 lon 都为零(无位置
+// 数据)时,快照被标记为无效。
 func TrajectorySnapshotFromADSB(adsb *ADSBTarget, onGround bool, ts time.Time) TrajectorySnapshot {
 	if adsb == nil {
 		return TrajectorySnapshot{Timestamp: ts, Valid: false}
@@ -99,77 +98,77 @@ func TrajectorySnapshotFromADSB(adsb *ADSBTarget, onGround bool, ts time.Time) T
 	}
 }
 
-// ─── Derived State ────────────────────────────────────────────────────────────
+// ─── 派生状态 ────────────────────────────────────────────────────────────
 
-// DerivedState holds quantities computed from the trajectory window. It is
-// recalculated once per fetch cycle when new data arrives (DirtyDerived flag).
-// Phase rules operate on these derived values rather than raw instantaneous readings.
+// DerivedState 保存基于轨迹窗口计算出的量。
+// 当有新数据到达时(DirtyDerived 标志),每个抓取周期重新计算一次。
+// 阶段判定规则使用这些派生值,而不是原始瞬时读数。
 type DerivedState struct {
-	// Smoothed current state (short window median/mean)
-	GroundSpeedKts  float64 // Smoothed ground speed (knots)
-	VerticalRateFPM float64 // Smoothed barometric vertical rate (feet per minute)
-	TrackDeg        float64 // Smoothed track angle (degrees)
+	// 平滑后的当前状态(短窗口中位数/均值)
+	GroundSpeedKts  float64 // 平滑后的地速(节)
+	VerticalRateFPM float64 // 平滑后的气压垂直速率(英尺/分钟)
+	TrackDeg        float64 // 平滑后的航迹角(度)
 
-	// Acceleration (rate of change over short window)
-	GSAccelKtsPerSec   float64 // d(GS)/dt — positive = accelerating
-	VRAccelFPMPerSec   float64 // d(VerticalRate)/dt — positive = increasing climb
-	TrackRateDegPerSec float64 // Heading rate of change (degrees per second)
+	// 加速度(短窗口内的变化率)
+	GSAccelKtsPerSec   float64 // d(GS)/dt —— 正值表示加速
+	VRAccelFPMPerSec   float64 // d(VerticalRate)/dt —— 正值表示爬升加快
+	TrackRateDegPerSec float64 // 航向变化率(度/秒)
 
-	// Altitude statistics (medium window)
-	AltMean     float64 // Mean barometric altitude (feet)
-	AltMin      float64 // Minimum barometric altitude (feet)
-	AltMax      float64 // Maximum barometric altitude (feet)
-	AltTrendFPM float64 // OLS regression slope of altitude vs time, converted to fpm
+	// 高度统计(中窗口)
+	AltMean     float64 // 平均气压高度(英尺)
+	AltMin      float64 // 最小气压高度(英尺)
+	AltMax      float64 // 最大气压高度(英尺)
+	AltTrendFPM float64 // 高度对时间的 OLS 回归斜率,已转换为 fpm
 
-	// Speed statistics (medium window)
-	GSMean           float64 // Mean ground speed (knots)
-	GSMin            float64 // Minimum ground speed (knots)
-	GSMax            float64 // Maximum ground speed (knots)
-	GSTrendKtsPerSec float64 // OLS regression slope of GS vs time (knots per second)
+	// 速度统计(中窗口)
+	GSMean           float64 // 平均地速(节)
+	GSMin            float64 // 最小地速(节)
+	GSMax            float64 // 最大地速(节)
+	GSTrendKtsPerSec float64 // GS 对时间的 OLS 回归斜率(节/秒)
 
-	// Vertical rate statistics (medium window)
-	VRMean   float64 // Mean vertical rate (fpm)
-	VRStdDev float64 // Standard deviation of vertical rate
+	// 垂直速率统计(中窗口)
+	VRMean   float64 // 平均垂直速率(fpm)
+	VRStdDev float64 // 垂直速率的标准差
 
-	// Distance and bearing to monitoring station
-	DistToStationNM   float64 // Current distance to station (nautical miles)
-	DistTrendNMPerSec float64 // OLS regression slope of distance vs time (negative = approaching)
-	BearingToStation  float64 // Current bearing to station (degrees)
+	// 到监控台站的距离与方位
+	DistToStationNM   float64 // 当前到台站的距离(海里)
+	DistTrendNMPerSec float64 // 距离对时间的 OLS 回归斜率(负值表示靠近)
+	BearingToStation  float64 // 当前到台站的方位(度)
 
-	// Data quality indicators
-	ValidPointCount   int     // Number of valid snapshots in the analysis window
-	WindowDurationSec float64 // Time span from oldest to newest valid snapshot (seconds)
-	DataGapDetected   bool    // True if any gap > 2× fetch interval found in the window
+	// 数据质量指标
+	ValidPointCount   int     // 分析窗口中有效快照的数量
+	WindowDurationSec float64 // 从最早到最新有效快照的时间跨度(秒)
+	DataGapDetected   bool    // 窗口中出现任何 > 2× 抓取间隔的缺口时为 true
 
-	// Boolean flags derived from trends (set by ComputeDerivedState)
-	IsDescending         bool // AltTrendFPM below descent threshold AND VRMean < 0
-	IsClimbing           bool // AltTrendFPM above climb threshold AND VRMean > 0
-	IsLevel              bool // (AltMax - AltMin) within level band over medium window
-	IsDecelerating       bool // GSTrendKtsPerSec below deceleration threshold
-	IsAccelerating       bool // GSTrendKtsPerSec above acceleration threshold
-	IsTurning            bool // |TrackRateDegPerSec| above turning threshold
-	IsApproachingStation bool // DistTrendNMPerSec < 0 (closing on station)
+	// 由趋势派生的布尔标志(由 ComputeDerivedState 设置)
+	IsDescending         bool // AltTrendFPM 低于下降阈值且 VRMean < 0
+	IsClimbing           bool // AltTrendFPM 高于爬升阈值且 VRMean > 0
+	IsLevel              bool // 中窗口内 (AltMax - AltMin) 在平飞带宽内
+	IsDecelerating       bool // GSTrendKtsPerSec 低于减速阈值
+	IsAccelerating       bool // GSTrendKtsPerSec 高于加速阈值
+	IsTurning            bool // |TrackRateDegPerSec| 超过转弯阈值
+	IsApproachingStation bool // DistTrendNMPerSec < 0(向台站靠近)
 
-	ComputedAt time.Time // When this derived state was last computed
+	ComputedAt time.Time // 该派生状态上次计算的时间
 }
 
-// ─── Per-Aircraft Trajectory ──────────────────────────────────────────────────
+// ─── 单机轨迹 ──────────────────────────────────────────────────
 
-// AircraftTrajectory holds the ring buffer and derived state for a single aircraft.
-// The ring buffer is a fixed-capacity slice that overwrites the oldest entry when full,
-// avoiding allocations during steady-state operation.
+// AircraftTrajectory 保存单架飞行器的环形缓冲区与派生状态。
+// 环形缓冲区是固定容量的切片,满后会覆盖最旧条目,稳态运行时
+// 避免内存分配。
 type AircraftTrajectory struct {
-	Hex          string               // ICAO hex identifier
-	Snapshots    []TrajectorySnapshot // Ring buffer (fixed capacity)
-	WriteIdx     int                  // Next write position
-	Count        int                  // Number of entries stored (up to capacity)
-	Derived      DerivedState         // Latest derived state
-	Prediction   TrajectoryPrediction // Hindcast + forecast predictions
-	DirtyDerived bool                 // True when new snapshots have been added since last compute
-	LastSeen     time.Time            // Tracks staleness for cleanup
+	Hex          string               // ICAO 十六进制标识符
+	Snapshots    []TrajectorySnapshot // 环形缓冲区(固定容量)
+	WriteIdx     int                  // 下一次写入位置
+	Count        int                  // 已存储的条目数(最多到容量上限)
+	Derived      DerivedState         // 最新派生状态
+	Prediction   TrajectoryPrediction // 后报 + 预报
+	DirtyDerived bool                 // 自上次计算以来新增过快照时为 true
+	LastSeen     time.Time            // 用于清理时跟踪陈旧度
 }
 
-// NewAircraftTrajectory creates a ring buffer with the given capacity.
+// NewAircraftTrajectory 创建带指定容量的环形缓冲区。
 func NewAircraftTrajectory(hex string, capacity int) *AircraftTrajectory {
 	return &AircraftTrajectory{
 		Hex:       hex,
@@ -177,7 +176,7 @@ func NewAircraftTrajectory(hex string, capacity int) *AircraftTrajectory {
 	}
 }
 
-// AddSnapshot writes a snapshot to the ring buffer, advancing the write index.
+// AddSnapshot 把一条快照写入环形缓冲区,并推进写入索引。
 func (at *AircraftTrajectory) AddSnapshot(snap TrajectorySnapshot) {
 	at.Snapshots[at.WriteIdx] = snap
 	at.WriteIdx = (at.WriteIdx + 1) % cap(at.Snapshots)
@@ -188,13 +187,13 @@ func (at *AircraftTrajectory) AddSnapshot(snap TrajectorySnapshot) {
 	at.LastSeen = snap.Timestamp
 }
 
-// ForEachSnapshot iterates over all stored snapshots from oldest to newest,
-// calling fn for each. This avoids allocating a temporary slice.
+// ForEachSnapshot 从最旧到最新遍历所有已存储的快照,并对每个调用 fn。
+// 这样避免分配临时切片。
 func (at *AircraftTrajectory) ForEachSnapshot(fn func(snap *TrajectorySnapshot)) {
 	capacity := cap(at.Snapshots)
 	startIdx := 0
 	if at.Count == capacity {
-		startIdx = at.WriteIdx // In a full buffer, write position holds the oldest entry
+		startIdx = at.WriteIdx // 缓冲区已满时,写入位置正好是最旧的条目
 	}
 	for i := 0; i < at.Count; i++ {
 		idx := (startIdx + i) % capacity
@@ -202,7 +201,7 @@ func (at *AircraftTrajectory) ForEachSnapshot(fn func(snap *TrajectorySnapshot))
 	}
 }
 
-// Latest returns a pointer to the most recently added snapshot, or nil if empty.
+// Latest 返回最近一次添加的快照的指针,空时返回 nil。
 func (at *AircraftTrajectory) Latest() *TrajectorySnapshot {
 	if at.Count == 0 {
 		return nil
@@ -211,8 +210,8 @@ func (at *AircraftTrajectory) Latest() *TrajectorySnapshot {
 	return &at.Snapshots[idx]
 }
 
-// SnapshotsInWindow returns valid snapshots within the last windowSec seconds,
-// ordered oldest to newest. Allocates a slice — use ForEachSnapshot for hot paths.
+// SnapshotsInWindow 返回最近 windowSec 秒内的有效快照,按从旧到新的
+// 顺序排列。会分配切片 —— 热路径上请使用 ForEachSnapshot。
 func (at *AircraftTrajectory) SnapshotsInWindow(windowSec float64) []TrajectorySnapshot {
 	if at.Count == 0 {
 		return nil
@@ -231,30 +230,29 @@ func (at *AircraftTrajectory) SnapshotsInWindow(windowSec float64) []TrajectoryS
 	return result
 }
 
-// ─── Trajectory Tracker (top-level) ───────────────────────────────────────────
+// ─── 轨迹 Tracker(顶层)───────────────────────────────────────────
 
-// TrajectoryConfig holds tunable parameters for the trajectory system.
+// TrajectoryConfig 保存轨迹系统的可调参数。
 type TrajectoryConfig struct {
-	BufferDurationSec    int // How many seconds of history to keep (default: 90)
-	BufferCapacity       int // Max snapshots per aircraft (computed from duration / fetch interval + margin)
-	FetchIntervalSec     int // ADS-B fetch interval in seconds (from ADSBConfig)
-	MinPointsForAnalysis int // Minimum valid points before full trajectory analysis (default: 5)
-	StaleTimeoutSec      int // Remove aircraft not seen for this long (default: 300)
-	CleanupIntervalSec   int // How often to run the cleanup goroutine (default: 30)
+	BufferDurationSec    int // 保留多少秒的历史数据(默认:90)
+	BufferCapacity       int // 单机最大快照数(由 时长 / 抓取间隔 + 余量 计算得到)
+	FetchIntervalSec     int // ADS-B 抓取间隔,单位秒(来自 ADSBConfig)
+	MinPointsForAnalysis int // 进行完整轨迹分析所需的最少有效点数(默认:5)
+	StaleTimeoutSec      int // 超过此时长未见到的飞行器会被移除(默认:300)
+	CleanupIntervalSec   int // 清理 goroutine 的运行频率(默认:30)
 
-	// Thresholds for derived boolean flags
-	DescentVRThresholdFPM   float64 // AltTrend below this = descending (default: -200)
-	ClimbVRThresholdFPM     float64 // AltTrend above this = climbing (default: 200)
-	LevelAltBandFt          float64 // (AltMax-AltMin) within this = level (default: 200)
-	TurningRateThresholdDeg float64 // |TrackRate| above this = turning (default: 1.5)
-	DecelerationThreshold   float64 // GSTrend below this = decelerating (default: -0.5)
-	AccelerationThreshold   float64 // GSTrend above this = accelerating (default: 0.5)
+	// 派生布尔标志的阈值
+	DescentVRThresholdFPM   float64 // AltTrend 低于此值 = 下降(默认:-200)
+	ClimbVRThresholdFPM     float64 // AltTrend 高于此值 = 爬升(默认:200)
+	LevelAltBandFt          float64 // (AltMax-AltMin) 在此范围内 = 平飞(默认:200)
+	TurningRateThresholdDeg float64 // |TrackRate| 高于此值 = 转弯(默认:1.5)
+	DecelerationThreshold   float64 // GSTrend 低于此值 = 减速(默认:-0.5)
+	AccelerationThreshold   float64 // GSTrend 高于此值 = 加速(默认:0.5)
 }
 
-// TrajectoryTracker manages trajectory buffers for all tracked aircraft.
-// It is safe for concurrent use: the fetch goroutine calls Ingest and DeterminePhase
-// on the same goroutine, while a background cleanup goroutine periodically purges
-// stale entries under a write lock.
+// TrajectoryTracker 管理所有被跟踪飞行器的轨迹缓冲区。
+// 它对并发安全:抓取 goroutine 在同一 goroutine 中调用 Ingest 和
+// DeterminePhase,后台清理 goroutine 在写锁下周期性地清除陈旧条目。
 type TrajectoryTracker struct {
 	mu            sync.RWMutex
 	aircraft      map[string]*AircraftTrajectory
@@ -269,8 +267,8 @@ type TrajectoryTracker struct {
 	wg            sync.WaitGroup
 }
 
-// NewTrajectoryTracker creates and starts the tracker with the given configuration.
-// The cleanup goroutine runs in the background until Stop is called.
+// NewTrajectoryTracker 使用给定配置创建并启动 tracker。
+// 清理 goroutine 在后台运行直到调用 Stop。
 func NewTrajectoryTracker(
 	cfg TrajectoryConfig,
 	stationLat, stationLon float64,
@@ -299,7 +297,7 @@ func NewTrajectoryTracker(
 	tt.runwayTracker.SetRunwayData(runwayData)
 	tt.wg.Add(1)
 	go tt.cleanupLoop()
-	tt.logger.Info("Trajectory tracker started",
+	tt.logger.Info("轨迹 tracker 已启动",
 		logger.Int("buffer_duration_sec", cfg.BufferDurationSec),
 		logger.Int("buffer_capacity", cfg.BufferCapacity),
 		logger.Int("min_points", cfg.MinPointsForAnalysis),
@@ -307,22 +305,22 @@ func NewTrajectoryTracker(
 	return tt
 }
 
-// Stop shuts down the background cleanup goroutine and waits for it to finish.
+// Stop 关闭后台清理 goroutine 并等待其结束。
 func (tt *TrajectoryTracker) Stop() {
 	close(tt.stopCh)
 	tt.wg.Wait()
-	tt.logger.Info("Trajectory tracker stopped")
+	tt.logger.Info("轨迹 tracker 已停止")
 }
 
-// RecordRunwayLanding records a landing event for runway-in-use detection.
-// Called by the service when a T/D is detected near a runway threshold.
+// RecordRunwayLanding 为使用中跑道检测记录一次着陆事件。
+// 当在跑道入口附近检测到 T/D 时由服务调用。
 func (tt *TrajectoryTracker) RecordRunwayLanding(runwayID string, hex string) {
 	if tt.runwayTracker != nil {
 		tt.runwayTracker.RecordEvent(runwayID, RunwayEventLanding, hex)
 	}
 }
 
-// GetRunwayScores returns the top N runway-in-use scores for external consumers.
+// GetRunwayScores 返回前 N 个使用中跑道的分数,供外部消费方使用。
 func (tt *TrajectoryTracker) GetRunwayScores(n int) []RunwayScore {
 	if tt.runwayTracker != nil {
 		return tt.runwayTracker.GetTopScores(n)
@@ -330,8 +328,8 @@ func (tt *TrajectoryTracker) GetRunwayScores(n int) []RunwayScore {
 	return nil
 }
 
-// Ingest adds a new snapshot for the given aircraft. If the aircraft has no
-// buffer yet, one is created. Called once per aircraft per fetch cycle.
+// Ingest 为给定飞行器新增一条快照。如果该飞行器还没有缓冲区,
+// 会创建一个。每个抓取周期对每架飞行器调用一次。
 func (tt *TrajectoryTracker) Ingest(hex string, snap TrajectorySnapshot) {
 	tt.mu.Lock()
 	at, ok := tt.aircraft[hex]
@@ -343,7 +341,7 @@ func (tt *TrajectoryTracker) Ingest(hex string, snap TrajectorySnapshot) {
 	tt.mu.Unlock()
 }
 
-// GetTrajectory returns the per-aircraft trajectory, or nil if not tracked.
+// GetTrajectory 返回某架飞行器的轨迹,若未被跟踪则返回 nil。
 func (tt *TrajectoryTracker) GetTrajectory(hex string) *AircraftTrajectory {
 	tt.mu.RLock()
 	at := tt.aircraft[hex]
@@ -351,9 +349,8 @@ func (tt *TrajectoryTracker) GetTrajectory(hex string) *AircraftTrajectory {
 	return at
 }
 
-// EnsureDerived recomputes the derived state for the given aircraft if it is
-// dirty (new data since last computation). This is called by DeterminePhase
-// before reading derived fields.
+// EnsureDerived 在给定飞行器为脏(自上次计算后有新数据)时,
+// 重新计算其派生状态。在读取派生字段之前由 DeterminePhase 调用。
 func (tt *TrajectoryTracker) EnsureDerived(hex string) *DerivedState {
 	tt.mu.RLock()
 	at, ok := tt.aircraft[hex]
@@ -369,14 +366,14 @@ func (tt *TrajectoryTracker) EnsureDerived(hex string) *DerivedState {
 	return &at.Derived
 }
 
-// computePredictions updates hindcast and forecast for an aircraft.
-// Called after computeDerivedState to keep predictions in sync with derived state.
+// computePredictions 更新某架飞行器的后报与预报。
+// 在 computeDerivedState 之后调用,保持预测与派生状态同步。
 func (tt *TrajectoryTracker) computePredictions(at *AircraftTrajectory) {
 	computeHindcast(at, &at.Derived)
 	computeForecast(at, &at.Derived)
 }
 
-// GetHindcast returns hindcast prediction points for an aircraft, or nil.
+// GetHindcast 返回某架飞行器的后报点,若无则返回 nil。
 func (tt *TrajectoryTracker) GetHindcast(hex string) []PredictionPoint {
 	tt.mu.RLock()
 	at, ok := tt.aircraft[hex]
@@ -387,7 +384,7 @@ func (tt *TrajectoryTracker) GetHindcast(hex string) []PredictionPoint {
 	return at.Prediction.Hindcast
 }
 
-// GetForecast returns forecast prediction points for an aircraft, or nil.
+// GetForecast 返回某架飞行器的预报点,若无则返回 nil。
 func (tt *TrajectoryTracker) GetForecast(hex string) []PredictionPoint {
 	tt.mu.RLock()
 	at, ok := tt.aircraft[hex]
@@ -398,8 +395,8 @@ func (tt *TrajectoryTracker) GetForecast(hex string) []PredictionPoint {
 	return at.Prediction.Forecast
 }
 
-// LivePrediction is an interpolated server-side predicted state for a specific aircraft.
-// It is intended for high-frequency websocket updates between real ADS-B polls.
+// LivePrediction 是针对某架飞行器、由服务端插值得到的预测状态。
+// 用于在两次真实 ADS-B 轮询之间进行高频 WebSocket 更新。
 type LivePrediction struct {
 	Hex          string    `json:"hex"`
 	Lat          float64   `json:"lat"`
@@ -412,8 +409,8 @@ type LivePrediction struct {
 	BaseObserved time.Time `json:"base_observed"`
 }
 
-// GetLivePredictionsAt returns interpolated live prediction states for all tracked aircraft at time t.
-// Real ADS-B updates should always supersede these client-side.
+// GetLivePredictionsAt 返回所有被跟踪飞行器在时刻 t 的插值实时预测状态。
+// 真实的 ADS-B 更新在客户端应始终优先。
 func (tt *TrajectoryTracker) GetLivePredictionsAt(t time.Time) []LivePrediction {
 	tt.mu.RLock()
 	defer tt.mu.RUnlock()
@@ -555,7 +552,7 @@ func lerpAngleDeg(a, b, t float64) float64 {
 	return math.Mod(out+360.0, 360.0)
 }
 
-// ─── Cleanup ──────────────────────────────────────────────────────────────────
+// ─── 清理 ──────────────────────────────────────────────────────────────────
 
 func (tt *TrajectoryTracker) cleanupLoop() {
 	defer tt.wg.Done()
@@ -584,27 +581,27 @@ func (tt *TrajectoryTracker) cleanup() {
 	}
 	tt.mu.Unlock()
 	if removed > 0 {
-		tt.logger.Debug("Trajectory cleanup",
+		tt.logger.Debug("轨迹清理",
 			logger.Int("removed", removed),
 			logger.Int("remaining", len(tt.aircraft)),
 		)
 	}
 }
 
-// ─── Derived State Computation ────────────────────────────────────────────────
+// ─── 派生状态计算 ────────────────────────────────────────────────
 
-// computeDerivedState recalculates all derived fields from the ring buffer contents.
-// This runs once per fetch cycle per aircraft (~90 data points, O(N) single pass).
+// computeDerivedState 基于环形缓冲区内容重新计算所有派生字段。
+// 每个抓取周期对每架飞行器运行一次(约 90 个数据点,O(N) 单遍)。
 func (tt *TrajectoryTracker) computeDerivedState(at *AircraftTrajectory) {
 	d := &at.Derived
-	*d = DerivedState{ComputedAt: time.Now().UTC()} // Reset
+	*d = DerivedState{ComputedAt: time.Now().UTC()} // 重置
 
 	latest := at.Latest()
 	if latest == nil || !latest.Valid {
 		return
 	}
 
-	// Collect valid snapshots and detect data gaps
+	// 收集有效快照并检测数据缺口
 	shortWindowSec := 10.0
 	mediumWindowSec := 30.0
 	fetchInterval := float64(tt.config.FetchIntervalSec)
@@ -636,7 +633,7 @@ func (tt *TrajectoryTracker) computeDerivedState(at *AircraftTrajectory) {
 		if !snap.Timestamp.Before(shortCutoff) {
 			shortValid = append(shortValid, *snap)
 		}
-		// Gap detection
+		// 缺口检测
 		if !prevTimestamp.IsZero() {
 			gap := snap.Timestamp.Sub(prevTimestamp).Seconds()
 			if gap > gapThreshold {
@@ -656,11 +653,11 @@ func (tt *TrajectoryTracker) computeDerivedState(at *AircraftTrajectory) {
 		return
 	}
 
-	// ── Current distance and bearing to station ──
+	// ── 当前到台站的距离与方位 ──
 	d.DistToStationNM = MetersToNM(Haversine(latest.Lat, latest.Lon, tt.stationLat, tt.stationLon))
 	d.BearingToStation = CalculateBearing(latest.Lat, latest.Lon, tt.stationLat, tt.stationLon)
 
-	// ── Short window: smoothed current values ──
+	// ── 短窗口:平滑后的当前值 ──
 	if len(shortValid) > 0 {
 		d.GroundSpeedKts = mean(shortValid, func(s TrajectorySnapshot) float64 { return s.GS })
 		d.VerticalRateFPM = medianFloat(shortValid, func(s TrajectorySnapshot) float64 { return s.BaroRate })
@@ -671,7 +668,7 @@ func (tt *TrajectoryTracker) computeDerivedState(at *AircraftTrajectory) {
 		d.TrackDeg = latest.Track
 	}
 
-	// ── Short window: acceleration ──
+	// ── 短窗口:加速度 ──
 	if len(shortValid) >= 2 {
 		first := shortValid[0]
 		last := shortValid[len(shortValid)-1]
@@ -683,7 +680,7 @@ func (tt *TrajectoryTracker) computeDerivedState(at *AircraftTrajectory) {
 		}
 	}
 
-	// ── Medium window: altitude statistics ──
+	// ── 中窗口:高度统计 ──
 	window := mediumValid
 	if len(window) == 0 {
 		window = allValid
@@ -691,24 +688,24 @@ func (tt *TrajectoryTracker) computeDerivedState(at *AircraftTrajectory) {
 
 	d.AltMean = mean(window, func(s TrajectorySnapshot) float64 { return s.AltBaro })
 	d.AltMin, d.AltMax = minMax(window, func(s TrajectorySnapshot) float64 { return s.AltBaro })
-	d.AltTrendFPM = olsSlope(window, func(s TrajectorySnapshot) float64 { return s.AltBaro }) * 60.0 // Convert ft/sec to fpm
+	d.AltTrendFPM = olsSlope(window, func(s TrajectorySnapshot) float64 { return s.AltBaro }) * 60.0 // 把 ft/sec 转换为 fpm
 
-	// ── Medium window: speed statistics ──
+	// ── 中窗口:速度统计 ──
 	d.GSMean = mean(window, func(s TrajectorySnapshot) float64 { return s.GS })
 	d.GSMin, d.GSMax = minMax(window, func(s TrajectorySnapshot) float64 { return s.GS })
 	d.GSTrendKtsPerSec = olsSlope(window, func(s TrajectorySnapshot) float64 { return s.GS })
 
-	// ── Medium window: vertical rate statistics ──
+	// ── 中窗口:垂直速率统计 ──
 	d.VRMean = mean(window, func(s TrajectorySnapshot) float64 { return s.BaroRate })
 	d.VRStdDev = stdDev(window, func(s TrajectorySnapshot) float64 { return s.BaroRate })
 
-	// ── Medium window: distance to station trend ──
+	// ── 中窗口:到台站距离趋势 ──
 	d.DistTrendNMPerSec = olsSlopeWithXY(window, func(s TrajectorySnapshot) (float64, float64) {
 		return s.Timestamp.Sub(window[0].Timestamp).Seconds(),
 			MetersToNM(Haversine(s.Lat, s.Lon, tt.stationLat, tt.stationLon))
 	})
 
-	// ── Boolean flags ──
+	// ── 布尔标志 ──
 	cfg := tt.config
 	d.IsDescending = d.AltTrendFPM < cfg.DescentVRThresholdFPM && d.VRMean < 0
 	d.IsClimbing = d.AltTrendFPM > cfg.ClimbVRThresholdFPM && d.VRMean > 0
@@ -716,12 +713,12 @@ func (tt *TrajectoryTracker) computeDerivedState(at *AircraftTrajectory) {
 	d.IsDecelerating = d.GSTrendKtsPerSec < cfg.DecelerationThreshold
 	d.IsAccelerating = d.GSTrendKtsPerSec > cfg.AccelerationThreshold
 	d.IsTurning = math.Abs(d.TrackRateDegPerSec) > cfg.TurningRateThresholdDeg
-	d.IsApproachingStation = d.DistTrendNMPerSec < -0.001 // Slightly negative threshold to avoid noise
+	d.IsApproachingStation = d.DistTrendNMPerSec < -0.001 // 略带负值的阈值,避免噪声
 }
 
-// ─── Statistical Helpers ──────────────────────────────────────────────────────
+// ─── 统计辅助函数 ──────────────────────────────────────────────────────
 
-// mean computes the arithmetic mean of a field extracted from snapshots.
+// mean 计算从快照中提取的某个字段的算术平均值。
 func mean(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	if len(snaps) == 0 {
 		return 0
@@ -733,7 +730,7 @@ func mean(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) 
 	return sum / float64(len(snaps))
 }
 
-// minMax returns the minimum and maximum values of a field.
+// minMax 返回某个字段的最小值与最大值。
 func minMax(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) (float64, float64) {
 	if len(snaps) == 0 {
 		return 0, 0
@@ -752,7 +749,7 @@ func minMax(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64
 	return mn, mx
 }
 
-// medianFloat computes the median of a field. Allocates a temporary slice for sorting.
+// medianFloat 计算某个字段的中位数。会为排序分配临时切片。
 func medianFloat(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	n := len(snaps)
 	if n == 0 {
@@ -769,7 +766,7 @@ func medianFloat(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) fl
 	return vals[n/2]
 }
 
-// stdDev computes the sample standard deviation of a field.
+// stdDev 计算某个字段的样本标准差。
 func stdDev(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	n := len(snaps)
 	if n < 2 {
@@ -784,9 +781,9 @@ func stdDev(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64
 	return math.Sqrt(sumSq / float64(n-1))
 }
 
-// olsSlope computes the OLS linear regression slope of a field against time.
-// Time is measured in seconds from the first snapshot. Returns the slope in
-// units-per-second (e.g., feet-per-second for altitude).
+// olsSlope 计算某个字段相对时间的 OLS 线性回归斜率。
+// 时间以从第一个快照开始的秒数计量。返回单位为"单位/秒"
+// (例如高度返回英尺/秒)。
 func olsSlope(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	n := len(snaps)
 	if n < 2 {
@@ -805,13 +802,13 @@ func olsSlope(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float
 	nf := float64(n)
 	denom := nf*sumTT - sumT*sumT
 	if math.Abs(denom) < 1e-12 {
-		return 0 // All points at same time
+		return 0 // 所有点处于同一时刻
 	}
 	return (nf*sumTY - sumT*sumY) / denom
 }
 
-// olsSlopeWithXY computes OLS slope with an explicit (x, y) extractor,
-// used for distance-to-station trend where x = time offset, y = distance.
+// olsSlopeWithXY 使用显式的 (x, y) 提取器计算 OLS 斜率,
+// 用于到台站距离的趋势,其中 x = 时间偏移,y = 距离。
 func olsSlopeWithXY(snaps []TrajectorySnapshot, extractXY func(TrajectorySnapshot) (float64, float64)) float64 {
 	n := len(snaps)
 	if n < 2 {
@@ -833,9 +830,8 @@ func olsSlopeWithXY(snaps []TrajectorySnapshot, extractXY func(TrajectorySnapsho
 	return (nf*sumXY - sumX*sumY) / denom
 }
 
-// olsR2 computes the R² (coefficient of determination) for the OLS linear
-// regression of a field against time. Returns 0 if fewer than 3 points or no
-// variance in the data. R² = 1 - SS_res/SS_tot.
+// olsR2 计算某字段相对时间的 OLS 线性回归的 R²(决定系数)。
+// 若点数少于 3 个或数据没有方差,则返回 0。R² = 1 - SS_res/SS_tot。
 func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	n := len(snaps)
 	if n < 3 {
@@ -843,7 +839,7 @@ func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64)
 	}
 	t0 := snaps[0].Timestamp
 
-	// Compute OLS coefficients (intercept + slope)
+	// 计算 OLS 系数(截距 + 斜率)
 	var sumT, sumY, sumTY, sumTT float64
 	for _, s := range snaps {
 		t := s.Timestamp.Sub(t0).Seconds()
@@ -861,7 +857,7 @@ func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64)
 	slope := (nf*sumTY - sumT*sumY) / denom
 	intercept := (sumY - slope*sumT) / nf
 
-	// Compute R² = 1 - SS_res / SS_tot
+	// 计算 R² = 1 - SS_res / SS_tot
 	meanY := sumY / nf
 	var ssRes, ssTot float64
 	for _, s := range snaps {
@@ -872,7 +868,7 @@ func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64)
 		ssTot += (y - meanY) * (y - meanY)
 	}
 	if ssTot < 1e-20 {
-		return 0 // No variance
+		return 0 // 无方差
 	}
 	r2 := 1.0 - ssRes/ssTot
 	if r2 < 0 {
@@ -881,7 +877,7 @@ func olsR2(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64)
 	return r2
 }
 
-// circularMean computes the mean of angles (degrees) handling 0°/360° wraparound.
+// circularMean 计算角度(度)的均值,处理 0°/360° 环绕。
 func circularMean(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) float64) float64 {
 	if len(snaps) == 0 {
 		return 0
@@ -897,8 +893,8 @@ func circularMean(snaps []TrajectorySnapshot, extract func(TrajectorySnapshot) f
 	return math.Mod(deg+360, 360)
 }
 
-// circularDiff returns the signed angular difference (a - b) in degrees,
-// handling the 0°/360° wraparound. Result is in [-180, 180].
+// circularDiff 返回有符号的角度差 (a - b),单位为度,处理 0°/360°
+// 环绕。结果在 [-180, 180] 之间。
 func circularDiff(a, b float64) float64 {
 	diff := a - b
 	for diff > 180 {

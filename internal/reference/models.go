@@ -1,27 +1,27 @@
 package reference
 
-// AircraftInfo represents aircraft data from aircraft.csv (wiedehopf/tar1090-db)
-// Format: Hex;Registration;TypeCode;??;ManufacturerModel;Year;Owner;??
+// AircraftInfo 表示来自 aircraft.csv(wiedehopf/tar1090-db)的飞行器数据
+// 格式:Hex;Registration;TypeCode;??;ManufacturerModel;Year;Owner;??
 type AircraftInfo struct {
 	Hex               string
 	Registration      string
-	TypeCode          string // ICAO type designator (e.g., B738)
-	ManufacturerModel string // Combined manufacturer + model (e.g., "BOEING 737-800")
+	TypeCode          string // ICAO 机型代码(例如 B738)
+	ManufacturerModel string // 制造商 + 机型组合(例如 "BOEING 737-800")
 	Year              string
 	Owner             string
 }
 
-// AirlineInfo represents airline data from airlines.dat (OpenFlights)
+// AirlineInfo 表示来自 airlines.dat(OpenFlights)的航司数据
 type AirlineInfo struct {
 	Name    string
 	Country string
 }
 
-// AirportInfo represents airport data from airports.csv (OurAirports)
+// AirportInfo 表示来自 airports.csv(OurAirports)的机场数据
 type AirportInfo struct {
 	ID           int             `json:"id"`
 	Ident        string          `json:"ident"`
-	Type         string          `json:"type"` // large_airport, medium_airport, small_airport, heliport, closed, seaplane_base
+	Type         string          `json:"type"` // large_airport、medium_airport、small_airport、heliport、closed、seaplane_base
 	Name         string          `json:"name"`
 	Latitude     float64         `json:"latitude"`
 	Longitude    float64         `json:"longitude"`
@@ -34,16 +34,16 @@ type AirportInfo struct {
 	Frequencies  []FrequencyInfo `json:"frequencies,omitempty"`
 }
 
-// FrequencyInfo represents an airport frequency from airport-frequencies.csv
+// FrequencyInfo 表示来自 airport-frequencies.csv 的机场频率
 type FrequencyInfo struct {
 	ID           int     `json:"id"`
 	AirportIdent string  `json:"airport_ident"`
-	Type         string  `json:"type"` // TWR, GND, APP, DEP, ATIS, CTAF, etc.
+	Type         string  `json:"type"` // TWR、GND、APP、DEP、ATIS、CTAF 等
 	Description  string  `json:"description"`
 	FrequencyMHz float64 `json:"frequency_mhz"`
 }
 
-// RunwayInfo represents a runway from runways.csv (OurAirports)
+// RunwayInfo 表示来自 runways.csv(OurAirports)的跑道
 type RunwayInfo struct {
 	ID            int     `json:"id"`
 	AirportIdent  string  `json:"airport_ident"`
@@ -66,31 +66,31 @@ type RunwayInfo struct {
 	HEDisplacedFt float64 `json:"he_displaced_ft"`
 }
 
-// NavaidInfo represents a navaid from navaids.csv (OurAirports)
+// NavaidInfo 表示来自 navaids.csv(OurAirports)的导航台
 type NavaidInfo struct {
 	ID                int     `json:"id"`
 	Ident             string  `json:"ident"`
 	Name              string  `json:"name"`
-	Type              string  `json:"type"` // VOR, VOR-DME, VORTAC, NDB, NDB-DME, DME, TACAN
+	Type              string  `json:"type"` // VOR、VOR-DME、VORTAC、NDB、NDB-DME、DME、TACAN
 	FrequencyKHz      float64 `json:"frequency_khz"`
 	Latitude          float64 `json:"latitude"`
 	Longitude         float64 `json:"longitude"`
 	ElevationFt       float64 `json:"elevation_ft"`
 	ISOCountry        string  `json:"iso_country"`
 	MagneticVariation float64 `json:"magnetic_variation"`
-	UsageType         string  `json:"usage_type"` // LO, HI, BOTH, TERMINAL
-	Power             string  `json:"power"`      // LOW, MEDIUM, HIGH
+	UsageType         string  `json:"usage_type"` // LO、HI、BOTH、TERMINAL
+	Power             string  `json:"power"`      // LOW、MEDIUM、HIGH
 	AssociatedAirport string  `json:"associated_airport,omitempty"`
 }
 
-// RunwayExtensionPoint represents a point on a runway extension centerline
+// RunwayExtensionPoint 表示跑道延长中线上的一个点
 type RunwayExtensionPoint struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 	Distance  float64 `json:"distance"`
 }
 
-// ServiceConfig holds all paths and parameters needed to initialize the reference service
+// ServiceConfig 包含初始化参考服务所需的所有路径与参数
 type ServiceConfig struct {
 	AircraftCSVPath    string
 	AirlinesDATPath    string

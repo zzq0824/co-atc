@@ -6,6 +6,8 @@ import (
 	"github.com/yegors/co-atc/internal/physics"
 )
 
+// computeATCDerivedMetrics 基于飞行器原始数据与到站点距离计算 ATC 派生指标
+// 包括航向偏差、风分量、航迹角、爬升梯度、转弯率以及预计到站时间等
 func computeATCDerivedMetrics(target *ADSBTarget, distanceNm *float64) *ATCDerivedMetrics {
 	if target == nil {
 		return nil
@@ -62,6 +64,7 @@ func computeATCDerivedMetrics(target *ADSBTarget, distanceNm *float64) *ATCDeriv
 	return derived
 }
 
+// AttachATCDerivedMetrics 为飞行器附加 ATC 派生指标
 func AttachATCDerivedMetrics(aircraft *Aircraft) {
 	if aircraft == nil || aircraft.ADSB == nil {
 		return
@@ -69,6 +72,7 @@ func AttachATCDerivedMetrics(aircraft *Aircraft) {
 	aircraft.ADSB.ATCDerived = computeATCDerivedMetrics(aircraft.ADSB, aircraft.Distance)
 }
 
+// pickReferenceHeading 选择参考航向,优先级:真航向 > 磁航向 > 航迹
 func pickReferenceHeading(target *ADSBTarget, moving bool) (float64, string, bool) {
 	if v, ok := pickHeadingLikeValue(target.TrueHeading, moving); ok {
 		return v, "TRUE", true
@@ -82,6 +86,7 @@ func pickReferenceHeading(target *ADSBTarget, moving bool) (float64, string, boo
 	return 0, "", false
 }
 
+// pickHeadingLikeValue 选取航向类数值;静止时不返回 0,避免与"未知"混淆
 func pickHeadingLikeValue(value *float64, moving bool) (float64, bool) {
 	if value == nil {
 		return 0, false
@@ -96,6 +101,7 @@ func pickHeadingLikeValue(value *float64, moving bool) (float64, bool) {
 	return 0, false
 }
 
+// pickVerticalRate 选择垂直速率,优先气压速率,其次几何速率
 func pickVerticalRate(target *ADSBTarget) (float64, bool) {
 	baroRate := NumberOrZero(target.BaroRate)
 	if baroRate != 0 {
@@ -108,6 +114,7 @@ func pickVerticalRate(target *ADSBTarget) (float64, bool) {
 	return 0, false
 }
 
+// isATCDerivedEmpty 判断 ATC 派生指标是否为空(全部字段未填充)
 func isATCDerivedEmpty(v *ATCDerivedMetrics) bool {
 	if v == nil {
 		return true
@@ -122,6 +129,7 @@ func isATCDerivedEmpty(v *ATCDerivedMetrics) bool {
 		v.ETAStationSec == nil
 }
 
+// atcDerivedEqual 判断两个 ATC 派生指标是否等价
 func atcDerivedEqual(a, b *ATCDerivedMetrics) bool {
 	if a == nil && b == nil {
 		return true
@@ -139,11 +147,13 @@ func atcDerivedEqual(a, b *ATCDerivedMetrics) bool {
 		floatPtrEqual(a.ETAStationSec, b.ETAStationSec)
 }
 
+// floatPtr 返回 float64 值的指针
 func floatPtr(v float64) *float64 {
 	out := v
 	return &out
 }
 
+// floatPtrEqual 判断两个 float64 指针所指向的值是否相等
 func floatPtrEqual(a, b *float64) bool {
 	if a == nil && b == nil {
 		return true

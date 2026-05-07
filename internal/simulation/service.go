@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	MaxSimulatedAircraft = 10 // Hardcoded maximum number of simulated aircraft
+	MaxSimulatedAircraft = 10 // 模拟飞行器数量的硬编码上限
 )
 
-// SimulatedAircraft represents a single simulated aircraft with its current state
+// SimulatedAircraft 表示一架模拟飞行器及其当前状态
 type SimulatedAircraft struct {
 	Hex                string    `json:"hex"`
 	Flight             string    `json:"flight"`
@@ -30,14 +30,14 @@ type SimulatedAircraft struct {
 	CreatedAt          time.Time `json:"created_at"`
 }
 
-// Service manages simulated aircraft
+// Service 管理所有模拟飞行器
 type Service struct {
 	aircraft map[string]*SimulatedAircraft
 	mutex    sync.RWMutex
 	logger   *logger.Logger
 }
 
-// NewService creates a new simulation service
+// NewService 创建一个新的仿真服务
 func NewService(logger *logger.Logger) *Service {
 	return &Service{
 		aircraft: make(map[string]*SimulatedAircraft),
@@ -45,17 +45,17 @@ func NewService(logger *logger.Logger) *Service {
 	}
 }
 
-// CreateAircraft creates a new simulated aircraft
+// CreateAircraft 创建一架新的模拟飞行器
 func (s *Service) CreateAircraft(lat, lon, altitude, heading, speed, verticalRate float64) (*SimulatedAircraft, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Check if we've reached the maximum
+	// 检查是否达到上限
 	if len(s.aircraft) >= MaxSimulatedAircraft {
-		return nil, fmt.Errorf("maximum number of simulated aircraft (%d) reached", MaxSimulatedAircraft)
+		return nil, fmt.Errorf("已达到模拟飞行器数量上限 (%d)", MaxSimulatedAircraft)
 	}
 
-	// Generate unique identifiers
+	// 生成唯一标识
 	hex := s.generateUniqueHex()
 	flight := s.generateFlightNumber()
 
@@ -74,44 +74,44 @@ func (s *Service) CreateAircraft(lat, lon, altitude, heading, speed, verticalRat
 	}
 
 	s.aircraft[hex] = aircraft
-	s.logger.Info(fmt.Sprintf("Created simulated aircraft hex=%s flight=%s lat=%.6f lon=%.6f", hex, flight, lat, lon))
+	s.logger.Info(fmt.Sprintf("已创建模拟飞行器 hex=%s flight=%s lat=%.6f lon=%.6f", hex, flight, lat, lon))
 
 	return aircraft, nil
 }
 
-// UpdateControls updates the control parameters for a simulated aircraft
+// UpdateControls 更新某架模拟飞行器的控制参数
 func (s *Service) UpdateControls(hex string, heading, speed, verticalRate float64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	aircraft, exists := s.aircraft[hex]
 	if !exists {
-		return fmt.Errorf("simulated aircraft with hex %s not found", hex)
+		return fmt.Errorf("未找到 hex 为 %s 的模拟飞行器", hex)
 	}
 
 	aircraft.TargetHeading = heading
 	aircraft.TargetSpeed = speed
 	aircraft.TargetVerticalRate = verticalRate
 
-	s.logger.Debug(fmt.Sprintf("Updated simulation controls hex=%s heading=%.1f speed=%.1f vs=%.0f", hex, heading, speed, verticalRate))
+	s.logger.Debug(fmt.Sprintf("已更新仿真控制参数 hex=%s heading=%.1f speed=%.1f vs=%.0f", hex, heading, speed, verticalRate))
 	return nil
 }
 
-// RemoveAircraft removes a simulated aircraft
+// RemoveAircraft 移除一架模拟飞行器
 func (s *Service) RemoveAircraft(hex string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	if _, exists := s.aircraft[hex]; !exists {
-		return fmt.Errorf("simulated aircraft with hex %s not found", hex)
+		return fmt.Errorf("未找到 hex 为 %s 的模拟飞行器", hex)
 	}
 
 	delete(s.aircraft, hex)
-	s.logger.Info(fmt.Sprintf("Removed simulated aircraft hex=%s", hex))
+	s.logger.Info(fmt.Sprintf("已移除模拟飞行器 hex=%s", hex))
 	return nil
 }
 
-// GetAircraft returns a simulated aircraft by hex code
+// GetAircraft 通过 hex 码获取一架模拟飞行器
 func (s *Service) GetAircraft(hex string) (interface{}, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -120,7 +120,7 @@ func (s *Service) GetAircraft(hex string) (interface{}, bool) {
 	return aircraft, exists
 }
 
-// GetAllAircraft returns all simulated aircraft
+// GetAllAircraft 返回所有模拟飞行器
 func (s *Service) GetAllAircraft() interface{} {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -132,7 +132,7 @@ func (s *Service) GetAllAircraft() interface{} {
 	return result
 }
 
-// UpdatePositions updates the positions of all simulated aircraft based on their control parameters
+// UpdatePositions 根据控制参数更新所有模拟飞行器的位置
 func (s *Service) UpdatePositions() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -147,7 +147,7 @@ func (s *Service) UpdatePositions() {
 	}
 }
 
-// GenerateADSBData generates ADSB data for all simulated aircraft
+// GenerateADSBData 为所有模拟飞行器生成 ADSB 数据
 func (s *Service) GenerateADSBData() []adsb.ADSBTarget {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -156,7 +156,7 @@ func (s *Service) GenerateADSBData() []adsb.ADSBTarget {
 	for _, aircraft := range s.aircraft {
 		target := adsb.ADSBTarget{
 			Hex:          aircraft.Hex,
-			Type:         "sim", // Mark as simulated
+			Type:         "sim", // 标记为模拟飞行器
 			Flight:       aircraft.Flight,
 			AircraftType: aircraft.AircraftType,
 			Lat:          adsb.NumberPtr(aircraft.CurrentLat),
@@ -164,15 +164,15 @@ func (s *Service) GenerateADSBData() []adsb.ADSBTarget {
 			AltBaro:      adsb.FlexibleFloat64(aircraft.CurrentAltitude),
 			AltGeom:      adsb.FlexibleFloat64(aircraft.CurrentAltitude),
 			TAS:          adsb.NumberPtr(aircraft.TargetSpeed),
-			GS:           adsb.NumberPtr(aircraft.TargetSpeed), // Simplified: assume no wind
+			GS:           adsb.NumberPtr(aircraft.TargetSpeed), // 简化处理:假设无风
 			Track:        adsb.NumberPtr(aircraft.TargetHeading),
 			MagHeading:   adsb.NumberPtr(aircraft.TargetHeading),
 			TrueHeading:  adsb.NumberPtr(aircraft.TargetHeading),
 			BaroRate:     adsb.NumberPtr(aircraft.TargetVerticalRate),
 			GeomRate:     adsb.NumberPtr(aircraft.TargetVerticalRate),
-			Seen:         adsb.NumberPtr(0),   // Always current
-			Messages:     adsb.IntPtr(100),    // Fake message count
-			RSSI:         adsb.NumberPtr(-20), // Good signal strength
+			Seen:         adsb.NumberPtr(0),   // 始终视为最新
+			Messages:     adsb.IntPtr(100),    // 伪造消息计数
+			RSSI:         adsb.NumberPtr(-20), // 良好的信号强度
 		}
 		targets = append(targets, target)
 	}
@@ -180,54 +180,54 @@ func (s *Service) GenerateADSBData() []adsb.ADSBTarget {
 	return targets
 }
 
-// updateAircraftPosition updates a single aircraft's position using dead reckoning
+// updateAircraftPosition 通过航位推算更新单架飞行器的位置
 func (s *Service) updateAircraftPosition(aircraft *SimulatedAircraft, deltaTime float64) {
-	// Convert heading to radians (0° = North, clockwise)
-	// Aviation: 0°=North, 90°=East, 180°=South, 270°=West
-	// Math: 0°=East, 90°=North, 180°=West, 270°=South
-	// Conversion: math_angle = 90° - aviation_heading
+	// 将航向转换为弧度(0° = 正北,顺时针)
+	// 航空:0°=北、90°=东、180°=南、270°=西
+	// 数学:0°=东、90°=北、180°=西、270°=南
+	// 换算:math_angle = 90° - aviation_heading
 	headingRad := (90 - aircraft.TargetHeading) * math.Pi / 180
 
-	// Calculate distance traveled (speed in knots, time in seconds)
-	// 1 knot = 1 nautical mile per hour = 1/3600 nautical miles per second
+	// 计算移动距离(速度单位:节,时间单位:秒)
+	// 1 节 = 1 海里/小时 = 1/3600 海里/秒
 	distanceNM := aircraft.TargetSpeed * deltaTime / 3600
 
-	// Update position using basic trigonometry
-	// 1 degree latitude ≈ 60 nautical miles
-	// 1 degree longitude ≈ 60 * cos(latitude) nautical miles
+	// 通过基本三角函数更新位置
+	// 1 度纬度 ≈ 60 海里
+	// 1 度经度 ≈ 60 * cos(纬度) 海里
 	latChange := distanceNM * math.Sin(headingRad) / 60
 	lonChange := distanceNM * math.Cos(headingRad) / (60 * math.Cos(aircraft.CurrentLat*math.Pi/180))
 
 	aircraft.CurrentLat += latChange
 	aircraft.CurrentLon += lonChange
 
-	// Update altitude (vertical rate in feet per minute)
+	// 更新高度(垂直速率单位:英尺/分钟)
 	aircraft.CurrentAltitude += aircraft.TargetVerticalRate * deltaTime / 60
 
-	// Ensure altitude doesn't go below ground level
+	// 确保高度不会低于地面
 	if aircraft.CurrentAltitude < 0 {
 		aircraft.CurrentAltitude = 0
-		aircraft.TargetVerticalRate = 0 // Stop descent at ground level
+		aircraft.TargetVerticalRate = 0 // 触地后停止下降
 	}
 }
 
-// generateUniqueHex generates a unique 6-character hex code
+// generateUniqueHex 生成一个唯一的 6 位 hex 码
 func (s *Service) generateUniqueHex() string {
 	for {
 		hex := fmt.Sprintf("%06X", rand.Intn(0xFFFFFF))
-		// Ensure it doesn't conflict with existing aircraft
+		// 确保不与已有飞行器冲突
 		if _, exists := s.aircraft[hex]; !exists {
 			return hex
 		}
 	}
 }
 
-// generateFlightNumber generates a flight number in format SIM001-SIM999
+// generateFlightNumber 生成形如 SIM001-SIM999 的航班号
 func (s *Service) generateFlightNumber() string {
 	return fmt.Sprintf("SIM%03d", rand.Intn(999)+1)
 }
 
-// IsSimulated checks if a hex code belongs to a simulated aircraft
+// IsSimulated 判断某 hex 码是否属于模拟飞行器
 func (s *Service) IsSimulated(hex string) bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()

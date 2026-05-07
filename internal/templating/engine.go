@@ -10,7 +10,7 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Engine handles template loading, caching, and rendering
+// Engine 处理模板的加载、缓存和渲染
 type Engine struct {
 	aggregator    *DataAggregator
 	templateCache map[string]*template.Template
@@ -18,7 +18,7 @@ type Engine struct {
 	logger        *logger.Logger
 }
 
-// NewEngine creates a new template engine
+// NewEngine 创建一个新的模板引擎
 func NewEngine(aggregator *DataAggregator, logger *logger.Logger) *Engine {
 	return &Engine{
 		aggregator:    aggregator,
@@ -27,90 +27,90 @@ func NewEngine(aggregator *DataAggregator, logger *logger.Logger) *Engine {
 	}
 }
 
-// RenderTemplate renders a template with current airspace data
+// RenderTemplate 使用当前空域数据渲染模板
 func (e *Engine) RenderTemplate(templatePath string, opts FormattingOptions) (string, error) {
-	e.logger.Debug("Rendering template",
+	e.logger.Debug("正在渲染模板",
 		logger.String("template_path", templatePath),
 		logger.Int("max_aircraft", opts.MaxAircraft),
 		logger.Bool("include_weather", opts.IncludeWeather),
 		logger.Bool("include_runways", opts.IncludeRunways),
 		logger.Bool("include_transcription_history", opts.IncludeTranscriptionHistory))
 
-	// Load template if not in cache
+	// 如果不在缓存中则加载模板
 	tmpl, err := e.getTemplate(templatePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to get template: %w", err)
+		return "", fmt.Errorf("获取模板失败: %w", err)
 	}
 
-	// Get template context from aggregator
+	// 从聚合器获取模板上下文
 	context, err := e.aggregator.GetTemplateContext(opts)
 	if err != nil {
-		return "", fmt.Errorf("failed to get template context: %w", err)
+		return "", fmt.Errorf("获取模板上下文失败: %w", err)
 	}
 
-	// Format the data for template rendering
+	// 格式化数据用于模板渲染
 	data := e.prepareTemplateData(context, opts)
 
-	// Render the template
+	// 渲染模板
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
+		return "", fmt.Errorf("执行模板失败: %w", err)
 	}
 
 	rendered := buf.String()
-	e.logger.Debug("Template rendered successfully",
+	e.logger.Debug("模板渲染成功",
 		logger.String("template_path", templatePath),
 		logger.Int("rendered_length", len(rendered)))
 
 	return rendered, nil
 }
 
-// RenderTemplateWithContext renders a template with pre-aggregated context data
+// RenderTemplateWithContext 使用预聚合的上下文数据渲染模板
 func (e *Engine) RenderTemplateWithContext(templatePath string, context *TemplateContext, opts FormattingOptions) (string, error) {
-	e.logger.Debug("Rendering template with provided context",
+	e.logger.Debug("使用提供的上下文渲染模板",
 		logger.String("template_path", templatePath))
 
-	// Load template if not in cache
+	// 如果不在缓存中则加载模板
 	tmpl, err := e.getTemplate(templatePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to get template: %w", err)
+		return "", fmt.Errorf("获取模板失败: %w", err)
 	}
 
-	// Format the data for template rendering
+	// 格式化数据用于模板渲染
 	data := e.prepareTemplateData(context, opts)
 
-	// Render the template
+	// 渲染模板
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
+		return "", fmt.Errorf("执行模板失败: %w", err)
 	}
 
 	rendered := buf.String()
-	e.logger.Debug("Template rendered successfully with context",
+	e.logger.Debug("使用上下文成功渲染模板",
 		logger.String("template_path", templatePath),
 		logger.Int("rendered_length", len(rendered)))
 
 	return rendered, nil
 }
 
-// prepareTemplateData converts raw context data to formatted template data
+// prepareTemplateData 将原始上下文数据转换为已格式化的模板数据
 func (e *Engine) prepareTemplateData(context *TemplateContext, opts FormattingOptions) TemplateData {
 	data := TemplateData{
 		Timestamp: context.Timestamp,
 		Time:      context.Timestamp.Format(opts.TimeFormat),
 	}
 
-	// Format aircraft data
+	// 格式化飞行器数据
 	data.Aircraft = FormatAircraftData(context.Aircraft, context.Airport)
 
-	// Format weather data if available
+	// 如果有可用的气象数据,则进行格式化
 	if opts.IncludeWeather && context.Weather != nil {
 		data.Weather = FormatWeatherData(context.Weather)
 	} else {
 		data.Weather = "Weather data not available."
 	}
 
-	// Format runway data if available
+	// 如果有可用的跑道数据,则进行格式化
 	if opts.IncludeRunways {
 		data.Runways = FormatRunwayData(context.Runways)
 		data.ActiveRunways = FormatActiveRunwaysData(context.ActiveRunways)
@@ -119,22 +119,22 @@ func (e *Engine) prepareTemplateData(context *TemplateContext, opts FormattingOp
 		data.ActiveRunways = "Active runway detection not available."
 	}
 
-	// Format transcription history if requested (only for ATC Chat)
+	// 如果请求,格式化转写历史(仅用于 ATC 聊天)
 	if opts.IncludeTranscriptionHistory {
 		data.TranscriptionHistory = FormatTranscriptionHistory(context.TranscriptionHistory)
 	} else {
 		data.TranscriptionHistory = ""
 	}
 
-	// Format airport data
+	// 格式化机场数据
 	data.Airport = FormatAirportData(context.Airport)
 
 	return data
 }
 
-// getTemplate retrieves a template from cache or loads it from file
+// getTemplate 从缓存中检索模板,或从文件加载
 func (e *Engine) getTemplate(templatePath string) (*template.Template, error) {
-	// Check cache first (read lock)
+	// 先检查缓存(读锁)
 	e.cacheMutex.RLock()
 	if tmpl, exists := e.templateCache[templatePath]; exists {
 		e.cacheMutex.RUnlock()
@@ -142,64 +142,64 @@ func (e *Engine) getTemplate(templatePath string) (*template.Template, error) {
 	}
 	e.cacheMutex.RUnlock()
 
-	// Template not in cache, load it (write lock)
+	// 模板不在缓存中,加载它(写锁)
 	e.cacheMutex.Lock()
 	defer e.cacheMutex.Unlock()
 
-	// Double-check in case another goroutine loaded it while we were waiting
+	// 双重检查,以防另一个 goroutine 在我们等待时已加载它
 	if tmpl, exists := e.templateCache[templatePath]; exists {
 		return tmpl, nil
 	}
 
-	// Load template from file
+	// 从文件加载模板
 	tmpl, err := e.loadTemplate(templatePath)
 	if err != nil {
 		return nil, err
 	}
 
-	// Cache the template
+	// 缓存模板
 	e.templateCache[templatePath] = tmpl
-	e.logger.Debug("Template loaded and cached",
+	e.logger.Debug("模板已加载并缓存",
 		logger.String("template_path", templatePath))
 
 	return tmpl, nil
 }
 
-// loadTemplate loads a template from file
+// loadTemplate 从文件加载模板
 func (e *Engine) loadTemplate(templatePath string) (*template.Template, error) {
 	content, err := ioutil.ReadFile(templatePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read template file '%s': %w", templatePath, err)
+		return nil, fmt.Errorf("读取模板文件 '%s' 失败: %w", templatePath, err)
 	}
 
 	tmpl, err := template.New(templatePath).Parse(string(content))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse template file '%s': %w", templatePath, err)
+		return nil, fmt.Errorf("解析模板文件 '%s' 失败: %w", templatePath, err)
 	}
 
 	return tmpl, nil
 }
 
-// ReloadTemplate forces a template to be reloaded from file
+// ReloadTemplate 强制从文件重新加载模板
 func (e *Engine) ReloadTemplate(templatePath string) error {
 	e.cacheMutex.Lock()
 	defer e.cacheMutex.Unlock()
 
-	// Load template from file
+	// 从文件加载模板
 	tmpl, err := e.loadTemplate(templatePath)
 	if err != nil {
 		return err
 	}
 
-	// Update cache
+	// 更新缓存
 	e.templateCache[templatePath] = tmpl
-	e.logger.Info("Template reloaded",
+	e.logger.Info("模板已重新加载",
 		logger.String("template_path", templatePath))
 
 	return nil
 }
 
-// ReloadAllTemplates forces all cached templates to be reloaded from files
+// ReloadAllTemplates 强制从文件重新加载所有缓存的模板
 func (e *Engine) ReloadAllTemplates() error {
 	e.cacheMutex.Lock()
 	defer e.cacheMutex.Unlock()
@@ -218,19 +218,19 @@ func (e *Engine) ReloadAllTemplates() error {
 	}
 
 	if len(errors) > 0 {
-		e.logger.Error("Some templates failed to reload",
+		e.logger.Error("部分模板重新加载失败",
 			logger.Int("successful", reloadedCount),
 			logger.Int("failed", len(errors)))
-		return fmt.Errorf("failed to reload %d templates: %v", len(errors), errors)
+		return fmt.Errorf("重新加载 %d 个模板失败: %v", len(errors), errors)
 	}
 
-	e.logger.Info("All templates reloaded successfully",
+	e.logger.Info("所有模板均已成功重新加载",
 		logger.Int("count", reloadedCount))
 
 	return nil
 }
 
-// ClearCache clears the template cache
+// ClearCache 清除模板缓存
 func (e *Engine) ClearCache() {
 	e.cacheMutex.Lock()
 	defer e.cacheMutex.Unlock()
@@ -238,11 +238,11 @@ func (e *Engine) ClearCache() {
 	templateCount := len(e.templateCache)
 	e.templateCache = make(map[string]*template.Template)
 
-	e.logger.Info("Template cache cleared",
+	e.logger.Info("模板缓存已清除",
 		logger.Int("cleared_count", templateCount))
 }
 
-// GetCacheStats returns statistics about the template cache
+// GetCacheStats 返回模板缓存的统计信息
 func (e *Engine) GetCacheStats() map[string]interface{} {
 	e.cacheMutex.RLock()
 	defer e.cacheMutex.RUnlock()
@@ -258,11 +258,11 @@ func (e *Engine) GetCacheStats() map[string]interface{} {
 	}
 }
 
-// GetRawTemplate returns the raw template content without processing
+// GetRawTemplate 返回未经处理的原始模板内容
 func (e *Engine) GetRawTemplate(templatePath string) (string, error) {
 	content, err := ioutil.ReadFile(templatePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read template file '%s': %w", templatePath, err)
+		return "", fmt.Errorf("读取模板文件 '%s' 失败: %w", templatePath, err)
 	}
 	return string(content), nil
 }

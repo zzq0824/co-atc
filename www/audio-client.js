@@ -1,15 +1,15 @@
 /**
- * Audio streaming client for Co-ATC.
+ * Co-ATC 的音频流客户端。
  *
- * Responsibilities:
- * - Prepare and manage per-frequency HTMLAudioElement streams.
- * - Maintain Web Audio analyser pipelines for UI visualization.
- * - Provide mute/unmute and playback orchestration helpers.
- * - Track time since last significant audio per frequency.
+ * 职责：
+ * - 准备和管理每个频率的 HTMLAudioElement 流。
+ * - 维护用于 UI 可视化的 Web Audio 分析器管线。
+ * - 提供静音/取消静音和播放编排辅助方法。
+ * - 跟踪每个频率自上次显著音频以来的时间。
  */
 class AudioClient {
     /**
-     * @param {Object} store Alpine store instance.
+     * @param {Object} store Alpine store 实例。
      */
     constructor(store) {
         this.store = store;
@@ -33,29 +33,29 @@ class AudioClient {
     }
 
     /**
-     * Initialize and cache the AudioContext.
+     * 初始化并缓存 AudioContext。
      * @returns {AudioContext|null}
      */
     initAudioContext() {
         if (!this.audioContext) {
             try {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                console.log("AudioContext initialized.");
+                console.log("AudioContext 已初始化。");
             } catch (e) {
-                console.error("Web Audio API is not supported.", e);
+                console.error("不支持 Web Audio API。", e);
             }
         }
         return this.audioContext;
     }
 
     /**
-     * Ensure a frequency stream is prepared with element, source URL, and analyser pipeline.
+     * 确保频率流已准备好元素、源 URL 和分析器管线。
      * @param {{id: string|number, stream_port?: number|string, stream_url?: string}} frequency
      */
     prepareFrequency(frequency) {
         const frequencyId = this._normalizeFrequencyId(frequency?.id);
         if (!frequencyId) {
-            console.error('prepareFrequency: missing frequency.id');
+            console.error('prepareFrequency: 缺少 frequency.id');
             return;
         }
 
@@ -63,7 +63,7 @@ class AudioClient {
             return;
         }
 
-        console.log(`Preparing frequency: ${frequencyId}`);
+        console.log(`正在准备频率: ${frequencyId}`);
         this.initAudioContext();
 
         const audioElement = document.createElement('audio');
@@ -75,13 +75,13 @@ class AudioClient {
 
         const streamUrl = this._buildStreamUrl(frequency);
         if (!streamUrl) {
-            console.error(`prepareFrequency: invalid stream URL for ${frequencyId}`);
+            console.error(`prepareFrequency: ${frequencyId} 的流 URL 无效`);
             return;
         }
 
         audioElement.addEventListener('error', (e) => {
-            const message = e.target && e.target.error ? e.target.error.message : 'Unknown error';
-            console.error(`Audio error for ${frequencyId}:`, message);
+            const message = e.target && e.target.error ? e.target.error.message : '未知错误';
+            console.error(`${frequencyId} 的音频错误:`, message);
         });
         audioElement.addEventListener('playing', () => {
             if (!this.visualizationFrameIds[frequencyId]) {
@@ -97,29 +97,29 @@ class AudioClient {
             intendedSrc: streamUrl,
             isPrepared: true
         };
-        
+
         this.setupVisualization(frequencyId, audioElement);
     }
 
     /**
-     * Connect and start playback for a prepared frequency stream.
+     * 连接并启动已准备好的频率流的播放。
      * @param {{id: string|number}} frequency
      */
     connectToFrequency(frequency) {
         const frequencyId = this._normalizeFrequencyId(frequency?.id);
         if (!frequencyId) {
-            console.error('connectToFrequency: missing frequency.id');
+            console.error('connectToFrequency: 缺少 frequency.id');
             return;
         }
 
         if (!this.audioElements[frequencyId]?.element) {
-            console.warn(`Audio element for ${frequencyId} not found during connect. Preparing now.`);
+            console.warn(`连接期间未找到 ${frequencyId} 的音频元素。正在准备。`);
             this.prepareFrequency(frequency);
         }
-        
+
         const audioInfo = this.audioElements[frequencyId];
         if (!audioInfo || !audioInfo.element || !audioInfo.intendedSrc) {
-            console.error(`Audio info incomplete for frequency: ${frequencyId}. Cannot connect.`);
+            console.error(`频率 ${frequencyId} 的音频信息不完整。无法连接。`);
             return;
         }
 
@@ -144,11 +144,11 @@ class AudioClient {
 
         if (audioElement.paused) {
             const playPromise = audioElement.play();
-            
+
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
                     if (error.name !== 'AbortError') {
-                        console.error(`Error invoking play for ${frequencyId}:`, error);
+                        console.error(`调用 ${frequencyId} 的播放时出错:`, error);
                     }
                 });
             }
@@ -156,17 +156,17 @@ class AudioClient {
     }
 
     /**
-     * Start playback attempts across all known radio frequencies.
+     * 在所有已知无线电频率上启动播放尝试。
      */
     startAllRadios() {
         if (this.store.radiosStarted) {
             return;
         }
 
-        this.store.radiosStarted = true; 
+        this.store.radiosStarted = true;
         const context = this.initAudioContext();
         if (!context) {
-            console.error('startAllRadios: AudioContext unavailable');
+            console.error('startAllRadios: AudioContext 不可用');
             return;
         }
 
@@ -180,8 +180,8 @@ class AudioClient {
             context.resume().then(() => {
                 resumeContextAndPlay();
             }).catch(e => {
-                console.error("Error resuming audio context:", e);
-                resumeContextAndPlay(); 
+                console.error("恢复音频上下文时出错:", e);
+                resumeContextAndPlay();
             });
         } else {
             resumeContextAndPlay();
@@ -189,7 +189,7 @@ class AudioClient {
     }
 
     /**
-     * Create analyser pipeline for a given frequency.
+     * 为指定频率创建分析器管线。
      * @param {string} frequencyId
      * @param {HTMLAudioElement} audioElement
      */
@@ -217,7 +217,7 @@ class AudioClient {
             sourceNode.connect(analyserNode);
             analyserNode.connect(this.audioContext.destination);
         } catch (e) {
-            console.error(`Error setting up visualization for ${frequencyId}:`, e);
+            console.error(`为 ${frequencyId} 设置可视化时出错:`, e);
             this._safeDisconnectNode(this.sourceNodes[frequencyId]);
             this._safeDisconnectNode(this.audioAnalysers[frequencyId]);
             delete this.sourceNodes[frequencyId];
@@ -226,7 +226,7 @@ class AudioClient {
     }
 
     /**
-     * Start bar visualization animation loop for a frequency.
+     * 启动频率的条形可视化动画循环。
      * @param {string} frequencyId
      */
     startVisualization(frequencyId) {
@@ -234,22 +234,22 @@ class AudioClient {
 
         let lastFrameTime = 0;
         const frameInterval = 1000 / this.visualizationTargetFps;
-        
+
         const renderFrame = (currentTime) => {
             if (currentTime - lastFrameTime < frameInterval) {
                 this.visualizationFrameIds[frequencyId] = requestAnimationFrame(renderFrame);
                 return;
             }
             lastFrameTime = currentTime;
-            
+
             const analyser = this.audioAnalysers[frequencyId];
             const dataArray = this.audioDataArrays[frequencyId];
-            
+
             if (!analyser || !dataArray) {
                 this.cleanupVisualization(frequencyId);
                 return;
             }
-            
+
             try {
                 analyser.getByteFrequencyData(dataArray);
             } catch (e) {
@@ -257,16 +257,16 @@ class AudioClient {
                     dataArray[i] = 0;
                 }
             }
-            
+
             let totalSum = 0;
             let totalPoints = 0;
             const maxBin = Math.min(dataArray.length, 40);
-            for (let j = 1; j < maxBin; j++) { 
+            for (let j = 1; j < maxBin; j++) {
                 const weight = 1 - (j / maxBin * 0.5);
                 totalSum += dataArray[j] * weight;
                 totalPoints += weight;
             }
-            
+
             const audioLevel = totalPoints > 0 ? (totalSum / totalPoints) / 255 : 0;
 
             const isUnmuted = this.store.unmutedFrequencies.has(frequencyId);
@@ -284,27 +284,27 @@ class AudioClient {
             }
 
             const widthPercentage = Math.min(100, audioLevel * visualizerMultiplier);
-            
+
             const barElement = document.getElementById(`vis-bar-${frequencyId}`);
             if (barElement) {
                 const currentWidth = parseFloat(barElement.style.width) || 0;
                 const smoothingFactor = 0.3;
                 const newWidth = (currentWidth * smoothingFactor) + (widthPercentage * (1 - smoothingFactor));
-                
+
                 barElement.style.width = newWidth + '%';
                 barElement.style.backgroundColor = isUnmuted ? '#4CAF50' : '#888888';
-                
+
                 barElement.style.opacity = '1';
             }
-            
+
             this.visualizationFrameIds[frequencyId] = requestAnimationFrame(renderFrame);
         };
-        
+
         this.visualizationFrameIds[frequencyId] = requestAnimationFrame(renderFrame);
     }
 
     /**
-     * Stop visualization animation for a frequency.
+     * 停止频率的可视化动画。
      * @param {string} frequencyId
      */
     cleanupVisualization(frequencyId) {
@@ -313,12 +313,12 @@ class AudioClient {
             delete this.visualizationFrameIds[frequencyId];
         }
         if (this.secondsSinceLastAudio[frequencyId] !== '--s') {
-            this.secondsSinceLastAudio[frequencyId] = '--s'; 
+            this.secondsSinceLastAudio[frequencyId] = '--s';
         }
     }
 
     /**
-     * Toggle mute state for a frequency while preserving user-set volume.
+     * 切换频率的静音状态，同时保留用户设置的音量。
      * @param {{id: string|number}} frequency
      */
     toggleMute(frequency) {
@@ -328,7 +328,7 @@ class AudioClient {
 
         const frequencyId = this._normalizeFrequencyId(frequency?.id);
         if (!frequencyId) {
-            console.error('toggleMute: missing frequency.id');
+            console.error('toggleMute: 缺少 frequency.id');
             return;
         }
 
@@ -337,7 +337,7 @@ class AudioClient {
             this.prepareFrequency(frequency);
             audioInfo = this.audioElements[frequencyId];
             if (!audioInfo || !audioInfo.element) {
-                console.error(`No audio element found for frequency: ${frequencyId} in toggleMute.`);
+                console.error(`在 toggleMute 中未找到频率 ${frequencyId} 的音频元素。`);
                 return;
             }
         }
@@ -359,7 +359,7 @@ class AudioClient {
                 if (audioElement.paused && this.store.unmutedFrequencies.has(frequencyId)) {
                     audioElement.play().catch(err => {
                         if (err.name !== 'AbortError') {
-                            console.error(`Error playing audio for ${frequencyId} after unmute:`, err);
+                            console.error(`取消静音后播放 ${frequencyId} 的音频时出错:`, err);
                         }
                     });
                 }
@@ -368,7 +368,7 @@ class AudioClient {
     }
 
     /**
-     * Release all resources for a frequency.
+     * 释放某频率的所有资源。
      * @param {string} frequencyId
      */
     cleanupFrequency(frequencyId) {
@@ -398,12 +398,12 @@ class AudioClient {
     }
 
     /**
-     * Update `seconds since last audio` values in the provided store-backed object.
+     * 在所提供的 store 支持的对象中更新"自上次音频以来的秒数"值。
      * @param {Object} storeSecondsSinceLastAudio
      */
     updateSecondsSinceLastAudio(storeSecondsSinceLastAudio) {
         if (!storeSecondsSinceLastAudio) {
-            console.warn("AudioClient: storeSecondsSinceLastAudio object not provided for update.");
+            console.warn("AudioClient: 未提供用于更新的 storeSecondsSinceLastAudio 对象。");
             return;
         }
 
@@ -412,20 +412,20 @@ class AudioClient {
                 const seconds = Math.floor((Date.now() - this.lastSignificantAudioTime[frequencyId]) / 1000);
                 storeSecondsSinceLastAudio[frequencyId] = `${seconds}s`;
             } else if (this.audioElements[frequencyId]?.element && !this.lastSignificantAudioTime[frequencyId]) {
-                storeSecondsSinceLastAudio[frequencyId] = '--s'; 
+                storeSecondsSinceLastAudio[frequencyId] = '--s';
             }
         });
     }
 
     /**
-     * Play the Airbus retard callout sound.
+     * 播放空客 retard 喊话声音。
      */
     playRetardSound() {
         if (!this.audioContext) {
             this.initAudioContext();
         }
         if (!this.audioContext) {
-            console.error("AudioContext could not be initialized. Cannot play retard sound.");
+            console.error("无法初始化 AudioContext。无法播放 retard 声音。");
             return;
         }
 
@@ -433,7 +433,7 @@ class AudioClient {
             this.audioContext.resume().then(() => {
                 this._playRetardSoundInternal();
             }).catch(e => {
-                console.error("Error resuming AudioContext for retard sound:", e);
+                console.error("为 retard 声音恢复 AudioContext 时出错:", e);
             });
         } else {
             this._playRetardSoundInternal();
@@ -441,18 +441,18 @@ class AudioClient {
     }
 
     /**
-     * Internal helper for playing the static retard sound file.
+     * 播放静态 retard 声音文件的内部辅助函数。
      */
     _playRetardSoundInternal() {
         const retardSound = new Audio('/sounds/airbus_retard.mp3');
         retardSound.play()
             .catch(error => {
-                console.error("Error playing airbus_retard.mp3:", error);
+                console.error("播放 airbus_retard.mp3 时出错:", error);
             });
     }
 
     /**
-     * Build a frequency stream URL and attach the client id.
+     * 构建频率流 URL 并附加客户端 id。
      * @param {{stream_port?: number|string, stream_url?: string}} frequency
      * @returns {string|null}
      */
@@ -484,7 +484,7 @@ class AudioClient {
     }
 
     /**
-     * Disconnect a Web Audio node safely.
+     * 安全地断开 Web Audio 节点。
      * @param {AudioNode|undefined|null} node
      */
     _safeDisconnectNode(node) {
@@ -494,12 +494,12 @@ class AudioClient {
         try {
             node.disconnect();
         } catch {
-            // no-op
+            // 无操作
         }
     }
 
     /**
-     * Normalize frequency id values to string keys.
+     * 将频率 id 值规范化为字符串键。
      * @param {string|number|undefined|null} frequencyId
      * @returns {string|null}
      */
@@ -511,5 +511,5 @@ class AudioClient {
     }
 }
 
-// Export the AudioClient class
-window.AudioClient = AudioClient; 
+// 导出 AudioClient 类
+window.AudioClient = AudioClient;

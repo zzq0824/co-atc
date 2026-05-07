@@ -9,14 +9,14 @@ import (
 	"github.com/yegors/co-atc/pkg/logger"
 )
 
-// Client handles HTTP requests to weather APIs
+// Client 处理对气象 API 的 HTTP 请求
 type Client struct {
 	config     WeatherConfig
 	httpClient *http.Client
 	logger     *logger.Logger
 }
 
-// NewClient creates a new weather API client
+// NewClient 创建一个新的气象 API 客户端
 func NewClient(config WeatherConfig, logger *logger.Logger) *Client {
 	return &Client{
 		config: config,
@@ -27,35 +27,35 @@ func NewClient(config WeatherConfig, logger *logger.Logger) *Client {
 	}
 }
 
-// FetchMETAR fetches METAR data for the specified airport
+// FetchMETAR 获取指定机场的 METAR 数据
 func (c *Client) FetchMETAR(airportCode string) (interface{}, error) {
 	url := fmt.Sprintf("%s/metar/%s", c.config.APIBaseURL, airportCode)
 	return c.fetchWithRetry(url, WeatherTypeMETAR, airportCode)
 }
 
-// FetchTAF fetches TAF data for the specified airport
+// FetchTAF 获取指定机场的 TAF 数据
 func (c *Client) FetchTAF(airportCode string) (interface{}, error) {
 	url := fmt.Sprintf("%s/taf/%s", c.config.APIBaseURL, airportCode)
 	return c.fetchWithRetry(url, WeatherTypeTAF, airportCode)
 }
 
-// FetchNOTAMs fetches NOTAM data for the specified airport
+// FetchNOTAMs 获取指定机场的 NOTAM 数据
 func (c *Client) FetchNOTAMs(airportCode string) (interface{}, error) {
 	url := fmt.Sprintf("%s/notams/%s", c.config.APIBaseURL, airportCode)
 	return c.fetchWithRetry(url, WeatherTypeNOTAMs, airportCode)
 }
 
-// fetchWithRetry performs HTTP request with retry logic and exponential backoff
+// fetchWithRetry 执行带重试逻辑和指数退避的 HTTP 请求
 func (c *Client) fetchWithRetry(url string, weatherType WeatherType, airportCode string) (interface{}, error) {
 	var lastErr error
 	var data interface{}
 
-	// Try to fetch with retries
+	// 尝试带重试地获取
 	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
 		if attempt > 0 {
-			// Exponential backoff between retries
+			// 重试之间使用指数退避
 			backoffDuration := time.Duration(500*(1<<uint(attempt-1))) * time.Millisecond
-			c.logger.Info("Retrying weather data fetch",
+			c.logger.Info("正在重试获取气象数据",
 				logger.String("type", string(weatherType)),
 				logger.String("airport", airportCode),
 				logger.Int("attempt", attempt),
@@ -63,11 +63,11 @@ func (c *Client) fetchWithRetry(url string, weatherType WeatherType, airportCode
 			time.Sleep(backoffDuration)
 		}
 
-		// Make the request
+		// 发起请求
 		resp, err := c.httpClient.Get(url)
 		if err != nil {
-			lastErr = fmt.Errorf("error making request to weather API: %w", err)
-			c.logger.Warn("Weather API request failed, may retry",
+			lastErr = fmt.Errorf("向气象 API 发起请求时出错: %w", err)
+			c.logger.Warn("气象 API 请求失败,可能会重试",
 				logger.String("type", string(weatherType)),
 				logger.String("airport", airportCode),
 				logger.Error(err),
@@ -76,13 +76,13 @@ func (c *Client) fetchWithRetry(url string, weatherType WeatherType, airportCode
 			continue
 		}
 
-		// Ensure response body is closed
+		// 确保响应体被关闭
 		defer resp.Body.Close()
 
-		// Check response status
+		// 检查响应状态
 		if resp.StatusCode != http.StatusOK {
-			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-			c.logger.Warn("Weather API returned non-OK status, may retry",
+			lastErr = fmt.Errorf("状态码异常: %d", resp.StatusCode)
+			c.logger.Warn("气象 API 返回非 OK 状态,可能会重试",
 				logger.String("type", string(weatherType)),
 				logger.String("airport", airportCode),
 				logger.Int("status_code", resp.StatusCode),
@@ -91,10 +91,10 @@ func (c *Client) fetchWithRetry(url string, weatherType WeatherType, airportCode
 			continue
 		}
 
-		// Read and parse the response
+		// 读取并解析响应
 		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-			lastErr = fmt.Errorf("error decoding weather data: %w", err)
-			c.logger.Warn("Failed to decode weather data, may retry",
+			lastErr = fmt.Errorf("解码气象数据时出错: %w", err)
+			c.logger.Warn("解码气象数据失败,可能会重试",
 				logger.String("type", string(weatherType)),
 				logger.String("airport", airportCode),
 				logger.Error(err),
@@ -103,9 +103,9 @@ func (c *Client) fetchWithRetry(url string, weatherType WeatherType, airportCode
 			continue
 		}
 
-		// Success - return the data
+		// 成功 - 返回数据
 		if attempt > 0 {
-			c.logger.Info("Successfully fetched weather data after retries",
+			c.logger.Info("经过重试后成功获取气象数据",
 				logger.String("type", string(weatherType)),
 				logger.String("airport", airportCode),
 				logger.Int("attempts_needed", attempt+1))
@@ -113,8 +113,8 @@ func (c *Client) fetchWithRetry(url string, weatherType WeatherType, airportCode
 		return data, nil
 	}
 
-	// If we get here, all attempts failed
-	c.logger.Error("All attempts to fetch weather data failed",
+	// 如果到这里,说明所有尝试都失败了
+	c.logger.Error("获取气象数据的所有尝试均失败",
 		logger.String("type", string(weatherType)),
 		logger.String("airport", airportCode),
 		logger.Error(lastErr),
@@ -122,12 +122,12 @@ func (c *Client) fetchWithRetry(url string, weatherType WeatherType, airportCode
 	return nil, lastErr
 }
 
-// FetchAll fetches all enabled weather data types concurrently
+// FetchAll 并发获取所有已启用的气象数据类型
 func (c *Client) FetchAll(airportCode string) []FetchResult {
 	results := make(chan FetchResult, 3)
 	var fetchCount int
 
-	// Start concurrent fetches for enabled weather types
+	// 为已启用的气象类型启动并发获取
 	if c.config.FetchMETAR {
 		fetchCount++
 		go func() {
@@ -152,7 +152,7 @@ func (c *Client) FetchAll(airportCode string) []FetchResult {
 		}()
 	}
 
-	// Collect results
+	// 收集结果
 	var fetchResults []FetchResult
 	for i := 0; i < fetchCount; i++ {
 		result := <-results
